@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Paint Together</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <h1>Paint Together</h1>
+    
+    <!-- Toolbar with controls -->
+    <div class="toolbar">
+        <!-- Tool selector -->
+        <div class="control-group">
+            <button id="brushBtn" class="tool-btn active">Brush</button>
+            <button id="eraserBtn" class="tool-btn">Eraser</button>
+        </div>
+        
+        <div class="control-group">
+            <label for="colorPicker">Color:</label>
+            <input type="color" id="colorPicker" value="#000000">
+        </div>
+        
+        <div class="control-group">
+            <label for="brushSize">Size:</label>
+            <input type="range" id="brushSize" min="1" max="50" value="5">
+            <span id="brushSizeValue">5px</span>
+        </div>
+        
+        <button id="clearBtn" class="clear-btn">Clear Canvas</button>
+    </div>
+    
+    <canvas id="canvas" width="800" height="600"></canvas>
+    
+    <script src="script.js"></script>
+</body>
+</html>
