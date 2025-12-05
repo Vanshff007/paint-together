@@ -70,11 +70,23 @@ canvas.addEventListener('mouseenter', () => {
     showCursor = true;
 });
 
+// Get proper mouse coordinates accounting for canvas scaling
+function getMousePos(e) {
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    
+    return {
+        x: (e.clientX - rect.left) * scaleX,
+        y: (e.clientY - rect.top) * scaleY
+    };
+}
+
 // Track mouse position
 function handleMouseMove(e) {
-    const rect = canvas.getBoundingClientRect();
-    mouseX = e.clientX - rect.left;
-    mouseY = e.clientY - rect.top;
+    const pos = getMousePos(e);
+    mouseX = pos.x;
+    mouseY = pos.y;
     
     // Draw if mouse is pressed
     if (isDrawing) {
@@ -88,25 +100,44 @@ function handleMouseMove(e) {
 // Start drawing
 function startDrawing(e) {
     isDrawing = true;
-    const rect = canvas.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
+    const pos = getMousePos(e);
     
     // Restore canvas before starting (removes cursor preview)
     restoreCanvas();
     
     // Begin new path
     ctx.beginPath();
-    ctx.moveTo(x, y);
+    ctx.moveTo(pos.x, pos.y);
+    
+    // Draw a dot immediately on click
+    drawDot(pos.x, pos.y);
+}
+
+// Draw a single dot (for single clicks)
+function drawDot(x, y) {
+    ctx.save();
+    ctx.lineWidth = currentBrushSize;
+    ctx.lineCap = 'round';
+    
+    // Set color based on tool
+    if (currentTool === 'brush') {
+        ctx.fillStyle = currentColor;
+    } else if (currentTool === 'eraser') {
+        ctx.fillStyle = '#ffffff'; // White (erases)
+    }
+    
+    // Draw a filled circle as a dot
+    ctx.beginPath();
+    ctx.arc(x, y, currentBrushSize / 2, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
 }
 
 // Draw on canvas
 function draw(e) {
     if (!isDrawing) return;
     
-    const rect = canvas.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
+    const pos = getMousePos(e);
     
     // Configure drawing settings
     ctx.lineWidth = currentBrushSize;
@@ -121,7 +152,7 @@ function draw(e) {
     }
     
     // Draw line
-    ctx.lineTo(x, y);
+    ctx.lineTo(pos.x, pos.y);
     ctx.stroke();
 }
 
