@@ -1,0 +1,12 @@
+{
+  "name": "paint-together",
+  "version": "1.0.0",
+  "description": "A real-time collaborative painting web application",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "keywords": ["paint", "collaborative", "canvas", "realtime"],
+  "author": "Vansh",
+  "license": "MIT"
+}
