@@ -1,3 +1,16 @@
+// Initialize Socket.io connection
+const socket = io();
+
+// Log when connected
+socket.on('connect', () => {
+    console.log('✅ Connected to server! Socket ID:', socket.id);
+});
+
+// Log when disconnected
+socket.on('disconnect', () => {
+    console.log('❌ Disconnected from server!');
+});
+
 // Get canvas element and context
 const canvas = document.getElementById('canvas');
 const ctx = canvas.getContext('2d');
