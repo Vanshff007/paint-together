@@ -11,6 +11,30 @@ socket.on('disconnect', () => {
     console.log('❌ Disconnected from server!');
 });
 
+// Receive drawing data from other users
+socket.on('draw', (data) => {
+    // Draw what others are drawing
+    if (data.isDot) {
+        // Draw a dot
+        drawReceivedDot(data.x, data.y, data.color, data.size, data.tool);
+    } else {
+        // Draw a line
+        drawReceivedLine(data.x, data.y, data.color, data.size, data.tool);
+    }
+});
+
+// Receive clear event from other users
+socket.on('clear', () => {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    canvasImage = null;
+    console.log('Canvas cleared by another user');
+});
+
+// Reset remote drawing when mouse up
+socket.on('mouseup', () => {
+    remoteDrawing = false;
+});
+
 // Get canvas element and context
 const canvas = document.getElementById('canvas');
 const ctx = canvas.getContext('2d');
@@ -36,6 +60,11 @@ let canvasImage = null;
 let mouseX = 0;
 let mouseY = 0;
 let showCursor = false;
+
+// Remote drawing state
+let remoteDrawing = false;
+let remoteLastX = 0;
+let remoteLastY = 0;
 
 // Tool selection
 brushBtn.addEventListener('click', () => {
@@ -68,6 +97,9 @@ colorPicker.addEventListener('change', (e) => {
 clearBtn.addEventListener('click', () => {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     canvasImage = null;
+    
+    // Tell server to clear everyone's canvas
+    socket.emit('clear');
 });
 
 // Mouse event listeners
@@ -144,6 +176,16 @@ function drawDot(x, y) {
     ctx.arc(x, y, currentBrushSize / 2, 0, Math.PI * 2);
     ctx.fill();
     ctx.restore();
+    
+    // Send dot data to server
+    socket.emit('draw', {
+        x: x,
+        y: y,
+        color: currentColor,
+        size: currentBrushSize,
+        tool: currentTool,
+        isDot: true  // Flag to indicate it's a dot
+    });
 }
 
 // Draw on canvas
@@ -167,6 +209,15 @@ function draw(e) {
     // Draw line
     ctx.lineTo(pos.x, pos.y);
     ctx.stroke();
+    
+    // Send drawing data to server
+    socket.emit('draw', {
+        x: pos.x,
+        y: pos.y,
+        color: currentColor,
+        size: currentBrushSize,
+        tool: currentTool
+    });
 }
 
 // Stop drawing
@@ -176,6 +227,9 @@ function stopDrawing() {
         ctx.beginPath();
         // Save canvas state after drawing
         canvasImage = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        
+        // Tell server drawing stopped
+        socket.emit('mouseup');
         
         // Show cursor preview again if using eraser
         if (currentTool === 'eraser' && showCursor) {
@@ -207,4 +261,65 @@ function restoreCanvas() {
     } else {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
     }
+}
+
+// Draw line received from other users
+function drawReceivedLine(x, y, color, size, tool) {
+    ctx.save();
+    
+    if (!remoteDrawing) {
+        // Start new path
+        remoteDrawing = true;
+        remoteLastX = x;
+        remoteLastY = y;
+        ctx.beginPath();
+        ctx.moveTo(x, y);
+    }
+    
+    // Drawing settings
+    ctx.lineWidth = size;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    
+    if (tool === 'brush') {
+        ctx.strokeStyle = color;
+    } else {
+        ctx.strokeStyle = '#ffffff';
+    }
+    
+    // Draw line
+    ctx.lineTo(x, y);
+    ctx.stroke();
+    
+    remoteLastX = x;
+    remoteLastY = y;
+    
+    ctx.restore();
+    
+    // Save canvas state
+    canvasImage = ctx.getImageData(0, 0, canvas.width, canvas.height);
+}
+
+// Draw dot received from other users
+function drawReceivedDot(x, y, color, size, tool) {
+    ctx.save();
+    ctx.lineWidth = size;
+    ctx.lineCap = 'round';
+    
+    if (tool === 'brush') {
+        ctx.fillStyle = color;
+    } else {
+        ctx.fillStyle = '#ffffff';
+    }
+    
+    ctx.beginPath();
+    ctx.arc(x, y, size / 2, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+    
+    // Save canvas state
+    canvasImage = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    
+    // Reset remote drawing
+    remoteDrawing = false;
 }
