@@ -35,21 +35,27 @@ io.on('connection', (socket) => {
     console.log('✅ New user connected! Socket ID:', socket.id);
     console.log('👥 Total users:', io.engine.clientsCount);
     
+    // TEST: Join a test room automatically
+    const testRoom = 'test-room-123';
+    socket.join(testRoom);
+    console.log(`🚪 User ${socket.id} joined room: ${testRoom}`);
+    
     // Listen for drawing data from client
     socket.on('draw', (data) => {
-        // Broadcast to all other users (not the sender)
-        socket.broadcast.emit('draw', data);
+        // TEST: Broadcast ONLY to test room
+        socket.to(testRoom).emit('draw', data);
+        console.log(`📤 Broadcasting draw to room: ${testRoom}`);
     });
     
     // Listen for clear canvas event
     socket.on('clear', () => {
-        // Broadcast to all other users
-        socket.broadcast.emit('clear');
+        // TEST: Broadcast ONLY to test room
+        socket.to(testRoom).emit('clear');
     });
     
     // Listen for mouse up event
     socket.on('mouseup', () => {
-        socket.broadcast.emit('mouseup');
+        socket.to(testRoom).emit('mouseup');
     });
     
     // When user disconnects

@@ -13,12 +13,13 @@ socket.on('disconnect', () => {
 
 // Receive drawing data from other users
 socket.on('draw', (data) => {
-    // Draw what others are drawing
-    if (data.isDot) {
-        // Draw a dot
-        drawReceivedDot(data.x, data.y, data.color, data.size, data.tool);
+    // Check if it's the start of a stroke
+    if (data.isStart) {
+        // Reset remote drawing and prepare for new stroke
+        remoteDrawing = false;
+        drawReceivedLine(data.x, data.y, data.color, data.size, data.tool);
     } else {
-        // Draw a line
+        // Continue the line
         drawReceivedLine(data.x, data.y, data.color, data.size, data.tool);
     }
 });
@@ -156,6 +157,16 @@ function startDrawing(e) {
     
     // Draw a dot immediately on click
     drawDot(pos.x, pos.y);
+    
+    // Send start point to server
+    socket.emit('draw', {
+        x: pos.x,
+        y: pos.y,
+        color: currentColor,
+        size: currentBrushSize,
+        tool: currentTool,
+        isStart: true  // Mark as start of stroke
+    });
 }
 
 // Draw a single dot (for single clicks)
@@ -177,15 +188,7 @@ function drawDot(x, y) {
     ctx.fill();
     ctx.restore();
     
-    // Send dot data to server
-    socket.emit('draw', {
-        x: x,
-        y: y,
-        color: currentColor,
-        size: currentBrushSize,
-        tool: currentTool,
-        isDot: true  // Flag to indicate it's a dot
-    });
+    // Don't send to server here - will be sent by startDrawing
 }
 
 // Draw on canvas
