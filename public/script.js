@@ -1,15 +1,86 @@
 // Initialize Socket.io connection
 const socket = io();
 
+// Room state
+let currentRoomId = null;
+
+// Get UI elements
+const roomInfo = document.getElementById('roomInfo');
+const roomIdDisplay = document.getElementById('roomId');
+const copyLinkBtn = document.getElementById('copyLinkBtn');
+const createRoomBtn = document.getElementById('createRoomBtn');
+
+// Check URL for room parameter
+const urlParams = new URLSearchParams(window.location.search);
+const roomFromUrl = urlParams.get('room');
+
 // Log when connected
 socket.on('connect', () => {
     console.log('✅ Connected to server! Socket ID:', socket.id);
+    
+    // If room in URL, join it
+    if (roomFromUrl) {
+        joinRoom(roomFromUrl);
+    }
 });
 
 // Log when disconnected
 socket.on('disconnect', () => {
     console.log('❌ Disconnected from server!');
 });
+
+// Handle room created
+socket.on('room-created', (roomId) => {
+    currentRoomId = roomId;
+    showRoomInfo(roomId);
+    updateUrl(roomId);
+    console.log('🎉 Room created:', roomId);
+});
+
+// Handle room joined
+socket.on('room-joined', (roomId) => {
+    currentRoomId = roomId;
+    showRoomInfo(roomId);
+    console.log('🚪 Joined room:', roomId);
+});
+
+// Create room button
+createRoomBtn.addEventListener('click', () => {
+    socket.emit('create-room');
+});
+
+// Copy link button
+copyLinkBtn.addEventListener('click', () => {
+    const link = `${window.location.origin}/?room=${currentRoomId}`;
+    navigator.clipboard.writeText(link).then(() => {
+        // Show "Copied!" feedback
+        copyLinkBtn.textContent = 'Copied!';
+        copyLinkBtn.classList.add('copied');
+        
+        setTimeout(() => {
+            copyLinkBtn.textContent = 'Copy Invite Link';
+            copyLinkBtn.classList.remove('copied');
+        }, 2000);
+    });
+});
+
+// Function to join a room
+function joinRoom(roomId) {
+    socket.emit('join-room', roomId);
+}
+
+// Function to show room info
+function showRoomInfo(roomId) {
+    roomIdDisplay.textContent = roomId;
+    roomInfo.style.display = 'flex';
+    createRoomBtn.style.display = 'none';
+}
+
+// Function to update URL without reload
+function updateUrl(roomId) {
+    const newUrl = `${window.location.origin}/?room=${roomId}`;
+    window.history.pushState({}, '', newUrl);
+}
 
 // Receive drawing data from other users
 socket.on('draw', (data) => {
@@ -99,8 +170,8 @@ clearBtn.addEventListener('click', () => {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     canvasImage = null;
     
-    // Tell server to clear everyone's canvas
-    socket.emit('clear');
+    // Tell server to clear everyone's canvas in this room
+    socket.emit('clear', currentRoomId);
 });
 
 // Mouse event listeners
@@ -145,6 +216,11 @@ function handleMouseMove(e) {
 
 // Start drawing
 function startDrawing(e) {
+    if (!currentRoomId) {
+        alert('Please create or join a room first!');
+        return;
+    }
+    
     isDrawing = true;
     const pos = getMousePos(e);
     
@@ -165,7 +241,8 @@ function startDrawing(e) {
         color: currentColor,
         size: currentBrushSize,
         tool: currentTool,
-        isStart: true  // Mark as start of stroke
+        isStart: true,
+        roomId: currentRoomId
     });
 }
 
@@ -187,8 +264,6 @@ function drawDot(x, y) {
     ctx.arc(x, y, currentBrushSize / 2, 0, Math.PI * 2);
     ctx.fill();
     ctx.restore();
-    
-    // Don't send to server here - will be sent by startDrawing
 }
 
 // Draw on canvas
@@ -219,7 +294,8 @@ function draw(e) {
         y: pos.y,
         color: currentColor,
         size: currentBrushSize,
-        tool: currentTool
+        tool: currentTool,
+        roomId: currentRoomId
     });
 }
 
@@ -232,7 +308,7 @@ function stopDrawing() {
         canvasImage = ctx.getImageData(0, 0, canvas.width, canvas.height);
         
         // Tell server drawing stopped
-        socket.emit('mouseup');
+        socket.emit('mouseup', currentRoomId);
         
         // Show cursor preview again if using eraser
         if (currentTool === 'eraser' && showCursor) {

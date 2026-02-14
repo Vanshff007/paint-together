@@ -9,6 +9,12 @@
 <body>
     <h1>Paint Together</h1>
     
+    <!-- Room info bar (hidden by default, shown when in a room) -->
+    <div class="room-info" id="roomInfo" style="display: none;">
+        <span>Room: <strong id="roomId"></strong></span>
+        <button id="copyLinkBtn" class="copy-btn">Copy Invite Link</button>
+    </div>
+    
     <!-- Toolbar with controls -->
     <div class="toolbar">
         <!-- Tool selector -->
@@ -29,6 +35,9 @@
         </div>
         
         <button id="clearBtn" class="clear-btn">Clear Canvas</button>
+        
+        <!-- Create room button (only shows if not in room) -->
+        <button id="createRoomBtn" class="create-room-btn">Create Room</button>
     </div>
     
     <!-- Canvas container for responsive layout -->
@@ -36,7 +45,7 @@
         <canvas id="canvas" width="1000" height="600"></canvas>
     </div>
     
-    <!-- Socket.io client library - ADD THIS LINE -->
+    <!-- Socket.io client library -->
     <script src="/socket.io/socket.io.js"></script>
     
     <!-- Our custom script -->
