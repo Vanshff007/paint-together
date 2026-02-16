@@ -11,7 +11,10 @@
     
     <!-- Room info bar (hidden by default, shown when in a room) -->
     <div class="room-info" id="roomInfo" style="display: none;">
-        <span>Room: <strong id="roomId"></strong></span>
+        <div>
+            <span>Room: <strong id="roomId"></strong></span>
+            <span class="user-count">👥 <strong id="userCount">1</strong> user(s)</span>
+        </div>
         <button id="copyLinkBtn" class="copy-btn">Copy Invite Link</button>
     </div>
     
@@ -35,6 +38,7 @@
         </div>
         
         <button id="clearBtn" class="clear-btn">Clear Canvas</button>
+        <button id="downloadBtn" class="download-btn">Download Image</button>
         
         <!-- Create room button (only shows if not in room) -->
         <button id="createRoomBtn" class="create-room-btn">Create Room</button>

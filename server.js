@@ -35,33 +35,45 @@ function generateRoomId() {
     return Math.random().toString(36).substring(2, 8);
 }
 
+// Function to get user count in a room
+function getRoomUserCount(roomId) {
+    const room = io.sockets.adapter.rooms.get(roomId);
+    return room ? room.size : 0;
+}
+
 // Socket.io connection handling
 io.on('connection', (socket) => {
     console.log('✅ New user connected! Socket ID:', socket.id);
     console.log('👥 Total users:', io.engine.clientsCount);
     
+    // Track which room this socket is in
+    let currentRoom = null;
+    
     // Handle create room request
     socket.on('create-room', () => {
         const roomId = generateRoomId();
         socket.join(roomId);
-        socket.emit('room-created', roomId);
+        currentRoom = roomId;
+        
+        const userCount = getRoomUserCount(roomId);
+        socket.emit('room-created', { roomId, userCount });
+        
         console.log(`🚪 Room created: ${roomId} by ${socket.id}`);
     });
     
     // Handle join room request
     socket.on('join-room', (roomId) => {
         socket.join(roomId);
-        socket.emit('room-joined', roomId);
+        currentRoom = roomId;
         
-        // Get room info
-        const room = io.sockets.adapter.rooms.get(roomId);
-        const userCount = room ? room.size : 0;
+        const userCount = getRoomUserCount(roomId);
+        socket.emit('room-joined', { roomId, userCount });
+        
+        // Notify everyone in room about updated user count
+        io.to(roomId).emit('user-count-update', userCount);
         
         console.log(`🚪 User ${socket.id} joined room: ${roomId}`);
         console.log(`👥 Users in room ${roomId}: ${userCount}`);
-        
-        // Notify others in the room
-        socket.to(roomId).emit('user-joined', userCount);
     });
     
     // Listen for drawing data from client
@@ -86,10 +98,35 @@ io.on('connection', (socket) => {
         }
     });
     
-    // When user disconnects
+    // When user is disconnecting (BEFORE leaving rooms)
+    socket.on('disconnecting', () => {
+        console.log('⚠️ User disconnecting! Socket ID:', socket.id);
+        console.log('Current room tracked:', currentRoom);
+        console.log('Socket.rooms:', Array.from(socket.rooms));
+        
+        // Get all rooms this socket is in
+        const rooms = Array.from(socket.rooms);
+        
+        rooms.forEach(roomId => {
+            // Skip the socket's own ID room
+            if (roomId !== socket.id) {
+                console.log(`Processing room: ${roomId}`);
+                
+                // Get current count and subtract 1
+                const currentCount = getRoomUserCount(roomId);
+                const newCount = currentCount - 1;
+                
+                console.log(`Room ${roomId}: ${currentCount} -> ${newCount}`);
+                
+                // Notify others
+                socket.to(roomId).emit('user-count-update', newCount);
+            }
+        });
+    });
+    
+    // When user has disconnected
     socket.on('disconnect', () => {
-        console.log('❌ User disconnected! Socket ID:', socket.id);
-        console.log('👥 Total users:', io.engine.clientsCount);
+        console.log('❌ User fully disconnected! Socket ID:', socket.id);
     });
 });
 

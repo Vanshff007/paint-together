@@ -7,6 +7,7 @@ let currentRoomId = null;
 // Get UI elements
 const roomInfo = document.getElementById('roomInfo');
 const roomIdDisplay = document.getElementById('roomId');
+const userCountDisplay = document.getElementById('userCount');
 const copyLinkBtn = document.getElementById('copyLinkBtn');
 const createRoomBtn = document.getElementById('createRoomBtn');
 
@@ -30,18 +31,24 @@ socket.on('disconnect', () => {
 });
 
 // Handle room created
-socket.on('room-created', (roomId) => {
-    currentRoomId = roomId;
-    showRoomInfo(roomId);
-    updateUrl(roomId);
-    console.log('🎉 Room created:', roomId);
+socket.on('room-created', (data) => {
+    currentRoomId = data.roomId;
+    showRoomInfo(data.roomId, data.userCount);
+    updateUrl(data.roomId);
+    console.log('🎉 Room created:', data.roomId);
 });
 
 // Handle room joined
-socket.on('room-joined', (roomId) => {
-    currentRoomId = roomId;
-    showRoomInfo(roomId);
-    console.log('🚪 Joined room:', roomId);
+socket.on('room-joined', (data) => {
+    currentRoomId = data.roomId;
+    showRoomInfo(data.roomId, data.userCount);
+    console.log('🚪 Joined room:', data.roomId);
+});
+
+// Handle user count updates
+socket.on('user-count-update', (userCount) => {
+    updateUserCount(userCount);
+    console.log('👥 User count updated:', userCount);
 });
 
 // Create room button
@@ -70,10 +77,16 @@ function joinRoom(roomId) {
 }
 
 // Function to show room info
-function showRoomInfo(roomId) {
+function showRoomInfo(roomId, userCount) {
     roomIdDisplay.textContent = roomId;
+    userCountDisplay.textContent = userCount;
     roomInfo.style.display = 'flex';
     createRoomBtn.style.display = 'none';
+}
+
+// Function to update user count
+function updateUserCount(count) {
+    userCountDisplay.textContent = count;
 }
 
 // Function to update URL without reload
@@ -88,10 +101,10 @@ socket.on('draw', (data) => {
     if (data.isStart) {
         // Reset remote drawing and prepare for new stroke
         remoteDrawing = false;
-        drawReceivedLine(data.x, data.y, data.color, data.size, data.tool);
+        drawReceivedLine(data.x, data.y, data.color, data.size, data.tool, true);
     } else {
         // Continue the line
-        drawReceivedLine(data.x, data.y, data.color, data.size, data.tool);
+        drawReceivedLine(data.x, data.y, data.color, data.size, data.tool, false);
     }
 });
 
@@ -118,12 +131,15 @@ const colorPicker = document.getElementById('colorPicker');
 const brushSize = document.getElementById('brushSize');
 const brushSizeValue = document.getElementById('brushSizeValue');
 const clearBtn = document.getElementById('clearBtn');
+const downloadBtn = document.getElementById('downloadBtn');
 
 // Drawing state
 let isDrawing = false;
 let currentColor = '#000000';
 let currentBrushSize = 5;
 let currentTool = 'brush'; // 'brush' or 'eraser'
+let lastX = 0;
+let lastY = 0;
 
 // Store canvas image data
 let canvasImage = null;
@@ -172,6 +188,25 @@ clearBtn.addEventListener('click', () => {
     
     // Tell server to clear everyone's canvas in this room
     socket.emit('clear', currentRoomId);
+});
+
+// Download canvas as image
+downloadBtn.addEventListener('click', () => {
+    // Create a temporary link
+    const link = document.createElement('a');
+    
+    // Get current date/time for filename
+    const date = new Date();
+    const filename = `paint-together-${date.getFullYear()}${(date.getMonth()+1).toString().padStart(2,'0')}${date.getDate().toString().padStart(2,'0')}-${date.getHours()}${date.getMinutes()}${date.getSeconds()}.png`;
+    
+    // Set download attributes
+    link.download = filename;
+    link.href = canvas.toDataURL('image/png');
+    
+    // Trigger download
+    link.click();
+    
+    console.log('Canvas downloaded as:', filename);
 });
 
 // Mouse event listeners
@@ -224,53 +259,16 @@ function startDrawing(e) {
     isDrawing = true;
     const pos = getMousePos(e);
     
+    // Store starting position
+    lastX = pos.x;
+    lastY = pos.y;
+    
     // Restore canvas before starting (removes cursor preview)
     restoreCanvas();
     
-    // Begin new path
+    // Begin new path for this stroke
     ctx.beginPath();
     ctx.moveTo(pos.x, pos.y);
-    
-    // Draw a dot immediately on click
-    drawDot(pos.x, pos.y);
-    
-    // Send start point to server
-    socket.emit('draw', {
-        x: pos.x,
-        y: pos.y,
-        color: currentColor,
-        size: currentBrushSize,
-        tool: currentTool,
-        isStart: true,
-        roomId: currentRoomId
-    });
-}
-
-// Draw a single dot (for single clicks)
-function drawDot(x, y) {
-    ctx.save();
-    ctx.lineWidth = currentBrushSize;
-    ctx.lineCap = 'round';
-    
-    // Set color based on tool
-    if (currentTool === 'brush') {
-        ctx.fillStyle = currentColor;
-    } else if (currentTool === 'eraser') {
-        ctx.fillStyle = '#ffffff'; // White (erases)
-    }
-    
-    // Draw a filled circle as a dot
-    ctx.beginPath();
-    ctx.arc(x, y, currentBrushSize / 2, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.restore();
-}
-
-// Draw on canvas
-function draw(e) {
-    if (!isDrawing) return;
-    
-    const pos = getMousePos(e);
     
     // Configure drawing settings
     ctx.lineWidth = currentBrushSize;
@@ -284,9 +282,35 @@ function draw(e) {
         ctx.strokeStyle = '#ffffff'; // White (erases)
     }
     
-    // Draw line
+    // Send start point to server
+    socket.emit('draw', {
+        x: pos.x,
+        y: pos.y,
+        color: currentColor,
+        size: currentBrushSize,
+        tool: currentTool,
+        isStart: true,
+        roomId: currentRoomId
+    });
+}
+
+// Draw on canvas
+function draw(e) {
+    if (!isDrawing) return;
+    
+    const pos = getMousePos(e);
+    
+    // Draw line to current position
     ctx.lineTo(pos.x, pos.y);
     ctx.stroke();
+    
+    // Start next segment from current position
+    ctx.beginPath();
+    ctx.moveTo(pos.x, pos.y);
+    
+    // Update last position
+    lastX = pos.x;
+    lastY = pos.y;
     
     // Send drawing data to server
     socket.emit('draw', {
@@ -303,7 +327,6 @@ function draw(e) {
 function stopDrawing() {
     if (isDrawing) {
         isDrawing = false;
-        ctx.beginPath();
         // Save canvas state after drawing
         canvasImage = ctx.getImageData(0, 0, canvas.width, canvas.height);
         
@@ -343,10 +366,10 @@ function restoreCanvas() {
 }
 
 // Draw line received from other users
-function drawReceivedLine(x, y, color, size, tool) {
+function drawReceivedLine(x, y, color, size, tool, isStart) {
     ctx.save();
     
-    if (!remoteDrawing) {
+    if (isStart || !remoteDrawing) {
         // Start new path
         remoteDrawing = true;
         remoteLastX = x;
@@ -366,9 +389,13 @@ function drawReceivedLine(x, y, color, size, tool) {
         ctx.strokeStyle = '#ffffff';
     }
     
-    // Draw line
+    // Draw line to new position
     ctx.lineTo(x, y);
     ctx.stroke();
+    
+    // Start next segment from current position
+    ctx.beginPath();
+    ctx.moveTo(x, y);
     
     remoteLastX = x;
     remoteLastY = y;
@@ -377,28 +404,4 @@ function drawReceivedLine(x, y, color, size, tool) {
     
     // Save canvas state
     canvasImage = ctx.getImageData(0, 0, canvas.width, canvas.height);
-}
-
-// Draw dot received from other users
-function drawReceivedDot(x, y, color, size, tool) {
-    ctx.save();
-    ctx.lineWidth = size;
-    ctx.lineCap = 'round';
-    
-    if (tool === 'brush') {
-        ctx.fillStyle = color;
-    } else {
-        ctx.fillStyle = '#ffffff';
-    }
-    
-    ctx.beginPath();
-    ctx.arc(x, y, size / 2, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.restore();
-    
-    // Save canvas state
-    canvasImage = ctx.getImageData(0, 0, canvas.width, canvas.height);
-    
-    // Reset remote drawing
-    remoteDrawing = false;
 }
