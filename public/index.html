@@ -1,58 +1,112 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="light">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Paint Together</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Righteous&family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,400&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <h1>Paint Together</h1>
-    
-    <!-- Room info bar (hidden by default, shown when in a room) -->
-    <div class="room-info" id="roomInfo" style="display: none;">
-        <div>
-            <span>Room: <strong id="roomId"></strong></span>
-            <span class="user-count">👥 <strong id="userCount">1</strong> user(s)</span>
+
+    <!-- ===================== LANDING SCREEN ===================== -->
+    <div id="landingScreen" class="landing-screen">
+
+        <!-- Animated paint splash background -->
+        <canvas id="splashCanvas" class="splash-canvas"></canvas>
+
+        <!-- Dark mode toggle -->
+        <button id="darkToggleBtn" class="dark-toggle" title="Toggle dark mode">🌙</button>
+
+        <!-- Card -->
+        <div class="landing-card">
+            <div class="landing-logo">🎨</div>
+            <h1 class="landing-title">Paint Together</h1>
+            <p class="landing-subtitle">Draw. Collaborate. Create.</p>
+
+            <div class="landing-form">
+                <div class="input-group">
+                    <label for="usernameInput">Your Name</label>
+                    <input type="text" id="usernameInput" class="landing-input"
+                        placeholder="Enter your name..." maxlength="20" autocomplete="off">
+                </div>
+
+                <div class="form-divider"><span>choose an option</span></div>
+
+                <button id="landingCreateBtn" class="btn-create">
+                    <span>✦</span> Create New Room
+                </button>
+
+                <div class="or-sep"><span>or join existing</span></div>
+
+                <div class="join-row">
+                    <input type="text" id="roomCodeInput" class="landing-input room-code-input"
+                        placeholder="Room code..." maxlength="8" autocomplete="off">
+                    <button id="landingJoinBtn" class="btn-join">Join →</button>
+                </div>
+
+                <p id="landingError" class="landing-error"></p>
+            </div>
         </div>
-        <button id="copyLinkBtn" class="copy-btn">Copy Invite Link</button>
     </div>
-    
-    <!-- Toolbar with controls -->
-    <div class="toolbar">
-        <!-- Tool selector -->
-        <div class="control-group">
-            <button id="brushBtn" class="tool-btn active">Brush</button>
-            <button id="eraserBtn" class="tool-btn">Eraser</button>
+
+    <!-- ===================== APP SCREEN ===================== -->
+    <div id="appScreen" class="app-screen" style="display:none; opacity:0;">
+
+        <!-- Header -->
+        <header class="app-header">
+            <div class="header-left">
+                <span class="app-logo">🎨</span>
+                <span class="app-title">Paint Together</span>
+            </div>
+            <div class="header-center" id="roomInfo" style="visibility:hidden;">
+                <span class="room-label">Room:</span>
+                <strong id="roomId" class="room-code"></strong>
+                <span class="user-count-badge">👥 <strong id="userCount">1</strong></span>
+                <button id="copyLinkBtn" class="copy-btn">Copy Link</button>
+            </div>
+            <div class="header-right">
+                <span id="myNameBadge" class="my-name-badge"></span>
+                <button id="darkToggleBtnApp" class="dark-toggle-app" title="Toggle dark mode">🌙</button>
+            </div>
+        </header>
+
+        <!-- Toolbar -->
+        <div class="toolbar">
+            <div class="control-group">
+                <button id="brushBtn" class="tool-btn active">✏️ Brush</button>
+                <button id="eraserBtn" class="tool-btn">⬜ Eraser</button>
+            </div>
+            <div class="control-group">
+                <label for="colorPicker">Color:</label>
+                <input type="color" id="colorPicker" value="#000000">
+            </div>
+            <div class="control-group">
+                <label for="brushSize">Size:</label>
+                <input type="range" id="brushSize" min="1" max="50" value="5">
+                <span id="brushSizeValue">5px</span>
+            </div>
+            <div class="control-group toolbar-actions">
+                <button id="clearBtn" class="action-btn clear-btn">🗑️ Clear</button>
+                <button id="downloadBtn" class="action-btn download-btn">💾 Save</button>
+                <button id="undoBtn" class="action-btn undo-btn" disabled>↩ Undo</button>
+                <button id="redoBtn" class="action-btn redo-btn" disabled>↪ Redo</button>
+            </div>
         </div>
-        
-        <div class="control-group">
-            <label for="colorPicker">Color:</label>
-            <input type="color" id="colorPicker" value="#000000">
+
+        <!-- Canvas -->
+        <div class="canvas-container">
+            <canvas id="canvas" width="1000" height="600"></canvas>
+            <div id="cursorOverlay" class="cursor-overlay"></div>
         </div>
-        
-        <div class="control-group">
-            <label for="brushSize">Size:</label>
-            <input type="range" id="brushSize" min="1" max="50" value="5">
-            <span id="brushSizeValue">5px</span>
-        </div>
-        
-        <button id="clearBtn" class="clear-btn">Clear Canvas</button>
-        <button id="downloadBtn" class="download-btn">Download Image</button>
-        
-        <!-- Create room button (only shows if not in room) -->
-        <button id="createRoomBtn" class="create-room-btn">Create Room</button>
+
     </div>
-    
-    <!-- Canvas container for responsive layout -->
-    <div class="canvas-container">
-        <canvas id="canvas" width="1000" height="600"></canvas>
-    </div>
-    
-    <!-- Socket.io client library -->
+
+    <!-- Toast -->
+    <div id="toast" class="toast"></div>
+
     <script src="/socket.io/socket.io.js"></script>
-    
-    <!-- Our custom script -->
     <script src="script.js"></script>
 </body>
 </html>

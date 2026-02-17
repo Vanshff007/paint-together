@@ -1,160 +1,457 @@
-// Initialize Socket.io connection
+// =============================================
+// DARK MODE
+// =============================================
+const html = document.documentElement;
+let isDark = localStorage.getItem('theme') === 'dark';
+
+function applyTheme(dark) {
+    html.setAttribute('data-theme', dark ? 'dark' : 'light');
+    document.querySelectorAll('.dark-toggle, .dark-toggle-app').forEach(btn => {
+        btn.textContent = dark ? '☀️' : '🌙';
+    });
+    localStorage.setItem('theme', dark ? 'dark' : 'light');
+}
+
+applyTheme(isDark);
+
+document.getElementById('darkToggleBtn').addEventListener('click', () => {
+    isDark = !isDark;
+    applyTheme(isDark);
+});
+
+document.getElementById('darkToggleBtnApp').addEventListener('click', () => {
+    isDark = !isDark;
+    applyTheme(isDark);
+});
+
+// =============================================
+// SPLASH CANVAS ANIMATION
+// =============================================
+const splashCanvas = document.getElementById('splashCanvas');
+const splashCtx = splashCanvas.getContext('2d');
+let splashBubbles = [];
+
+function resizeSplash() {
+    splashCanvas.width  = window.innerWidth;
+    splashCanvas.height = window.innerHeight;
+}
+
+resizeSplash();
+window.addEventListener('resize', resizeSplash);
+
+// Paint blob object
+function createBubble() {
+    const colors = [
+        'rgba(6,182,212,0.18)',
+        'rgba(14,116,144,0.15)',
+        'rgba(56,239,125,0.12)',
+        'rgba(236,72,153,0.12)',
+        'rgba(167,139,250,0.13)',
+        'rgba(245,87,108,0.11)',
+        'rgba(247,151,30,0.12)',
+    ];
+    return {
+        x: Math.random() * splashCanvas.width,
+        y: Math.random() * splashCanvas.height,
+        r: 60 + Math.random() * 120,
+        color: colors[Math.floor(Math.random() * colors.length)],
+        vx: (Math.random() - 0.5) * 0.5,
+        vy: (Math.random() - 0.5) * 0.5,
+        phase: Math.random() * Math.PI * 2,
+        speed: 0.005 + Math.random() * 0.01,
+    };
+}
+
+for (let i = 0; i < 14; i++) splashBubbles.push(createBubble());
+
+function animateSplash() {
+    splashCtx.clearRect(0, 0, splashCanvas.width, splashCanvas.height);
+
+    splashBubbles.forEach(b => {
+        b.phase += b.speed;
+        b.x += b.vx + Math.sin(b.phase) * 0.3;
+        b.y += b.vy + Math.cos(b.phase * 0.7) * 0.3;
+
+        // Wrap around edges
+        if (b.x < -b.r) b.x = splashCanvas.width + b.r;
+        if (b.x > splashCanvas.width + b.r) b.x = -b.r;
+        if (b.y < -b.r) b.y = splashCanvas.height + b.r;
+        if (b.y > splashCanvas.height + b.r) b.y = -b.r;
+
+        // Draw soft blob
+        const grad = splashCtx.createRadialGradient(b.x, b.y, 0, b.x, b.y, b.r);
+        grad.addColorStop(0, b.color);
+        grad.addColorStop(1, 'rgba(0,0,0,0)');
+        splashCtx.beginPath();
+        splashCtx.arc(b.x, b.y, b.r, 0, Math.PI * 2);
+        splashCtx.fillStyle = grad;
+        splashCtx.fill();
+    });
+
+    if (document.getElementById('landingScreen').style.display !== 'none') {
+        requestAnimationFrame(animateSplash);
+    }
+}
+
+animateSplash();
+
+// =============================================
+// SOCKET.IO
+// =============================================
 const socket = io();
 
-// Room state
+// =============================================
+// STATE
+// =============================================
 let currentRoomId = null;
+let myColor       = '#06b6d4';
+let myName        = 'Guest';
 
-// Get UI elements
-const roomInfo = document.getElementById('roomInfo');
-const roomIdDisplay = document.getElementById('roomId');
+// =============================================
+// LANDING SCREEN ELEMENTS
+// =============================================
+const landingScreen    = document.getElementById('landingScreen');
+const appScreen        = document.getElementById('appScreen');
+const usernameInput    = document.getElementById('usernameInput');
+const roomCodeInput    = document.getElementById('roomCodeInput');
+const landingCreateBtn = document.getElementById('landingCreateBtn');
+const landingJoinBtn   = document.getElementById('landingJoinBtn');
+const landingError     = document.getElementById('landingError');
+
+// =============================================
+// APP UI ELEMENTS
+// =============================================
+const roomInfo         = document.getElementById('roomInfo');
+const roomIdDisplay    = document.getElementById('roomId');
 const userCountDisplay = document.getElementById('userCount');
-const copyLinkBtn = document.getElementById('copyLinkBtn');
-const createRoomBtn = document.getElementById('createRoomBtn');
+const copyLinkBtn      = document.getElementById('copyLinkBtn');
+const myNameBadge      = document.getElementById('myNameBadge');
+const toast            = document.getElementById('toast');
 
-// Check URL for room parameter
-const urlParams = new URLSearchParams(window.location.search);
-const roomFromUrl = urlParams.get('room');
+// =============================================
+// CANVAS ELEMENTS
+// =============================================
+const canvas        = document.getElementById('canvas');
+const ctx           = canvas.getContext('2d');
+const cursorOverlay = document.getElementById('cursorOverlay');
 
-// Log when connected
-socket.on('connect', () => {
-    console.log('✅ Connected to server! Socket ID:', socket.id);
-    
-    // If room in URL, join it
-    if (roomFromUrl) {
-        joinRoom(roomFromUrl);
+// =============================================
+// TOOLBAR ELEMENTS
+// =============================================
+const brushBtn       = document.getElementById('brushBtn');
+const eraserBtn      = document.getElementById('eraserBtn');
+const colorPicker    = document.getElementById('colorPicker');
+const brushSize      = document.getElementById('brushSize');
+const brushSizeValue = document.getElementById('brushSizeValue');
+const clearBtn       = document.getElementById('clearBtn');
+const downloadBtn    = document.getElementById('downloadBtn');
+const undoBtn        = document.getElementById('undoBtn');
+const redoBtn        = document.getElementById('redoBtn');
+
+// =============================================
+// DRAWING STATE
+// =============================================
+let isDrawing        = false;
+let hasDrawnInStroke = false;
+let currentColor     = '#000000';
+let currentBrushSize = 5;
+let currentTool      = 'brush';
+let lastX            = 0;
+let lastY            = 0;
+let canvasImage      = null;
+
+let mouseX     = 0;
+let mouseY     = 0;
+let showCursor = false;
+
+let remoteDrawing = false;
+let remoteLastX   = 0;
+let remoteLastY   = 0;
+
+// =============================================
+// UNDO/REDO STATE
+// =============================================
+let localUndoStack  = [];
+let localRedoStack  = [];
+const MAX_LOCAL_HISTORY = 30;
+let serverHasUndo   = false;
+let serverHasRedo   = false;
+
+// =============================================
+// REMOTE CURSORS
+// =============================================
+const remoteCursors = {};
+
+// =============================================
+// TOAST
+// =============================================
+let toastTimer = null;
+
+function showToast(message, duration = 2500) {
+    toast.textContent = message;
+    toast.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => toast.classList.remove('show'), duration);
+}
+
+// =============================================
+// TRANSITION: LANDING → APP
+// =============================================
+function showApp() {
+    // Fade out landing
+    landingScreen.classList.add('fade-out');
+
+    setTimeout(() => {
+        landingScreen.style.display = 'none';
+        appScreen.style.display     = 'flex';
+        appScreen.style.flexDirection = 'column';
+
+        // Trigger fade in
+        requestAnimationFrame(() => {
+            appScreen.classList.add('visible');
+        });
+    }, 600);
+}
+
+// =============================================
+// LANDING SCREEN LOGIC
+// =============================================
+function getLandingName() {
+    const name = usernameInput.value.trim();
+    if (!name) {
+        showLandingError('Please enter your name first!');
+        usernameInput.focus();
+        return null;
+    }
+    return name;
+}
+
+function showLandingError(msg) {
+    landingError.textContent = msg;
+    setTimeout(() => { landingError.textContent = ''; }, 3000);
+}
+
+// Create Room
+landingCreateBtn.addEventListener('click', () => {
+    const name = getLandingName();
+    if (!name) return;
+    myName = name;
+    socket.emit('create-room', { userName: name });
+});
+
+// Join Room
+landingJoinBtn.addEventListener('click', () => {
+    const name = getLandingName();
+    if (!name) return;
+
+    const code = roomCodeInput.value.trim().toUpperCase();
+    if (!code) {
+        showLandingError('Please enter a room code!');
+        roomCodeInput.focus();
+        return;
+    }
+
+    myName = name;
+    socket.emit('join-room', { roomId: code, userName: name });
+});
+
+// Allow Enter key in room code input
+roomCodeInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') landingJoinBtn.click();
+});
+
+usernameInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+        const code = roomCodeInput.value.trim();
+        if (code) landingJoinBtn.click();
+        else landingCreateBtn.click();
     }
 });
 
-// Log when disconnected
-socket.on('disconnect', () => {
-    console.log('❌ Disconnected from server!');
-});
+// Also check URL for room param — auto-fill room code
+const urlParams   = new URLSearchParams(window.location.search);
+const roomFromUrl = urlParams.get('room');
+if (roomFromUrl) {
+    roomCodeInput.value = roomFromUrl.toUpperCase();
+}
 
-// Handle room created
-socket.on('room-created', (data) => {
-    currentRoomId = data.roomId;
-    showRoomInfo(data.roomId, data.userCount);
-    updateUrl(data.roomId);
-    console.log('🎉 Room created:', data.roomId);
-});
-
-// Handle room joined
-socket.on('room-joined', (data) => {
-    currentRoomId = data.roomId;
-    showRoomInfo(data.roomId, data.userCount);
-    console.log('🚪 Joined room:', data.roomId);
-});
-
-// Handle user count updates
-socket.on('user-count-update', (userCount) => {
-    updateUserCount(userCount);
-    console.log('👥 User count updated:', userCount);
-});
-
-// Create room button
-createRoomBtn.addEventListener('click', () => {
-    socket.emit('create-room');
-});
-
-// Copy link button
+// =============================================
+// COPY LINK BUTTON
+// =============================================
 copyLinkBtn.addEventListener('click', () => {
     const link = `${window.location.origin}/?room=${currentRoomId}`;
     navigator.clipboard.writeText(link).then(() => {
-        // Show "Copied!" feedback
-        copyLinkBtn.textContent = 'Copied!';
+        copyLinkBtn.textContent = '✅ Copied!';
         copyLinkBtn.classList.add('copied');
-        
         setTimeout(() => {
-            copyLinkBtn.textContent = 'Copy Invite Link';
+            copyLinkBtn.textContent = 'Copy Link';
             copyLinkBtn.classList.remove('copied');
         }, 2000);
     });
 });
 
-// Function to join a room
-function joinRoom(roomId) {
-    socket.emit('join-room', roomId);
-}
-
-// Function to show room info
-function showRoomInfo(roomId, userCount) {
-    roomIdDisplay.textContent = roomId;
-    userCountDisplay.textContent = userCount;
-    roomInfo.style.display = 'flex';
-    createRoomBtn.style.display = 'none';
-}
-
-// Function to update user count
-function updateUserCount(count) {
-    userCountDisplay.textContent = count;
-}
-
-// Function to update URL without reload
-function updateUrl(roomId) {
-    const newUrl = `${window.location.origin}/?room=${roomId}`;
-    window.history.pushState({}, '', newUrl);
-}
-
-// Receive drawing data from other users
-socket.on('draw', (data) => {
-    // Check if it's the start of a stroke
-    if (data.isStart) {
-        // Reset remote drawing and prepare for new stroke
-        remoteDrawing = false;
-        drawReceivedLine(data.x, data.y, data.color, data.size, data.tool, true);
-    } else {
-        // Continue the line
-        drawReceivedLine(data.x, data.y, data.color, data.size, data.tool, false);
-    }
+// =============================================
+// SOCKET EVENTS
+// =============================================
+socket.on('connect', () => {
+    console.log('✅ Connected:', socket.id);
 });
 
-// Receive clear event from other users
+socket.on('disconnect', () => {
+    showToast('⚠️ Disconnected. Reconnecting...');
+});
+
+// Room created
+socket.on('room-created', (data) => {
+    currentRoomId = data.roomId;
+    myColor       = data.userColor;
+    updateRoomUI(data.roomId, data.userCount);
+    updateUrl(data.roomId);
+    showApp();
+    setTimeout(() => showToast('🎉 Room created! Share the link.'), 700);
+});
+
+// Room joined
+socket.on('room-joined', (data) => {
+    currentRoomId = data.roomId;
+    myColor       = data.userColor;
+    serverHasUndo = data.hasUndo || false;
+    serverHasRedo = data.hasRedo || false;
+    updateRoomUI(data.roomId, data.userCount);
+    updateUndoRedoButtons();
+    showApp();
+    setTimeout(() => {
+        showToast(`🚪 Joined room ${data.roomId}`);
+        if (data.canvasState) loadCanvasState(data.canvasState);
+    }, 700);
+});
+
+// Room not found
+socket.on('room-not-found', (roomId) => {
+    showLandingError(`Room "${roomId}" not found. Check the code!`);
+    window.history.pushState({}, '', '/');
+});
+
+// User count
+socket.on('user-count-update', (count) => {
+    userCountDisplay.textContent = count;
+});
+
+// Another user joined
+socket.on('user-joined', (data) => {
+    showToast(`👋 ${data.name} joined`);
+});
+
+// Another user left
+socket.on('user-left', (socketId) => {
+    removeCursor(socketId);
+    showToast('👋 A user left');
+});
+
+// Receive drawing
+socket.on('draw', (data) => {
+    if (data.isStart) remoteDrawing = false;
+    drawReceivedLine(data.x, data.y, data.color, data.size, data.tool, data.isStart);
+});
+
+// Clear canvas from server
 socket.on('clear', () => {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     canvasImage = null;
-    console.log('Canvas cleared by another user');
+    showToast('🗑️ Canvas cleared');
 });
 
-// Reset remote drawing when mouse up
-socket.on('mouseup', () => {
-    remoteDrawing = false;
+socket.on('mouseup', () => { remoteDrawing = false; });
+
+// Server restored canvas after undo/redo
+socket.on('canvas-restore', (data) => {
+    loadCanvasState(data.state);
+    serverHasUndo = data.hasUndo;
+    serverHasRedo = data.hasRedo;
+    updateUndoRedoButtons();
 });
 
-// Get canvas element and context
-const canvas = document.getElementById('canvas');
-const ctx = canvas.getContext('2d');
+// Server updates undo/redo availability
+socket.on('history-update', (data) => {
+    serverHasUndo = data.hasUndo;
+    serverHasRedo = data.hasRedo;
+    updateUndoRedoButtons();
+});
 
-// Get toolbar elements
-const brushBtn = document.getElementById('brushBtn');
-const eraserBtn = document.getElementById('eraserBtn');
-const colorPicker = document.getElementById('colorPicker');
-const brushSize = document.getElementById('brushSize');
-const brushSizeValue = document.getElementById('brushSizeValue');
-const clearBtn = document.getElementById('clearBtn');
-const downloadBtn = document.getElementById('downloadBtn');
+// Live cursors
+socket.on('cursor-move', (data) => {
+    updateRemoteCursor(data.socketId, data.x, data.y, data.color, data.name);
+});
 
-// Drawing state
-let isDrawing = false;
-let currentColor = '#000000';
-let currentBrushSize = 5;
-let currentTool = 'brush'; // 'brush' or 'eraser'
-let lastX = 0;
-let lastY = 0;
+socket.on('cursor-hide', (socketId) => {
+    removeCursor(socketId);
+});
 
-// Store canvas image data
-let canvasImage = null;
+socket.on('existing-users', (users) => {
+    Object.entries(users).forEach(([socketId, info]) => {
+        if (socketId !== socket.id) ensureCursorExists(socketId, info.color, info.name);
+    });
+});
 
-// Cursor preview
-let mouseX = 0;
-let mouseY = 0;
-let showCursor = false;
+// =============================================
+// ROOM UI HELPERS
+// =============================================
+function updateRoomUI(roomId, userCount) {
+    roomIdDisplay.textContent    = roomId;
+    userCountDisplay.textContent = userCount;
+    roomInfo.style.visibility    = 'visible';
+    myNameBadge.textContent      = `👤 ${myName}`;
+}
 
-// Remote drawing state
-let remoteDrawing = false;
-let remoteLastX = 0;
-let remoteLastY = 0;
+function updateUrl(roomId) {
+    window.history.pushState({}, '', `${window.location.origin}/?room=${roomId}`);
+}
 
-// Tool selection
+// =============================================
+// CURSOR FUNCTIONS
+// =============================================
+function ensureCursorExists(socketId, color, name) {
+    if (remoteCursors[socketId]) return;
+    const wrapper = document.createElement('div');
+    wrapper.className = 'remote-cursor';
+    wrapper.style.display = 'none';
+
+    const dot = document.createElement('div');
+    dot.className = 'remote-cursor-dot';
+    dot.style.background = color;
+
+    const label = document.createElement('div');
+    label.className = 'remote-cursor-label';
+    label.style.background = color;
+    label.textContent = name;
+
+    wrapper.appendChild(dot);
+    wrapper.appendChild(label);
+    cursorOverlay.appendChild(wrapper);
+    remoteCursors[socketId] = { element: wrapper };
+}
+
+function updateRemoteCursor(socketId, x, y, color, name) {
+    ensureCursorExists(socketId, color, name);
+    const cursor      = remoteCursors[socketId];
+    const overlayRect = cursorOverlay.getBoundingClientRect();
+    const scaleX      = overlayRect.width  / canvas.width;
+    const scaleY      = overlayRect.height / canvas.height;
+    cursor.element.style.left    = `${x * scaleX}px`;
+    cursor.element.style.top     = `${y * scaleY}px`;
+    cursor.element.style.display = 'block';
+}
+
+function removeCursor(socketId) {
+    if (remoteCursors[socketId]) {
+        remoteCursors[socketId].element.remove();
+        delete remoteCursors[socketId];
+    }
+}
+
+// =============================================
+// TOOLBAR LISTENERS
+// =============================================
 brushBtn.addEventListener('click', () => {
     currentTool = 'brush';
     brushBtn.classList.add('active');
@@ -167,196 +464,269 @@ eraserBtn.addEventListener('click', () => {
     currentTool = 'eraser';
     eraserBtn.classList.add('active');
     brushBtn.classList.remove('active');
-    canvas.style.cursor = 'none'; // Hide default cursor
+    canvas.style.cursor = 'none';
 });
 
-// Update brush size display when slider changes
 brushSize.addEventListener('input', (e) => {
     currentBrushSize = e.target.value;
     brushSizeValue.textContent = `${currentBrushSize}px`;
 });
 
-// Update color when color picker changes
 colorPicker.addEventListener('change', (e) => {
     currentColor = e.target.value;
 });
 
-// Clear canvas when button clicked
 clearBtn.addEventListener('click', () => {
+    if (!currentRoomId) saveToUndoStack();
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     canvasImage = null;
-    
-    // Tell server to clear everyone's canvas in this room
-    socket.emit('clear', currentRoomId);
+    if (currentRoomId) {
+        socket.emit('clear', currentRoomId);
+    } else {
+        localRedoStack = [];
+        updateUndoRedoButtons();
+    }
 });
 
-// Download canvas as image
 downloadBtn.addEventListener('click', () => {
-    // Create a temporary link
     const link = document.createElement('a');
-    
-    // Get current date/time for filename
     const date = new Date();
-    const filename = `paint-together-${date.getFullYear()}${(date.getMonth()+1).toString().padStart(2,'0')}${date.getDate().toString().padStart(2,'0')}-${date.getHours()}${date.getMinutes()}${date.getSeconds()}.png`;
-    
-    // Set download attributes
-    link.download = filename;
-    link.href = canvas.toDataURL('image/png');
-    
-    // Trigger download
+    const ts   = `${date.getFullYear()}${String(date.getMonth()+1).padStart(2,'0')}${String(date.getDate()).padStart(2,'0')}-${date.getHours()}${date.getMinutes()}${date.getSeconds()}`;
+    link.download = `paint-together-${ts}.png`;
+    link.href     = canvas.toDataURL('image/png');
     link.click();
-    
-    console.log('Canvas downloaded as:', filename);
 });
 
-// Mouse event listeners
-canvas.addEventListener('mousedown', startDrawing);
-canvas.addEventListener('mousemove', handleMouseMove);
-canvas.addEventListener('mouseup', stopDrawing);
+undoBtn.addEventListener('click', undo);
+redoBtn.addEventListener('click', redo);
+
+document.addEventListener('keydown', (e) => {
+    if (e.ctrlKey && e.key === 'z')  { e.preventDefault(); undo(); }
+    if ((e.ctrlKey && e.key === 'y') || (e.ctrlKey && e.shiftKey && e.key === 'z')) {
+        e.preventDefault(); redo();
+    }
+});
+
+// =============================================
+// UNDO / REDO
+// =============================================
+function saveToUndoStack() {
+    if (currentRoomId) return;
+    const state = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    localUndoStack.push(state);
+    if (localUndoStack.length > MAX_LOCAL_HISTORY) localUndoStack.shift();
+    localRedoStack = [];
+    updateUndoRedoButtons();
+}
+
+function undo() {
+    if (currentRoomId) {
+        socket.emit('undo', currentRoomId);
+    } else {
+        if (localUndoStack.length === 0) return;
+        localRedoStack.push(ctx.getImageData(0, 0, canvas.width, canvas.height));
+        const prev = localUndoStack.pop();
+        ctx.putImageData(prev, 0, 0);
+        canvasImage = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        updateUndoRedoButtons();
+    }
+}
+
+function redo() {
+    if (currentRoomId) {
+        socket.emit('redo', currentRoomId);
+    } else {
+        if (localRedoStack.length === 0) return;
+        localUndoStack.push(ctx.getImageData(0, 0, canvas.width, canvas.height));
+        const next = localRedoStack.pop();
+        ctx.putImageData(next, 0, 0);
+        canvasImage = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        updateUndoRedoButtons();
+    }
+}
+
+function updateUndoRedoButtons() {
+    if (currentRoomId) {
+        undoBtn.disabled = !serverHasUndo;
+        redoBtn.disabled = !serverHasRedo;
+    } else {
+        undoBtn.disabled = localUndoStack.length === 0;
+        redoBtn.disabled = localRedoStack.length === 0;
+    }
+}
+
+// =============================================
+// CANVAS STATE
+// =============================================
+function loadCanvasState(base64) {
+    const img = new Image();
+    img.onload = () => {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(img, 0, 0);
+        canvasImage = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    };
+    img.src = base64;
+}
+
+// =============================================
+// COORDINATE HELPERS
+// =============================================
+function getMousePos(e) {
+    const rect   = canvas.getBoundingClientRect();
+    const scaleX = canvas.width  / rect.width;
+    const scaleY = canvas.height / rect.height;
+    return {
+        x: (e.clientX - rect.left) * scaleX,
+        y: (e.clientY - rect.top)  * scaleY
+    };
+}
+
+// =============================================
+// MOUSE EVENTS
+// =============================================
+canvas.addEventListener('mousedown',  startDrawing);
+canvas.addEventListener('mousemove',  handleMouseMove);
+canvas.addEventListener('mouseup',    stopDrawing);
 canvas.addEventListener('mouseout', () => {
     stopDrawing();
     showCursor = false;
     restoreCanvas();
+    if (currentRoomId) socket.emit('cursor-leave', currentRoomId);
 });
-canvas.addEventListener('mouseenter', () => {
-    showCursor = true;
-});
+canvas.addEventListener('mouseenter', () => { showCursor = true; });
 
-// Get proper mouse coordinates accounting for canvas scaling
-function getMousePos(e) {
-    const rect = canvas.getBoundingClientRect();
-    const scaleX = canvas.width / rect.width;
-    const scaleY = canvas.height / rect.height;
-    
-    return {
-        x: (e.clientX - rect.left) * scaleX,
-        y: (e.clientY - rect.top) * scaleY
-    };
-}
-
-// Track mouse position
 function handleMouseMove(e) {
     const pos = getMousePos(e);
     mouseX = pos.x;
     mouseY = pos.y;
-    
-    // Draw if mouse is pressed
+
     if (isDrawing) {
         draw(e);
     } else if (currentTool === 'eraser' && showCursor) {
-        // Only show cursor preview when NOT drawing
         showCursorPreview();
     }
+
+    if (currentRoomId) {
+        socket.emit('cursor-move', { roomId: currentRoomId, x: pos.x, y: pos.y });
+    }
 }
 
-// Start drawing
+// =============================================
+// TOUCH EVENTS
+// =============================================
+canvas.addEventListener('touchstart', (e) => {
+    e.preventDefault();
+    const t = e.touches[0];
+    canvas.dispatchEvent(new MouseEvent('mousedown', { clientX: t.clientX, clientY: t.clientY }));
+}, { passive: false });
+
+canvas.addEventListener('touchmove', (e) => {
+    e.preventDefault();
+    const t = e.touches[0];
+    canvas.dispatchEvent(new MouseEvent('mousemove', { clientX: t.clientX, clientY: t.clientY }));
+}, { passive: false });
+
+canvas.addEventListener('touchend', (e) => {
+    e.preventDefault();
+    canvas.dispatchEvent(new MouseEvent('mouseup'));
+}, { passive: false });
+
+// =============================================
+// DRAWING FUNCTIONS
+// =============================================
 function startDrawing(e) {
-    if (!currentRoomId) {
-        alert('Please create or join a room first!');
-        return;
-    }
-    
-    isDrawing = true;
+    hasDrawnInStroke = false;
+    isDrawing        = true;
+
     const pos = getMousePos(e);
-    
-    // Store starting position
     lastX = pos.x;
     lastY = pos.y;
-    
-    // Restore canvas before starting (removes cursor preview)
+
     restoreCanvas();
-    
-    // Begin new path for this stroke
     ctx.beginPath();
     ctx.moveTo(pos.x, pos.y);
-    
-    // Configure drawing settings
-    ctx.lineWidth = currentBrushSize;
-    ctx.lineCap = 'round';
-    ctx.lineJoin = 'round';
-    
-    // Set color based on tool
-    if (currentTool === 'brush') {
-        ctx.strokeStyle = currentColor;
-    } else if (currentTool === 'eraser') {
-        ctx.strokeStyle = '#ffffff'; // White (erases)
+    ctx.lineWidth   = currentBrushSize;
+    ctx.lineCap     = 'round';
+    ctx.lineJoin    = 'round';
+    ctx.strokeStyle = currentTool === 'eraser' ? '#ffffff' : currentColor;
+
+    if (!currentRoomId) {
+        saveToUndoStack();
+    } else {
+        // Tell server to save current canvas as undo snapshot before this stroke
+        socket.emit('save-undo-snapshot', {
+            roomId: currentRoomId,
+            state:  canvas.toDataURL('image/png')
+        });
+        socket.emit('draw', {
+            x: pos.x, y: pos.y,
+            color: currentColor, size: currentBrushSize,
+            tool: currentTool, isStart: true, roomId: currentRoomId
+        });
     }
-    
-    // Send start point to server
-    socket.emit('draw', {
-        x: pos.x,
-        y: pos.y,
-        color: currentColor,
-        size: currentBrushSize,
-        tool: currentTool,
-        isStart: true,
-        roomId: currentRoomId
-    });
 }
 
-// Draw on canvas
 function draw(e) {
     if (!isDrawing) return;
-    
+
     const pos = getMousePos(e);
-    
-    // Draw line to current position
     ctx.lineTo(pos.x, pos.y);
     ctx.stroke();
-    
-    // Start next segment from current position
     ctx.beginPath();
     ctx.moveTo(pos.x, pos.y);
-    
-    // Update last position
+
+    hasDrawnInStroke = true;
     lastX = pos.x;
     lastY = pos.y;
-    
-    // Send drawing data to server
-    socket.emit('draw', {
-        x: pos.x,
-        y: pos.y,
-        color: currentColor,
-        size: currentBrushSize,
-        tool: currentTool,
-        roomId: currentRoomId
-    });
-}
 
-// Stop drawing
-function stopDrawing() {
-    if (isDrawing) {
-        isDrawing = false;
-        // Save canvas state after drawing
-        canvasImage = ctx.getImageData(0, 0, canvas.width, canvas.height);
-        
-        // Tell server drawing stopped
-        socket.emit('mouseup', currentRoomId);
-        
-        // Show cursor preview again if using eraser
-        if (currentTool === 'eraser' && showCursor) {
-            showCursorPreview();
-        }
+    if (currentRoomId) {
+        socket.emit('draw', {
+            x: pos.x, y: pos.y,
+            color: currentColor, size: currentBrushSize,
+            tool: currentTool, roomId: currentRoomId
+        });
     }
 }
 
-// Show cursor preview (for eraser)
+function stopDrawing() {
+    if (!isDrawing) return;
+    isDrawing = false;
+
+    if (!hasDrawnInStroke) {
+        if (currentRoomId) {
+            socket.emit('discard-undo-snapshot', currentRoomId);
+        } else {
+            localUndoStack.pop();
+            updateUndoRedoButtons();
+        }
+        return;
+    }
+
+    canvasImage = ctx.getImageData(0, 0, canvas.width, canvas.height);
+
+    if (currentRoomId) {
+        socket.emit('mouseup', currentRoomId);
+        socket.emit('stroke-complete', {
+            roomId: currentRoomId,
+            state:  canvas.toDataURL('image/png')
+        });
+    }
+
+    if (currentTool === 'eraser' && showCursor) showCursorPreview();
+}
+
 function showCursorPreview() {
-    // Restore original canvas first
     restoreCanvas();
-    
-    // Draw cursor circle
     ctx.save();
     ctx.beginPath();
     ctx.arc(mouseX, mouseY, currentBrushSize / 2, 0, Math.PI * 2);
     ctx.strokeStyle = '#666666';
-    ctx.lineWidth = 2;
-    ctx.setLineDash([5, 5]); // Dashed line
+    ctx.lineWidth   = 2;
+    ctx.setLineDash([5, 5]);
     ctx.stroke();
     ctx.restore();
 }
 
-// Restore canvas to saved state
 function restoreCanvas() {
     if (canvasImage) {
         ctx.putImageData(canvasImage, 0, 0);
@@ -365,43 +735,33 @@ function restoreCanvas() {
     }
 }
 
-// Draw line received from other users
+// =============================================
+// RECEIVE REMOTE DRAWING
+// =============================================
 function drawReceivedLine(x, y, color, size, tool, isStart) {
     ctx.save();
-    
+
     if (isStart || !remoteDrawing) {
-        // Start new path
         remoteDrawing = true;
-        remoteLastX = x;
-        remoteLastY = y;
+        remoteLastX   = x;
+        remoteLastY   = y;
         ctx.beginPath();
         ctx.moveTo(x, y);
     }
-    
-    // Drawing settings
-    ctx.lineWidth = size;
-    ctx.lineCap = 'round';
-    ctx.lineJoin = 'round';
-    
-    if (tool === 'brush') {
-        ctx.strokeStyle = color;
-    } else {
-        ctx.strokeStyle = '#ffffff';
-    }
-    
-    // Draw line to new position
+
+    ctx.lineWidth   = size;
+    ctx.lineCap     = 'round';
+    ctx.lineJoin    = 'round';
+    ctx.strokeStyle = tool === 'brush' ? color : '#ffffff';
+
     ctx.lineTo(x, y);
     ctx.stroke();
-    
-    // Start next segment from current position
     ctx.beginPath();
     ctx.moveTo(x, y);
-    
+
     remoteLastX = x;
     remoteLastY = y;
-    
+
     ctx.restore();
-    
-    // Save canvas state
     canvasImage = ctx.getImageData(0, 0, canvas.width, canvas.height);
 }
