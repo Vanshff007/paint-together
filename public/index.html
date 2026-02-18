@@ -68,6 +68,7 @@
             </div>
             <div class="header-right">
                 <span id="myNameBadge" class="my-name-badge"></span>
+                <button id="exitRoomBtn" class="exit-room-btn" title="Leave room">🚪 Exit</button>
                 <button id="darkToggleBtnApp" class="dark-toggle-app" title="Toggle dark mode">🌙</button>
             </div>
         </header>
@@ -78,10 +79,13 @@
                 <button id="brushBtn" class="tool-btn active">✏️ Brush</button>
                 <button id="eraserBtn" class="tool-btn">⬜ Eraser</button>
             </div>
-            <div class="control-group">
-                <label for="colorPicker">Color:</label>
-                <input type="color" id="colorPicker" value="#000000">
+            
+            <div class="control-group color-palette-group">
+                <label>Colors:</label>
+                <div class="color-palette" id="colorPalette"></div>
+                <button id="customColorBtn" class="custom-color-btn" title="Custom color">+</button>
             </div>
+            
             <div class="control-group">
                 <label for="brushSize">Size:</label>
                 <input type="range" id="brushSize" min="1" max="50" value="5">
@@ -105,6 +109,18 @@
 
     <!-- Toast -->
     <div id="toast" class="toast"></div>
+
+    <!-- Color Picker Modal -->
+    <div id="colorPickerModal" class="color-picker-modal">
+        <div class="color-picker-content">
+            <h3>Choose Custom Color</h3>
+            <input type="color" id="colorPicker" value="#000000">
+            <div class="color-picker-buttons">
+                <button id="colorPickerCancel" class="picker-btn cancel-btn">Cancel</button>
+                <button id="colorPickerOk" class="picker-btn ok-btn">OK</button>
+            </div>
+        </div>
+    </div>
 
     <script src="/socket.io/socket.io.js"></script>
     <script src="script.js"></script>

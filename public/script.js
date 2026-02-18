@@ -125,6 +125,7 @@ const roomInfo         = document.getElementById('roomInfo');
 const roomIdDisplay    = document.getElementById('roomId');
 const userCountDisplay = document.getElementById('userCount');
 const copyLinkBtn      = document.getElementById('copyLinkBtn');
+const exitRoomBtn      = document.getElementById('exitRoomBtn');
 const myNameBadge      = document.getElementById('myNameBadge');
 const toast            = document.getElementById('toast');
 
@@ -138,22 +139,100 @@ const cursorOverlay = document.getElementById('cursorOverlay');
 // =============================================
 // TOOLBAR ELEMENTS
 // =============================================
-const brushBtn       = document.getElementById('brushBtn');
-const eraserBtn      = document.getElementById('eraserBtn');
-const colorPicker    = document.getElementById('colorPicker');
-const brushSize      = document.getElementById('brushSize');
-const brushSizeValue = document.getElementById('brushSizeValue');
-const clearBtn       = document.getElementById('clearBtn');
-const downloadBtn    = document.getElementById('downloadBtn');
-const undoBtn        = document.getElementById('undoBtn');
-const redoBtn        = document.getElementById('redoBtn');
+const brushBtn         = document.getElementById('brushBtn');
+const eraserBtn        = document.getElementById('eraserBtn');
+const colorPalette     = document.getElementById('colorPalette');
+const customColorBtn   = document.getElementById('customColorBtn');
+const colorPickerModal = document.getElementById('colorPickerModal');
+const colorPicker      = document.getElementById('colorPicker');
+const colorPickerOk    = document.getElementById('colorPickerOk');
+const colorPickerCancel = document.getElementById('colorPickerCancel');
+const brushSize        = document.getElementById('brushSize');
+const brushSizeValue   = document.getElementById('brushSizeValue');
+const clearBtn         = document.getElementById('clearBtn');
+const downloadBtn      = document.getElementById('downloadBtn');
+const undoBtn          = document.getElementById('undoBtn');
+const redoBtn          = document.getElementById('redoBtn');
+
+// =============================================
+// MS PAINT COLOR PALETTE
+// =============================================
+const defaultColors = [
+    // Row 1 - Primary bright colors
+    '#FFFFFF', '#FF0000', '#FFFF00', '#00FF00', '#00FFFF', '#0000FF', '#FF00FF',
+    // Row 2 - Secondary/pastel colors
+    '#C0C0C0', '#FFFF80', '#00FF80', '#80FFFF', '#8080FF', '#FF0080', '#FF8040'
+];
+
+let selectedColorElement = null;
+let paletteInitialized = false;
+let currentColor = '#000000'; // Default black (not in palette but available)
+
+// Initialize palette (called when app screen is shown)
+function initColorPalette() {
+    if (paletteInitialized) return;
+    paletteInitialized = true;
+
+    // Generate palette swatches
+    defaultColors.forEach((color, index) => {
+        const swatch = document.createElement('div');
+        swatch.className = 'color-swatch';
+        swatch.style.background = color;
+        swatch.dataset.color = color;
+        
+        swatch.addEventListener('click', () => {
+            selectColor(color, swatch);
+        });
+        
+        colorPalette.appendChild(swatch);
+    });
+
+    // Custom color button — show modal
+    customColorBtn.addEventListener('click', () => {
+        colorPicker.value = currentColor; // Set to current color
+        colorPickerModal.classList.add('show');
+    });
+
+    // Modal OK button
+    colorPickerOk.addEventListener('click', () => {
+        selectColor(colorPicker.value, null);
+        document.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('active'));
+        colorPickerModal.classList.remove('show');
+    });
+
+    // Modal Cancel button
+    colorPickerCancel.addEventListener('click', () => {
+        colorPickerModal.classList.remove('show');
+    });
+
+    // Close modal on backdrop click
+    colorPickerModal.addEventListener('click', (e) => {
+        if (e.target === colorPickerModal) {
+            colorPickerModal.classList.remove('show');
+        }
+    });
+}
+
+// Select color function
+function selectColor(color, element) {
+    currentColor = color;
+    
+    // Update active state
+    if (selectedColorElement) {
+        selectedColorElement.classList.remove('active');
+    }
+    if (element) {
+        element.classList.add('active');
+        selectedColorElement = element;
+    }
+}
 
 // =============================================
 // DRAWING STATE
 // =============================================
 let isDrawing        = false;
 let hasDrawnInStroke = false;
-let currentColor     = '#000000';
+// currentColor already declared in palette section
 let currentBrushSize = 5;
 let currentTool      = 'brush';
 let lastX            = 0;
@@ -198,6 +277,9 @@ function showToast(message, duration = 2500) {
 // TRANSITION: LANDING → APP
 // =============================================
 function showApp() {
+    // Initialize color palette on first show
+    initColorPalette();
+
     // Fade out landing
     landingScreen.classList.add('fade-out');
 
@@ -288,6 +370,43 @@ copyLinkBtn.addEventListener('click', () => {
             copyLinkBtn.classList.remove('copied');
         }, 2000);
     });
+});
+
+// =============================================
+// EXIT ROOM BUTTON
+// =============================================
+exitRoomBtn.addEventListener('click', () => {
+    if (!currentRoomId) return;
+
+    // Disconnect from socket to leave room cleanly
+    socket.disconnect();
+    
+    // Reset state
+    currentRoomId = null;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    canvasImage = null;
+    localUndoStack = [];
+    localRedoStack = [];
+    updateUndoRedoButtons();
+    
+    // Clear URL
+    window.history.pushState({}, '', '/');
+    
+    // Hide app, show landing
+    appScreen.classList.remove('visible');
+    setTimeout(() => {
+        appScreen.style.display = 'none';
+        landingScreen.style.display = 'flex';
+        landingScreen.classList.remove('fade-out');
+        
+        // Reconnect socket
+        socket.connect();
+        
+        // Restart splash animation
+        animateSplash();
+    }, 300);
+    
+    showToast('👋 Left the room');
 });
 
 // =============================================
@@ -470,10 +589,6 @@ eraserBtn.addEventListener('click', () => {
 brushSize.addEventListener('input', (e) => {
     currentBrushSize = e.target.value;
     brushSizeValue.textContent = `${currentBrushSize}px`;
-});
-
-colorPicker.addEventListener('change', (e) => {
-    currentColor = e.target.value;
 });
 
 clearBtn.addEventListener('click', () => {

@@ -456,6 +456,25 @@ body {
     border-radius: 8px;
 }
 
+.exit-room-btn {
+    padding: 7px 16px;
+    background: linear-gradient(135deg, #f093fb, #f5576c);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px;
+    font-weight: 600;
+    transition: all 0.3s;
+    box-shadow: 0 3px 10px rgba(245,87,108,0.35);
+}
+
+.exit-room-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 5px 14px rgba(245,87,108,0.5);
+}
+
 .dark-toggle-app {
     width: 38px;
     height: 38px;
@@ -503,6 +522,70 @@ label {
     color: var(--text-secondary);
 }
 
+/* =============================================
+   MS PAINT COLOR PALETTE
+   ============================================= */
+.color-palette-group {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.color-palette {
+    display: grid;
+    grid-template-columns: repeat(7, 28px);
+    grid-template-rows: repeat(2, 28px);
+    gap: 4px;
+    padding: 8px;
+    background: var(--input-bg);
+    border: 1.5px solid var(--btn-tool-border);
+    border-radius: 10px;
+}
+
+.color-swatch {
+    width: 28px;
+    height: 28px;
+    border-radius: 5px;
+    cursor: pointer;
+    border: 2px solid transparent;
+    transition: all 0.2s ease;
+    position: relative;
+}
+
+.color-swatch:hover {
+    transform: scale(1.15);
+    box-shadow: 0 3px 8px rgba(0,0,0,0.2);
+}
+
+.color-swatch.active {
+    border-color: var(--input-focus);
+    box-shadow: 0 0 0 2px rgba(6,182,212,0.3);
+    transform: scale(1.05);
+}
+
+.custom-color-btn {
+    width: 38px;
+    height: 56px;
+    background: var(--btn-tool-bg);
+    border: 1.5px solid var(--btn-tool-border);
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 20px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.25s ease;
+}
+
+.custom-color-btn:hover {
+    background: linear-gradient(135deg, #0e7490, #06b6d4);
+    color: white;
+    border-color: transparent;
+    transform: scale(1.05);
+}
+
 /* Tool buttons */
 .tool-btn {
     padding: 10px 20px;
@@ -528,20 +611,6 @@ label {
     border-color: transparent;
     box-shadow: 0 4px 14px rgba(14,116,144,0.4);
 }
-
-/* Color picker */
-#colorPicker {
-    width: 52px;
-    height: 38px;
-    border: 2px solid var(--btn-tool-border);
-    border-radius: 10px;
-    cursor: pointer;
-    transition: all 0.25s;
-    padding: 2px;
-    background: var(--input-bg);
-}
-
-#colorPicker:hover { transform: scale(1.08); }
 
 /* Brush size slider */
 #brushSize {
@@ -712,6 +781,97 @@ canvas#canvas {
 .toast.show {
     opacity: 1;
     transform: translateX(-50%) translateY(0);
+}
+
+/* =============================================
+   COLOR PICKER MODAL
+   ============================================= */
+.color-picker-modal {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.6);
+    backdrop-filter: blur(4px);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 10000;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.color-picker-modal.show {
+    display: flex;
+    opacity: 1;
+}
+
+.color-picker-content {
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: 16px;
+    padding: 28px 32px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    align-items: center;
+    transform: scale(0.9);
+    transition: transform 0.3s ease;
+}
+
+.color-picker-modal.show .color-picker-content {
+    transform: scale(1);
+}
+
+.color-picker-content h3 {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.color-picker-content input[type="color"] {
+    width: 200px;
+    height: 200px;
+    border: 3px solid var(--btn-tool-border);
+    border-radius: 12px;
+    cursor: pointer;
+}
+
+.color-picker-buttons {
+    display: flex;
+    gap: 12px;
+}
+
+.picker-btn {
+    padding: 10px 24px;
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 14px;
+    font-weight: 600;
+    transition: all 0.3s ease;
+}
+
+.cancel-btn {
+    background: var(--btn-tool-bg);
+    color: var(--text-primary);
+    border: 1.5px solid var(--btn-tool-border);
+}
+
+.cancel-btn:hover {
+    background: var(--input-bg);
+}
+
+.ok-btn {
+    background: linear-gradient(135deg, #0e7490, #06b6d4);
+    color: white;
+    box-shadow: 0 4px 14px rgba(14,116,144,0.4);
+}
+
+.ok-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 18px rgba(14,116,144,0.6);
 }
 
 /* =============================================
