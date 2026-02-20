@@ -1,0 +1,13 @@
+[33mf333f90[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m)[m shapes feature
+[33m6321754[m adjusted tools
+[33m0f5126b[m fixed colour pallete and interface
+[33ma6584bc[m new page for username and join with code button and dark mode
+[33m817468a[m Added download and no of user button
+[33mf0e22c2[m Room id allocation
+[33mdbe94fe[m Day 12: Implemented Socket.io rooms foundation and fixed line synchronization
+[33m441eced[m DAY 11 :Add real time collabrative feature(Real time interaction)
+[33m8f475c7[m Day 10 : installing socket and client-server connection established
+[33m0abcbfc[m Day 9: Created Express server, serves app on localhost:3000
+[33m6679f0f[m Day 8: Initialized npm and created package.json
+[33m5e215be[m Day 7: Made canvas responsive and added single-click draw/erase
+[33m7cf071c[m Day 1-5: Initial commit with drawing app

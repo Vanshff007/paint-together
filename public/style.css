@@ -20,6 +20,9 @@
     --header-bg: rgba(255,255,255,0.95);
     --divider-color: #e2e8f0;
     --canvas-shadow: 0 10px 40px rgba(0,0,0,0.2);
+    
+    /* Smooth transition for all theme changes */
+    transition: background 0.4s ease, color 0.4s ease;
 }
 
 [data-theme="dark"] {
@@ -27,18 +30,18 @@
     --card-border: rgba(255,255,255,0.08);
     --card-shadow: 0 24px 64px rgba(0,0,0,0.5);
     --text-primary: #f1f5f9;
-    --text-secondary: #94a3b8;
-    --text-muted: #475569;
-    --input-bg: rgba(30, 41, 59, 0.8);
-    --input-border: #334155;
+    --text-secondary: #cbd5e1;
+    --text-muted: #64748b;
+    --input-bg: rgba(51, 65, 85, 0.6);
+    --input-border: #475569;
     --input-focus: #06b6d4;
     --toolbar-bg: rgba(15, 23, 42, 0.96);
     --toolbar-border: rgba(255,255,255,0.06);
-    --btn-tool-bg: rgba(30,41,59,0.8);
-    --btn-tool-color: #cbd5e1;
-    --btn-tool-border: #334155;
+    --btn-tool-bg: rgba(51, 65, 85, 0.7);
+    --btn-tool-color: #e2e8f0;
+    --btn-tool-border: #475569;
     --header-bg: rgba(15, 23, 42, 0.96);
-    --divider-color: #1e293b;
+    --divider-color: #334155;
     --canvas-shadow: 0 10px 40px rgba(0,0,0,0.5);
 }
 
@@ -56,7 +59,24 @@ body {
     background: var(--bg-gradient);
     min-height: 100vh;
     overflow-x: hidden;
-    transition: background 0.4s ease;
+    transition: background 0.5s ease;
+}
+
+/* Add transitions to all themed elements */
+.toolbar,
+.app-header,
+.room-info,
+.landing-card,
+.tool-btn,
+.action-btn,
+.color-palette,
+.custom-color-btn,
+.my-name-badge,
+.dark-toggle-app,
+.input-group input,
+.landing-input,
+.color-picker-content {
+    transition: background 0.4s ease, color 0.4s ease, border-color 0.4s ease;
 }
 
 /* =============================================
@@ -449,9 +469,9 @@ body {
 .my-name-badge {
     font-size: 13px;
     font-weight: 600;
-    color: var(--text-secondary);
-    background: var(--btn-tool-bg);
-    border: 1px solid var(--btn-tool-border);
+    color: #5b21b6;
+    background: #ddd6fe;
+    border: 1px solid #a78bfa;
     padding: 5px 12px;
     border-radius: 8px;
 }
@@ -539,8 +559,8 @@ label {
     grid-template-rows: repeat(2, 24px);
     gap: 3px;
     padding: 6px;
-    background: var(--input-bg);
-    border: 1.5px solid var(--btn-tool-border);
+    background: #d1fae5;
+    border: 1.5px solid #6ee7b7;
     border-radius: 10px;
 }
 
@@ -549,9 +569,14 @@ label {
     height: 24px;
     border-radius: 4px;
     cursor: pointer;
-    border: 2px solid transparent;
+    border: 1.5px solid rgba(0,0,0,0.15);
     transition: all 0.2s ease;
     position: relative;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+[data-theme="dark"] .color-swatch {
+    border-color: rgba(255,255,255,0.2);
 }
 
 .color-swatch:hover {
@@ -561,6 +586,7 @@ label {
 
 .color-swatch.active {
     border-color: var(--input-focus);
+    border-width: 2.5px;
     box-shadow: 0 0 0 2px rgba(6,182,212,0.3);
     transform: scale(1.05);
 }
@@ -568,44 +594,57 @@ label {
 .custom-color-btn {
     width: 34px;
     height: 54px;
-    background: var(--btn-tool-bg);
-    border: 1.5px solid var(--btn-tool-border);
+    background: #fed7aa;
+    border: 1.5px solid #fb923c;
     border-radius: 8px;
     cursor: pointer;
     font-size: 18px;
     font-weight: 600;
-    color: var(--text-secondary);
+    color: #c2410c;
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: all 0.25s ease;
+    transition: transform 0.3s ease;
 }
 
 .custom-color-btn:hover {
-    background: linear-gradient(135deg, #0e7490, #06b6d4);
+    background: #fb923c;
     color: white;
-    border-color: transparent;
-    transform: scale(1.05);
+    border-color: #f97316;
+    transform: scale(1.08);
 }
 
 /* Tool buttons */
 .tool-btn {
     padding: 8px 16px;
-    background: var(--btn-tool-bg);
-    color: var(--btn-tool-color);
-    border: 1.5px solid var(--btn-tool-border);
+    background: #f1f5f9;
+    color: #334155;
+    border: 1.5px solid #e2e8f0;
     border-radius: 10px;
     cursor: pointer;
     font-family: 'DM Sans', sans-serif;
     font-size: 12px;
     font-weight: 600;
-    transition: all 0.25s ease;
+    transition: transform 0.25s ease, box-shadow 0.25s ease;
     white-space: nowrap;
+}
+
+/* Eraser button gets a pink color */
+#eraserBtn {
+    background: #fce7f3;
+    color: #be185d;
+    border-color: #f9a8d4;
+}
+
+#eraserBtn:hover {
+    background: #fbcfe8;
+    border-color: #f472b6;
 }
 
 .tool-btn:hover {
     transform: translateY(-1px);
-    box-shadow: 0 3px 10px rgba(0,0,0,0.1);
+    box-shadow: 0 3px 10px rgba(0,0,0,0.15);
+    background: #e2e8f0;
 }
 
 .tool-btn.active {
