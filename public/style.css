@@ -827,7 +827,7 @@ canvas#canvas {
 }
 
 /* =============================================
-   COLOR PICKER MODAL
+[colour pick krne ke liye]
    ============================================= */
 .color-picker-modal {
     position: fixed;
@@ -918,7 +918,7 @@ canvas#canvas {
 }
 
 /* =============================================
-   MOBILE
+   [Mobile ke liye responsive design]
    ============================================= */
 @media (max-width: 768px) {
     .landing-card {
@@ -949,7 +949,7 @@ canvas#canvas {
 }
 
 /* =============================================
-   SCREEN TRANSITION
+   SCREEN TRANSITION [delay karne ke lite taki smooth aaye transition]
    ============================================= */
 @keyframes appFadeIn {
     from { opacity: 0; transform: translateY(16px); }
