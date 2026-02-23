@@ -793,10 +793,7 @@ function handleMouseMove(e) {
     if (isDrawing) {
         draw(e);
     } else if (currentTool === 'eraser' && showCursor) {
-        // Only show cursor preview if not drawing remotely
-        if (!remoteDrawing) {
-            showCursorPreview();
-        }
+        showCursorPreview();
     }
 
     if (currentRoomId) {
@@ -999,9 +996,6 @@ function restoreCanvas() {
 // RECEIVE REMOTE DRAWING
 // =============================================
 function drawReceivedLine(x, y, color, size, tool, isStart) {
-    // Don't draw remotely while we're drawing locally
-    if (isDrawing) return;
-
     ctx.save();
 
     if (isStart || !remoteDrawing) {
@@ -1027,8 +1021,6 @@ function drawReceivedLine(x, y, color, size, tool, isStart) {
 
     ctx.restore();
     
-    // Only update canvasImage if we're not currently drawing
-    if (!isDrawing) {
-        canvasImage = ctx.getImageData(0, 0, canvas.width, canvas.height);
-    }
+    // Update canvasImage after drawing
+    canvasImage = ctx.getImageData(0, 0, canvas.width, canvas.height);
 }
