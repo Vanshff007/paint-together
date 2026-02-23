@@ -141,6 +141,9 @@ const cursorOverlay = document.getElementById('cursorOverlay');
 // =============================================
 const brushBtn         = document.getElementById('brushBtn');
 const eraserBtn        = document.getElementById('eraserBtn');
+const rectBtn          = document.getElementById('rectBtn');
+const circleBtn        = document.getElementById('circleBtn');
+const lineBtn          = document.getElementById('lineBtn');
 const colorPalette     = document.getElementById('colorPalette');
 const customColorBtn   = document.getElementById('customColorBtn');
 const colorPickerModal = document.getElementById('colorPickerModal');
@@ -234,10 +237,16 @@ let isDrawing        = false;
 let hasDrawnInStroke = false;
 // currentColor already declared in palette section
 let currentBrushSize = 5;
-let currentTool      = 'brush';
+let currentTool      = 'brush'; // 'brush', 'eraser', 'rect', 'circle', 'line'
 let lastX            = 0;
 let lastY            = 0;
 let canvasImage      = null;
+
+// Shape drawing state
+let shapeStartX = 0;
+let shapeStartY = 0;
+let shapeEndX   = 0;
+let shapeEndY   = 0;
 
 let mouseX     = 0;
 let mouseY     = 0;
@@ -473,6 +482,33 @@ socket.on('draw', (data) => {
     drawReceivedLine(data.x, data.y, data.color, data.size, data.tool, data.isStart);
 });
 
+// Receive shape from other users
+socket.on('draw-shape', (data) => {
+    ctx.save();
+    ctx.strokeStyle = data.color;
+    ctx.lineWidth   = data.size;
+    ctx.lineCap     = 'round';
+    ctx.lineJoin    = 'round';
+
+    if (data.tool === 'rect') {
+        ctx.strokeRect(data.startX, data.startY, data.endX - data.startX, data.endY - data.startY);
+    } else if (data.tool === 'circle') {
+        const radiusX = Math.abs(data.endX - data.startX);
+        const radiusY = Math.abs(data.endY - data.startY);
+        ctx.beginPath();
+        ctx.ellipse(data.startX, data.startY, radiusX, radiusY, 0, 0, Math.PI * 2);
+        ctx.stroke();
+    } else if (data.tool === 'line') {
+        ctx.beginPath();
+        ctx.moveTo(data.startX, data.startY);
+        ctx.lineTo(data.endX, data.endY);
+        ctx.stroke();
+    }
+
+    ctx.restore();
+    canvasImage = ctx.getImageData(0, 0, canvas.width, canvas.height);
+});
+
 // Clear canvas from server
 socket.on('clear', () => {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -575,6 +611,9 @@ brushBtn.addEventListener('click', () => {
     currentTool = 'brush';
     brushBtn.classList.add('active');
     eraserBtn.classList.remove('active');
+    rectBtn.classList.remove('active');
+    circleBtn.classList.remove('active');
+    lineBtn.classList.remove('active');
     canvas.style.cursor = 'crosshair';
     restoreCanvas();
 });
@@ -583,7 +622,43 @@ eraserBtn.addEventListener('click', () => {
     currentTool = 'eraser';
     eraserBtn.classList.add('active');
     brushBtn.classList.remove('active');
+    rectBtn.classList.remove('active');
+    circleBtn.classList.remove('active');
+    lineBtn.classList.remove('active');
     canvas.style.cursor = 'none';
+});
+
+rectBtn.addEventListener('click', () => {
+    currentTool = 'rect';
+    rectBtn.classList.add('active');
+    brushBtn.classList.remove('active');
+    eraserBtn.classList.remove('active');
+    circleBtn.classList.remove('active');
+    lineBtn.classList.remove('active');
+    canvas.style.cursor = 'crosshair';
+    restoreCanvas();
+});
+
+circleBtn.addEventListener('click', () => {
+    currentTool = 'circle';
+    circleBtn.classList.add('active');
+    brushBtn.classList.remove('active');
+    eraserBtn.classList.remove('active');
+    rectBtn.classList.remove('active');
+    lineBtn.classList.remove('active');
+    canvas.style.cursor = 'crosshair';
+    restoreCanvas();
+});
+
+lineBtn.addEventListener('click', () => {
+    currentTool = 'line';
+    lineBtn.classList.add('active');
+    brushBtn.classList.remove('active');
+    eraserBtn.classList.remove('active');
+    rectBtn.classList.remove('active');
+    circleBtn.classList.remove('active');
+    canvas.style.cursor = 'crosshair';
+    restoreCanvas();
 });
 
 brushSize.addEventListener('input', (e) => {
@@ -718,7 +793,10 @@ function handleMouseMove(e) {
     if (isDrawing) {
         draw(e);
     } else if (currentTool === 'eraser' && showCursor) {
-        showCursorPreview();
+        // Only show cursor preview if not drawing remotely
+        if (!remoteDrawing) {
+            showCursorPreview();
+        }
     }
 
     if (currentRoomId) {
@@ -757,6 +835,15 @@ function startDrawing(e) {
     lastX = pos.x;
     lastY = pos.y;
 
+    // For shapes, store start position
+    if (currentTool === 'rect' || currentTool === 'circle' || currentTool === 'line') {
+        shapeStartX = pos.x;
+        shapeStartY = pos.y;
+        restoreCanvas();
+        return;
+    }
+
+    // For brush/eraser
     restoreCanvas();
     ctx.beginPath();
     ctx.moveTo(pos.x, pos.y);
@@ -768,7 +855,6 @@ function startDrawing(e) {
     if (!currentRoomId) {
         saveToUndoStack();
     } else {
-        // Tell server to save current canvas as undo snapshot before this stroke
         socket.emit('save-undo-snapshot', {
             roomId: currentRoomId,
             state:  canvas.toDataURL('image/png')
@@ -785,6 +871,39 @@ function draw(e) {
     if (!isDrawing) return;
 
     const pos = getMousePos(e);
+
+    // Shape tools: show live preview
+    if (currentTool === 'rect' || currentTool === 'circle' || currentTool === 'line') {
+        hasDrawnInStroke = true;
+        shapeEndX = pos.x;
+        shapeEndY = pos.y;
+        restoreCanvas();
+        
+        ctx.strokeStyle = currentColor;
+        ctx.lineWidth   = currentBrushSize;
+        ctx.lineCap     = 'round';
+        ctx.lineJoin    = 'round';
+
+        if (currentTool === 'rect') {
+            ctx.strokeRect(shapeStartX, shapeStartY, shapeEndX - shapeStartX, shapeEndY - shapeStartY);
+        } else if (currentTool === 'circle') {
+            const radiusX = Math.abs(shapeEndX - shapeStartX);
+            const radiusY = Math.abs(shapeEndY - shapeStartY);
+            const centerX = shapeStartX;
+            const centerY = shapeStartY;
+            ctx.beginPath();
+            ctx.ellipse(centerX, centerY, radiusX, radiusY, 0, 0, Math.PI * 2);
+            ctx.stroke();
+        } else if (currentTool === 'line') {
+            ctx.beginPath();
+            ctx.moveTo(shapeStartX, shapeStartY);
+            ctx.lineTo(shapeEndX, shapeEndY);
+            ctx.stroke();
+        }
+        return;
+    }
+
+    // Brush/Eraser: normal drawing
     ctx.lineTo(pos.x, pos.y);
     ctx.stroke();
     ctx.beginPath();
@@ -817,6 +936,32 @@ function stopDrawing() {
         return;
     }
 
+    // For shapes: commit the shape permanently
+    if (currentTool === 'rect' || currentTool === 'circle' || currentTool === 'line') {
+        // Shape is already drawn on canvas from last draw() call, just save it
+        canvasImage = ctx.getImageData(0, 0, canvas.width, canvas.height);
+
+        if (currentRoomId) {
+            // Broadcast final shape to room
+            socket.emit('draw-shape', {
+                roomId: currentRoomId,
+                tool: currentTool,
+                startX: shapeStartX,
+                startY: shapeStartY,
+                endX: shapeEndX,
+                endY: shapeEndY,
+                color: currentColor,
+                size: currentBrushSize
+            });
+            socket.emit('stroke-complete', {
+                roomId: currentRoomId,
+                state:  canvas.toDataURL('image/png')
+            });
+        }
+        return;
+    }
+
+    // For brush/eraser
     canvasImage = ctx.getImageData(0, 0, canvas.width, canvas.height);
 
     if (currentRoomId) {
@@ -854,6 +999,9 @@ function restoreCanvas() {
 // RECEIVE REMOTE DRAWING
 // =============================================
 function drawReceivedLine(x, y, color, size, tool, isStart) {
+    // Don't draw remotely while we're drawing locally
+    if (isDrawing) return;
+
     ctx.save();
 
     if (isStart || !remoteDrawing) {
@@ -878,5 +1026,9 @@ function drawReceivedLine(x, y, color, size, tool, isStart) {
     remoteLastY = y;
 
     ctx.restore();
-    canvasImage = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    
+    // Only update canvasImage if we're not currently drawing
+    if (!isDrawing) {
+        canvasImage = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    }
 }
