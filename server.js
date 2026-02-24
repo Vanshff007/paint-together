@@ -65,16 +65,17 @@ io.on('connection', (socket) => {
 
     // Assign this user a random color for their cursor
     const userColor = randomUserColor();
-    const userName = `User_${socket.id.substring(0, 4)}`;
+    let userName = `User_${socket.id.substring(0, 4)}`;
 
     // Track which room this socket is in
     let currentRoom = null;
 
     // Handle create room request
     socket.on('create-room', (data) => {
-        const roomId  = generateRoomId();
-        const name    = (data && data.userName) ? data.userName.trim().substring(0, 20) : `User_${socket.id.substring(0,4)}`;
-        const uName   = name || `User_${socket.id.substring(0,4)}`;
+        const roomId = generateRoomId();
+        const name = (data && data.userName) ? data.userName.trim().substring(0, 20) : `User_${socket.id.substring(0, 4)}`;
+        const uName = name || `User_${socket.id.substring(0, 4)}`;
+        userName = uName;
 
         socket.join(roomId);
         currentRoom = roomId;
@@ -98,7 +99,8 @@ io.on('connection', (socket) => {
     // Handle join room request
     socket.on('join-room', (data) => {
         const roomId = (typeof data === 'string') ? data : data.roomId;
-        const uName  = (data && data.userName) ? data.userName.trim().substring(0, 20) : `User_${socket.id.substring(0,4)}`;
+        const uName = (data && data.userName) ? data.userName.trim().substring(0, 20) : `User_${socket.id.substring(0, 4)}`;
+        userName = uName;
 
         const roomExists = io.sockets.adapter.rooms.has(roomId);
         if (!roomExists && !roomData[roomId]) {
