@@ -129,6 +129,14 @@ const canvas = document.getElementById('canvas');
 const ctx = canvas.getContext('2d');
 const cursorOverlay = document.getElementById('cursorOverlay');
 
+// Chat elements
+const chatBtn = document.getElementById('chatBtn');
+const chatPopup = document.getElementById('chatPopup');
+const chatMessages = document.getElementById('chatMessages');
+const chatInput = document.getElementById('chatInput');
+const chatSendBtn = document.getElementById('chatSendBtn');
+const chatNotification = document.getElementById('chatNotification');
+
 const brushBtn = document.getElementById('brushBtn');
 const eraserBtn = document.getElementById('eraserBtn');
 const colorPalette = document.getElementById('colorPalette');
@@ -334,6 +342,7 @@ exitRoomBtn.addEventListener('click', () => {
     localUndoStack = [];
     localRedoStack = [];
     updateUndoRedoButtons();
+    chatMessages.innerHTML = ''; // Clear chat
     window.history.pushState({}, '', '/');
     appScreen.classList.remove('visible');
     setTimeout(() => {
@@ -345,6 +354,83 @@ exitRoomBtn.addEventListener('click', () => {
     }, 300);
     showToast('👋 Left the room');
 });
+
+// =============================================
+// CHAT FUNCTIONS
+// =============================================
+let chatIsOpen = false;
+
+// Toggle chat popup
+chatBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    chatIsOpen = !chatIsOpen;
+    chatPopup.classList.toggle('show', chatIsOpen);
+    
+    if (chatIsOpen) {
+        chatNotification.classList.remove('show');
+        chatInput.focus();
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+    }
+});
+
+// Close chat when clicking outside
+document.addEventListener('click', (e) => {
+    if (chatIsOpen && !chatPopup.contains(e.target) && e.target !== chatBtn) {
+        chatIsOpen = false;
+        chatPopup.classList.remove('show');
+    }
+});
+
+// Prevent closing when clicking inside popup
+chatPopup.addEventListener('click', (e) => {
+    e.stopPropagation();
+});
+
+function sendMessage() {
+    const message = chatInput.value.trim();
+    if (!message || !currentRoomId) return;
+    
+    socket.emit('chat-message', {
+        roomId: currentRoomId,
+        author: myName,
+        text: message
+    });
+    
+    // Add own message to chat
+    addMessageToChat(myName, message, true);
+    chatInput.value = '';
+}
+
+chatSendBtn.addEventListener('click', sendMessage);
+
+chatInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') sendMessage();
+});
+
+function addMessageToChat(author, text, isOwn = false) {
+    const messageEl = document.createElement('div');
+    messageEl.className = `chat-message ${isOwn ? 'own' : ''}`;
+    
+    const authorEl = document.createElement('div');
+    authorEl.className = 'chat-message-author';
+    authorEl.textContent = isOwn ? 'You' : author;
+    
+    const textEl = document.createElement('div');
+    textEl.className = 'chat-message-text';
+    textEl.textContent = text;
+    
+    messageEl.appendChild(authorEl);
+    messageEl.appendChild(textEl);
+    chatMessages.appendChild(messageEl);
+    
+    // Auto scroll to bottom
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+    
+    // Show notification dot if chat is closed and message is from someone else
+    if (!chatIsOpen && !isOwn) {
+        chatNotification.classList.add('show');
+    }
+}
 
 // =============================================
 // SOCKET EVENTS
@@ -416,6 +502,11 @@ socket.on('existing-users', (users) => {
     Object.entries(users).forEach(([socketId, info]) => {
         if (socketId !== socket.id) ensureCursorExists(socketId, info.color, info.name);
     });
+});
+
+// Receive chat message
+socket.on('chat-message', (data) => {
+    addMessageToChat(data.author, data.text, false);
 });
 
 // =============================================

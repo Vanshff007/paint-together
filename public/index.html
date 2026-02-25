@@ -78,6 +78,9 @@
             <div class="control-group">
                 <button id="brushBtn" class="tool-btn active">✏️ Brush</button>
                 <button id="eraserBtn" class="tool-btn">⬜ Eraser</button>
+                <button id="rectBtn" class="tool-btn">▭ Rect</button>
+                <button id="circleBtn" class="tool-btn">⭕ Circle</button>
+                <button id="lineBtn" class="tool-btn">📏 Line</button>
             </div>
             
             <div class="control-group color-palette-group">
@@ -103,6 +106,24 @@
         <div class="canvas-container">
             <canvas id="canvas" width="1000" height="600"></canvas>
             <div id="cursorOverlay" class="cursor-overlay"></div>
+        </div>
+
+        <!-- Chat Button -->
+        <button id="chatBtn" class="chat-btn">
+            💬
+            <span id="chatNotification" class="chat-notification"></span>
+        </button>
+
+        <!-- Chat Popup -->
+        <div id="chatPopup" class="chat-popup">
+            <div class="chat-popup-header">
+                <span>💬 Chat</span>
+            </div>
+            <div class="chat-messages" id="chatMessages"></div>
+            <div class="chat-input-container">
+                <input type="text" id="chatInput" class="chat-input" placeholder="Type a message..." maxlength="200">
+                <button id="chatSendBtn" class="chat-send-btn">Send</button>
+            </div>
         </div>
 
     </div>
