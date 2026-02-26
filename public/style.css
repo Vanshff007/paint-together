@@ -2,7 +2,7 @@
    CSS VARIABLES — light & dark themes
    ============================================= */
 :root {
-    --bg-gradient: linear-gradient(135deg, #042f2e 0%, #0e7490 40%, #0891b2 70%, #06b6d4 100%);
+    --bg-gradient: linear-gradient(135deg, #0e7490 0%, #0891b2 40%, #06b6d4 70%, #22d3ee 100%);
     --card-bg: rgba(255, 255, 255, 0.92);
     --card-border: rgba(255, 255, 255, 0.4);
     --card-shadow: 0 24px 64px rgba(0,0,0,0.18);
@@ -20,12 +20,14 @@
     --header-bg: rgba(255,255,255,0.95);
     --divider-color: #e2e8f0;
     --canvas-shadow: 0 10px 40px rgba(0,0,0,0.2);
+    --canvas-bg: #ffffff;
     
     /* Smooth transition for all theme changes */
     transition: background 0.4s ease, color 0.4s ease;
 }
 
 [data-theme="dark"] {
+    --bg-gradient: linear-gradient(135deg, #0a1f1e 0%, #0c4a52 40%, #0e5f6b 70%, #0e7490 100%);
     --card-bg: rgba(15, 23, 42, 0.92);
     --card-border: rgba(255,255,255,0.08);
     --card-shadow: 0 24px 64px rgba(0,0,0,0.5);
@@ -43,6 +45,7 @@
     --header-bg: rgba(15, 23, 42, 0.96);
     --divider-color: #334155;
     --canvas-shadow: 0 10px 40px rgba(0,0,0,0.5);
+    --canvas-bg: #1e293b;
 }
 
 /* =============================================
@@ -746,7 +749,7 @@ label {
 
 canvas#canvas {
     border: 3px solid rgba(255,255,255,0.25);
-    background: white;
+    background: var(--canvas-bg);
     cursor: crosshair;
     border-radius: 14px;
     box-shadow: var(--canvas-shadow);
@@ -755,6 +758,7 @@ canvas#canvas {
     display: block;
     width: 100%;
 }
+    transition: background 0.4s ease;
 
 /* Cursor overlay */
 .cursor-overlay {
