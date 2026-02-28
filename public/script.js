@@ -856,7 +856,8 @@ function loadCanvasState(base64) {
 function syncCanvasResolution() {
     const rect = canvas.getBoundingClientRect();
     const displayW = Math.floor(rect.width);
-    const displayH = Math.floor(rect.height);
+    // Always maintain 5:3 aspect ratio for the internal resolution
+    const displayH = Math.floor(displayW * 3 / 5);
     if (canvas.width === displayW && canvas.height === displayH) return;
 
     // Save current drawing, resize, restore
@@ -868,7 +869,6 @@ function syncCanvasResolution() {
     canvas.height = displayH;
 
     if (snapshot) {
-        // Draw saved image scaled to new size
         const tmpCanvas = document.createElement('canvas');
         tmpCanvas.width  = snapshot.width;
         tmpCanvas.height = snapshot.height;
@@ -878,7 +878,6 @@ function syncCanvasResolution() {
     }
 }
 
-// Run once on load, then watch for size changes
 window.addEventListener('load', syncCanvasResolution);
 const canvasResizeObserver = new ResizeObserver(() => syncCanvasResolution());
 canvasResizeObserver.observe(canvas);
