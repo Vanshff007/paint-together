@@ -3,6 +3,11 @@
    ============================================= */
 @import url('https://fonts.googleapis.com/css2?family=Righteous&family=DM+Sans:wght@400;500;600;700&display=swap');
 
+/* Global scale fix — makes 100% zoom match 90% visually */
+html {
+    font-size: clamp(13px, 0.9vw, 15px);
+}
+
 :root {
     --bg-gradient: linear-gradient(135deg, #0e7490 0%, #0891b2 40%, #06b6d4 70%, #22d3ee 100%);
     --card-bg: rgba(255, 255, 255, 0.92);
@@ -367,11 +372,11 @@ body {
     backdrop-filter: blur(20px);
     -webkit-backdrop-filter: blur(20px);
     border-bottom: 1px solid var(--toolbar-border);
-    padding: 10px 28px;
+    padding: 0.6rem 1.6rem;
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 16px;
+    gap: 1rem;
     box-shadow: 0 1px 0 rgba(255,255,255,0.08), 0 4px 24px rgba(0, 0, 0, 0.06);
     flex-wrap: wrap;
     position: sticky;
@@ -387,7 +392,7 @@ body {
 }
 
 .app-logo {
-    font-size: 26px;
+    font-size: 1.5rem;
     filter: drop-shadow(0 2px 4px rgba(0,0,0,0.15));
     animation: logoPulse 3s ease-in-out infinite;
 }
@@ -399,7 +404,7 @@ body {
 
 .app-title {
     font-family: 'Righteous', cursive;
-    font-size: 22px;
+    font-size: 1.25rem;
     background: linear-gradient(135deg, #0e7490, #06b6d4);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
@@ -447,14 +452,14 @@ body {
 .user-count-badge strong { font-size: 14px; }
 
 .copy-btn {
-    padding: 7px 16px;
+    padding: 0.4rem 0.9rem;
     background: linear-gradient(135deg, #0e7490, #06b6d4);
     color: white;
     border: none;
-    border-radius: 8px;
+    border-radius: 0.5rem;
     cursor: pointer;
     font-family: 'DM Sans', sans-serif;
-    font-size: 12px;
+    font-size: 0.75rem;
     font-weight: 600;
     transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
     box-shadow: 0 2px 10px rgba(14, 116, 144, 0.3);
@@ -477,26 +482,26 @@ body {
 }
 
 .my-name-badge {
-    font-size: 13px;
+    font-size: 0.75rem;
     font-weight: 600;
     color: #6d28d9;
     background: linear-gradient(135deg, rgba(221,214,254,0.9), rgba(196,181,253,0.9));
     border: 1px solid #a78bfa;
-    padding: 5px 14px;
-    border-radius: 8px;
+    padding: 0.3rem 0.85rem;
+    border-radius: 0.5rem;
     box-shadow: 0 2px 8px rgba(109, 40, 217, 0.15);
     transition: all 0.3s ease;
 }
 
 .exit-room-btn {
-    padding: 7px 16px;
+    padding: 0.4rem 0.9rem;
     background: linear-gradient(135deg, #f093fb, #f5576c);
     color: white;
     border: none;
-    border-radius: 8px;
+    border-radius: 0.5rem;
     cursor: pointer;
     font-family: 'DM Sans', sans-serif;
-    font-size: 12px;
+    font-size: 0.75rem;
     font-weight: 600;
     transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
     box-shadow: 0 2px 10px rgba(245, 87, 108, 0.3);
@@ -531,20 +536,20 @@ body {
    TOOLBAR
    ============================================= */
 .toolbar {
-    max-width: 1060px;
-    margin: 20px auto 16px;
-    padding: 10px 18px;
+    max-width: 62rem;
+    margin: 1.2rem auto 1rem;
+    padding: 0.6rem 1.1rem;
     background: var(--toolbar-bg);
     backdrop-filter: blur(20px);
     -webkit-backdrop-filter: blur(20px);
-    border-radius: 16px;
+    border-radius: 1rem;
     box-shadow: 0 4px 24px rgba(0, 0, 0, 0.07), 0 1px 0 rgba(255,255,255,0.5) inset;
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 0.6rem;
     flex-wrap: nowrap;
     border: 1px solid var(--toolbar-border);
-    width: calc(100% - 40px);
+    width: calc(100% - 2.5rem);
     overflow-x: auto;
     transition: background 0.4s ease, box-shadow 0.4s ease;
     animation: toolbarSlide 0.5s 0.2s cubic-bezier(0.22, 1, 0.36, 1) both;
@@ -653,14 +658,14 @@ label {
 }
 
 .tool-btn {
-    padding: 7px 14px;
+    padding: 0.45rem 0.85rem;
     background: var(--btn-tool-bg);
     color: var(--btn-tool-color);
     border: 1.5px solid var(--btn-tool-border);
-    border-radius: 10px;
+    border-radius: 0.6rem;
     cursor: pointer;
     font-family: 'DM Sans', sans-serif;
-    font-size: 12px;
+    font-size: 0.75rem;
     font-weight: 600;
     transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
     white-space: nowrap;
@@ -742,12 +747,12 @@ label {
 }
 
 .action-btn {
-    padding: 7px 13px;
+    padding: 0.45rem 0.8rem;
     border: none;
-    border-radius: 10px;
+    border-radius: 0.6rem;
     cursor: pointer;
     font-family: 'DM Sans', sans-serif;
-    font-size: 12px;
+    font-size: 0.75rem;
     font-weight: 600;
     color: white;
     transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
@@ -792,9 +797,9 @@ label {
    CANVAS AREA
    ============================================= */
 .canvas-container {
-    max-width: 1060px;
+    max-width: 62rem;
     margin: 0 auto;
-    padding: 0 20px;
+    padding: 0 1.25rem;
     position: relative;
     width: 100%;
     animation: canvasReveal 0.6s 0.3s cubic-bezier(0.22, 1, 0.36, 1) both;
@@ -1217,29 +1222,29 @@ canvas#canvas:active {
     .landing-title { font-size: 30px; }
 
     .app-header {
-        padding: 10px 16px;
+        padding: 0.5rem 1rem;
         gap: 8px;
     }
 
-    .app-title { font-size: 18px; }
+    .app-title { font-size: 1rem; }
 
     .toolbar {
-        margin: 12px auto 12px;
-        padding: 10px 14px;
-        gap: 8px;
-        width: calc(100% - 24px);
+        margin: 0.75rem auto 0.75rem;
+        padding: 0.6rem 0.85rem;
+        gap: 0.5rem;
+        width: calc(100% - 1.5rem);
     }
 
     .tool-btn, .action-btn {
-        padding: 8px 12px;
-        font-size: 11px;
+        padding: 0.5rem 0.75rem;
+        font-size: 0.7rem;
     }
 
-    .canvas-container { padding: 0 12px; }
+    .canvas-container { padding: 0 0.75rem; }
 
     .cursor-overlay {
-        left: 12px;
-        right: 12px;
+        left: 0.75rem;
+        right: 0.75rem;
     }
 
     .chat-popup {

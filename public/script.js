@@ -851,6 +851,39 @@ function loadCanvasState(base64) {
 }
 
 // =============================================
+// CANVAS RESIZE — keep internal resolution in sync
+// =============================================
+function syncCanvasResolution() {
+    const rect = canvas.getBoundingClientRect();
+    const displayW = Math.floor(rect.width);
+    const displayH = Math.floor(rect.height);
+    if (canvas.width === displayW && canvas.height === displayH) return;
+
+    // Save current drawing, resize, restore
+    const snapshot = canvas.width > 0 && canvas.height > 0
+        ? ctx.getImageData(0, 0, canvas.width, canvas.height)
+        : null;
+
+    canvas.width  = displayW;
+    canvas.height = displayH;
+
+    if (snapshot) {
+        // Draw saved image scaled to new size
+        const tmpCanvas = document.createElement('canvas');
+        tmpCanvas.width  = snapshot.width;
+        tmpCanvas.height = snapshot.height;
+        tmpCanvas.getContext('2d').putImageData(snapshot, 0, 0);
+        ctx.drawImage(tmpCanvas, 0, 0, displayW, displayH);
+        canvasImage = ctx.getImageData(0, 0, displayW, displayH);
+    }
+}
+
+// Run once on load, then watch for size changes
+window.addEventListener('load', syncCanvasResolution);
+const canvasResizeObserver = new ResizeObserver(() => syncCanvasResolution());
+canvasResizeObserver.observe(canvas);
+
+// =============================================
 // COORDINATES
 // =============================================
 function getMousePos(e) {
