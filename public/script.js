@@ -342,7 +342,7 @@ exitRoomBtn.addEventListener('click', () => {
     localUndoStack = [];
     localRedoStack = [];
     updateUndoRedoButtons();
-    chatMessages.innerHTML = ''; // Clear chat
+    chatMessages.innerHTML = '';
     window.history.pushState({}, '', '/');
     appScreen.classList.remove('visible');
     setTimeout(() => {
@@ -360,7 +360,6 @@ exitRoomBtn.addEventListener('click', () => {
 // =============================================
 let chatIsOpen = false;
 
-// Toggle chat popup
 chatBtn.addEventListener('click', (e) => {
     e.stopPropagation();
     chatIsOpen = !chatIsOpen;
@@ -373,7 +372,6 @@ chatBtn.addEventListener('click', (e) => {
     }
 });
 
-// Close chat when clicking outside
 document.addEventListener('click', (e) => {
     if (chatIsOpen && !chatPopup.contains(e.target) && e.target !== chatBtn) {
         chatIsOpen = false;
@@ -381,7 +379,6 @@ document.addEventListener('click', (e) => {
     }
 });
 
-// Prevent closing when clicking inside popup
 chatPopup.addEventListener('click', (e) => {
     e.stopPropagation();
 });
@@ -396,7 +393,6 @@ function sendMessage() {
         text: message
     });
     
-    // Add own message to chat
     addMessageToChat(myName, message, true);
     chatInput.value = '';
 }
@@ -423,10 +419,8 @@ function addMessageToChat(author, text, isOwn = false) {
     messageEl.appendChild(textEl);
     chatMessages.appendChild(messageEl);
     
-    // Auto scroll to bottom
     chatMessages.scrollTop = chatMessages.scrollHeight;
     
-    // Show notification dot if chat is closed and message is from someone else
     if (!chatIsOpen && !isOwn) {
         chatNotification.classList.add('show');
     }
@@ -504,7 +498,6 @@ socket.on('existing-users', (users) => {
     });
 });
 
-// Receive chat message
 socket.on('chat-message', (data) => {
     addMessageToChat(data.author, data.text, false);
 });
@@ -715,20 +708,42 @@ function handleMouseMove(e) {
 // =============================================
 // TOUCH EVENTS
 // =============================================
+let activeTouchId = null;
+
 canvas.addEventListener('touchstart', (e) => {
     e.preventDefault();
-    const t = e.touches[0];
+    // If a stroke is already in progress, ignore new fingers
+    if (activeTouchId !== null) return;
+
+    const t = e.changedTouches[0];
+    activeTouchId = t.identifier;
     canvas.dispatchEvent(new MouseEvent('mousedown', { clientX: t.clientX, clientY: t.clientY }));
 }, { passive: false });
 
 canvas.addEventListener('touchmove', (e) => {
     e.preventDefault();
-    const t = e.touches[0];
+    // Only track the finger that started the stroke
+    const t = Array.from(e.changedTouches).find(touch => touch.identifier === activeTouchId);
+    if (!t) return;
+
     canvas.dispatchEvent(new MouseEvent('mousemove', { clientX: t.clientX, clientY: t.clientY }));
 }, { passive: false });
 
 canvas.addEventListener('touchend', (e) => {
     e.preventDefault();
+    const t = Array.from(e.changedTouches).find(touch => touch.identifier === activeTouchId);
+    if (!t) return;
+
+    activeTouchId = null;
+    canvas.dispatchEvent(new MouseEvent('mouseup'));
+}, { passive: false });
+
+canvas.addEventListener('touchcancel', (e) => {
+    e.preventDefault();
+    const t = Array.from(e.changedTouches).find(touch => touch.identifier === activeTouchId);
+    if (!t) return;
+
+    activeTouchId = null;
     canvas.dispatchEvent(new MouseEvent('mouseup'));
 }, { passive: false });
 
