@@ -22,7 +22,6 @@ if (darkToggleBtn) {
     });
 }
 
-// App dark mode toggle will be initialized when app screen is shown
 function initAppDarkMode() {
     const darkToggleBtnApp = document.getElementById('darkToggleBtnApp');
     if (darkToggleBtnApp) {
@@ -364,7 +363,7 @@ chatBtn.addEventListener('click', (e) => {
     e.stopPropagation();
     chatIsOpen = !chatIsOpen;
     chatPopup.classList.toggle('show', chatIsOpen);
-    
+
     if (chatIsOpen) {
         chatNotification.classList.remove('show');
         chatInput.focus();
@@ -386,13 +385,13 @@ chatPopup.addEventListener('click', (e) => {
 function sendMessage() {
     const message = chatInput.value.trim();
     if (!message || !currentRoomId) return;
-    
+
     socket.emit('chat-message', {
         roomId: currentRoomId,
         author: myName,
         text: message
     });
-    
+
     addMessageToChat(myName, message, true);
     chatInput.value = '';
 }
@@ -406,21 +405,21 @@ chatInput.addEventListener('keydown', (e) => {
 function addMessageToChat(author, text, isOwn = false) {
     const messageEl = document.createElement('div');
     messageEl.className = `chat-message ${isOwn ? 'own' : ''}`;
-    
+
     const authorEl = document.createElement('div');
     authorEl.className = 'chat-message-author';
     authorEl.textContent = isOwn ? 'You' : author;
-    
+
     const textEl = document.createElement('div');
     textEl.className = 'chat-message-text';
     textEl.textContent = text;
-    
+
     messageEl.appendChild(authorEl);
     messageEl.appendChild(textEl);
     chatMessages.appendChild(messageEl);
-    
+
     chatMessages.scrollTop = chatMessages.scrollHeight;
-    
+
     if (!chatIsOpen && !isOwn) {
         chatNotification.classList.add('show');
     }
@@ -677,19 +676,42 @@ function getMousePos(e) {
     };
 }
 
+function getTouchPos(touch) {
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    return {
+        x: (touch.clientX - rect.left) * scaleX,
+        y: (touch.clientY - rect.top) * scaleY
+    };
+}
+
 // =============================================
 // MOUSE EVENTS
 // =============================================
-canvas.addEventListener('mousedown', startDrawing);
-canvas.addEventListener('mousemove', handleMouseMove);
-canvas.addEventListener('mouseup', stopDrawing);
-canvas.addEventListener('mouseout', () => {
+canvas.addEventListener('mousedown', (e) => {
+    if (e.sourceCapabilities && e.sourceCapabilities.firesTouchEvents) return;
+    startDrawing(e);
+});
+canvas.addEventListener('mousemove', (e) => {
+    if (e.sourceCapabilities && e.sourceCapabilities.firesTouchEvents) return;
+    handleMouseMove(e);
+});
+canvas.addEventListener('mouseup', (e) => {
+    if (e.sourceCapabilities && e.sourceCapabilities.firesTouchEvents) return;
+    stopDrawing();
+});
+canvas.addEventListener('mouseout', (e) => {
+    if (e.sourceCapabilities && e.sourceCapabilities.firesTouchEvents) return;
     stopDrawing();
     showCursor = false;
     restoreCanvas();
     if (currentRoomId) socket.emit('cursor-leave', currentRoomId);
 });
-canvas.addEventListener('mouseenter', () => { showCursor = true; });
+canvas.addEventListener('mouseenter', (e) => {
+    if (e.sourceCapabilities && e.sourceCapabilities.firesTouchEvents) return;
+    showCursor = true;
+});
 
 function handleMouseMove(e) {
     const pos = getMousePos(e);
@@ -712,21 +734,67 @@ let activeTouchId = null;
 
 canvas.addEventListener('touchstart', (e) => {
     e.preventDefault();
-    // If a stroke is already in progress, ignore new fingers
     if (activeTouchId !== null) return;
 
     const t = e.changedTouches[0];
     activeTouchId = t.identifier;
-    canvas.dispatchEvent(new MouseEvent('mousedown', { clientX: t.clientX, clientY: t.clientY }));
+
+    const pos = getTouchPos(t);
+    hasDrawnInStroke = false;
+    isDrawing = true;
+    lastX = pos.x;
+    lastY = pos.y;
+    mouseX = pos.x;
+    mouseY = pos.y;
+    restoreCanvas();
+    ctx.beginPath();
+    ctx.moveTo(pos.x, pos.y);
+    ctx.lineWidth = currentBrushSize;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.strokeStyle = currentTool === 'eraser' ? '#ffffff' : currentColor;
+
+    if (!currentRoomId) {
+        saveToUndoStack();
+    } else {
+        socket.emit('save-undo-snapshot', {
+            roomId: currentRoomId,
+            state: canvas.toDataURL('image/png')
+        });
+        socket.emit('draw', {
+            x: pos.x, y: pos.y,
+            color: currentColor, size: currentBrushSize,
+            tool: currentTool, isStart: true, roomId: currentRoomId
+        });
+    }
 }, { passive: false });
 
 canvas.addEventListener('touchmove', (e) => {
     e.preventDefault();
-    // Only track the finger that started the stroke
+    if (!isDrawing) return;
+
     const t = Array.from(e.changedTouches).find(touch => touch.identifier === activeTouchId);
     if (!t) return;
 
-    canvas.dispatchEvent(new MouseEvent('mousemove', { clientX: t.clientX, clientY: t.clientY }));
+    const pos = getTouchPos(t);
+    mouseX = pos.x;
+    mouseY = pos.y;
+
+    ctx.lineTo(pos.x, pos.y);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(pos.x, pos.y);
+    hasDrawnInStroke = true;
+    lastX = pos.x;
+    lastY = pos.y;
+
+    if (currentRoomId) {
+        socket.emit('draw', {
+            x: pos.x, y: pos.y,
+            color: currentColor, size: currentBrushSize,
+            tool: currentTool, roomId: currentRoomId
+        });
+    }
 }, { passive: false });
 
 canvas.addEventListener('touchend', (e) => {
@@ -735,7 +803,7 @@ canvas.addEventListener('touchend', (e) => {
     if (!t) return;
 
     activeTouchId = null;
-    canvas.dispatchEvent(new MouseEvent('mouseup'));
+    stopDrawing();
 }, { passive: false });
 
 canvas.addEventListener('touchcancel', (e) => {
@@ -744,7 +812,7 @@ canvas.addEventListener('touchcancel', (e) => {
     if (!t) return;
 
     activeTouchId = null;
-    canvas.dispatchEvent(new MouseEvent('mouseup'));
+    stopDrawing();
 }, { passive: false });
 
 // =============================================
