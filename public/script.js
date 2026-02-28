@@ -16,19 +16,13 @@ applyTheme(isDark);
 
 const darkToggleBtn = document.getElementById('darkToggleBtn');
 if (darkToggleBtn) {
-    darkToggleBtn.addEventListener('click', () => {
-        isDark = !isDark;
-        applyTheme(isDark);
-    });
+    darkToggleBtn.addEventListener('click', () => { isDark = !isDark; applyTheme(isDark); });
 }
 
 function initAppDarkMode() {
     const darkToggleBtnApp = document.getElementById('darkToggleBtnApp');
     if (darkToggleBtnApp) {
-        darkToggleBtnApp.addEventListener('click', () => {
-            isDark = !isDark;
-            applyTheme(isDark);
-        });
+        darkToggleBtnApp.addEventListener('click', () => { isDark = !isDark; applyTheme(isDark); });
     }
 }
 
@@ -43,18 +37,13 @@ function resizeSplash() {
     splashCanvas.width  = window.innerWidth;
     splashCanvas.height = window.innerHeight;
 }
-
 resizeSplash();
 window.addEventListener('resize', resizeSplash);
 
 function createBubble() {
     const colors = [
-        'rgba(6,182,212,0.18)',
-        'rgba(14,116,144,0.15)',
-        'rgba(56,239,125,0.12)',
-        'rgba(236,72,153,0.12)',
-        'rgba(167,139,250,0.13)',
-        'rgba(245,87,108,0.11)',
+        'rgba(6,182,212,0.18)', 'rgba(14,116,144,0.15)', 'rgba(56,239,125,0.12)',
+        'rgba(236,72,153,0.12)', 'rgba(167,139,250,0.13)', 'rgba(245,87,108,0.11)',
         'rgba(247,151,30,0.12)',
     ];
     return {
@@ -93,7 +82,6 @@ function animateSplash() {
         requestAnimationFrame(animateSplash);
     }
 }
-
 animateSplash();
 
 // =============================================
@@ -103,53 +91,166 @@ const socket = io();
 
 let currentRoomId = null;
 let myColor = '#06b6d4';
-let myName = 'Guest';
+let myName  = 'Guest';
+let amIHost = false;
+let currentHostId = null;
+let mySocketId = null;
+let wasKicked = false;
 
 // =============================================
 // DOM ELEMENTS
 // =============================================
-const landingScreen = document.getElementById('landingScreen');
-const appScreen = document.getElementById('appScreen');
-const usernameInput = document.getElementById('usernameInput');
-const roomCodeInput = document.getElementById('roomCodeInput');
+const landingScreen    = document.getElementById('landingScreen');
+const appScreen        = document.getElementById('appScreen');
+const usernameInput    = document.getElementById('usernameInput');
+const roomCodeInput    = document.getElementById('roomCodeInput');
 const landingCreateBtn = document.getElementById('landingCreateBtn');
-const landingJoinBtn = document.getElementById('landingJoinBtn');
-const landingError = document.getElementById('landingError');
+const landingJoinBtn   = document.getElementById('landingJoinBtn');
+const landingError     = document.getElementById('landingError');
 
-const roomInfo = document.getElementById('roomInfo');
-const roomIdDisplay = document.getElementById('roomId');
+const roomInfo        = document.getElementById('roomInfo');
+const roomIdDisplay   = document.getElementById('roomId');
 const userCountDisplay = document.getElementById('userCount');
-const copyLinkBtn = document.getElementById('copyLinkBtn');
-const exitRoomBtn = document.getElementById('exitRoomBtn');
-const myNameBadge = document.getElementById('myNameBadge');
-const toast = document.getElementById('toast');
+const copyLinkBtn     = document.getElementById('copyLinkBtn');
+const exitRoomBtn     = document.getElementById('exitRoomBtn');
+const myNameBadge     = document.getElementById('myNameBadge');
+const toast           = document.getElementById('toast');
 
-const canvas = document.getElementById('canvas');
-const ctx = canvas.getContext('2d');
+// Members panel
+const membersBtn       = document.getElementById('membersBtn');
+const membersDropdown  = document.getElementById('membersDropdown');
+const membersList      = document.getElementById('membersList');
+
+// Kick modal
+const kickModal        = document.getElementById('kickModal');
+const kickModalText    = document.getElementById('kickModalText');
+const kickCancelBtn    = document.getElementById('kickCancelBtn');
+const kickConfirmBtn   = document.getElementById('kickConfirmBtn');
+let   pendingKickId    = null;
+let   pendingKickName  = null;
+
+const canvas       = document.getElementById('canvas');
+const ctx          = canvas.getContext('2d');
 const cursorOverlay = document.getElementById('cursorOverlay');
 
 // Chat elements
-const chatBtn = document.getElementById('chatBtn');
-const chatPopup = document.getElementById('chatPopup');
-const chatMessages = document.getElementById('chatMessages');
-const chatInput = document.getElementById('chatInput');
-const chatSendBtn = document.getElementById('chatSendBtn');
+const chatBtn          = document.getElementById('chatBtn');
+const chatPopup        = document.getElementById('chatPopup');
+const chatMessages     = document.getElementById('chatMessages');
+const chatInput        = document.getElementById('chatInput');
+const chatSendBtn      = document.getElementById('chatSendBtn');
 const chatNotification = document.getElementById('chatNotification');
 
-const brushBtn = document.getElementById('brushBtn');
-const eraserBtn = document.getElementById('eraserBtn');
-const colorPalette = document.getElementById('colorPalette');
-const customColorBtn = document.getElementById('customColorBtn');
+const brushBtn         = document.getElementById('brushBtn');
+const eraserBtn        = document.getElementById('eraserBtn');
+const colorPalette     = document.getElementById('colorPalette');
+const customColorBtn   = document.getElementById('customColorBtn');
 const colorPickerModal = document.getElementById('colorPickerModal');
-const colorPicker = document.getElementById('colorPicker');
-const colorPickerOk = document.getElementById('colorPickerOk');
+const colorPicker      = document.getElementById('colorPicker');
+const colorPickerOk    = document.getElementById('colorPickerOk');
 const colorPickerCancel = document.getElementById('colorPickerCancel');
-const brushSize = document.getElementById('brushSize');
-const brushSizeValue = document.getElementById('brushSizeValue');
-const clearBtn = document.getElementById('clearBtn');
-const downloadBtn = document.getElementById('downloadBtn');
-const undoBtn = document.getElementById('undoBtn');
-const redoBtn = document.getElementById('redoBtn');
+const brushSize        = document.getElementById('brushSize');
+const brushSizeValue   = document.getElementById('brushSizeValue');
+const clearBtn         = document.getElementById('clearBtn');
+const downloadBtn      = document.getElementById('downloadBtn');
+const undoBtn          = document.getElementById('undoBtn');
+const redoBtn          = document.getElementById('redoBtn');
+
+// =============================================
+// MEMBERS PANEL
+// =============================================
+let membersOpen = false;
+let roomUsersCache = {}; // { socketId: { name, color } }
+
+membersBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    membersOpen = !membersOpen;
+    membersDropdown.classList.toggle('show', membersOpen);
+});
+
+document.addEventListener('click', (e) => {
+    if (membersOpen && !membersDropdown.contains(e.target) && e.target !== membersBtn) {
+        membersOpen = false;
+        membersDropdown.classList.remove('show');
+    }
+});
+
+membersDropdown.addEventListener('click', e => e.stopPropagation());
+
+function renderMembersList() {
+    membersList.innerHTML = '';
+    const entries = Object.entries(roomUsersCache);
+
+    entries.forEach(([socketId, info]) => {
+        const isHost   = socketId === currentHostId;
+        const isMe     = socketId === mySocketId;
+        const canKick  = amIHost && !isMe;
+
+        const li = document.createElement('li');
+        li.className = 'member-item';
+
+        // Color dot
+        const dot = document.createElement('span');
+        dot.className = 'member-dot';
+        dot.style.background = info.color || '#06b6d4';
+
+        // Name
+        const nameSpan = document.createElement('span');
+        nameSpan.className = 'member-name';
+        nameSpan.textContent = info.name + (isMe ? ' (you)' : '');
+
+        // Crown for host
+        if (isHost) {
+            const crown = document.createElement('span');
+            crown.className = 'member-crown';
+            crown.textContent = '👑';
+            crown.title = 'Room Host';
+            li.appendChild(dot);
+            li.appendChild(crown);
+            li.appendChild(nameSpan);
+        } else {
+            li.appendChild(dot);
+            li.appendChild(nameSpan);
+        }
+
+        // Kick button (only visible to host, not for themselves)
+        if (canKick) {
+            const kickBtn = document.createElement('button');
+            kickBtn.className = 'member-kick-btn';
+            kickBtn.textContent = '✕';
+            kickBtn.title = `Remove ${info.name} from room`;
+            kickBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                pendingKickId   = socketId;
+                pendingKickName = info.name;
+                kickModalText.textContent = `Remove "${info.name}" from the room?`;
+                kickModal.classList.add('show');
+            });
+            li.appendChild(kickBtn);
+        }
+
+        membersList.appendChild(li);
+    });
+}
+
+// Kick modal buttons
+kickCancelBtn.addEventListener('click', () => {
+    kickModal.classList.remove('show');
+    pendingKickId = null;
+});
+
+kickConfirmBtn.addEventListener('click', () => {
+    if (pendingKickId && currentRoomId) {
+        socket.emit('kick-user', { roomId: currentRoomId, targetSocketId: pendingKickId });
+        showToast(`🦵 Kicked ${pendingKickName}`);
+    }
+    kickModal.classList.remove('show');
+    pendingKickId = null;
+});
+
+kickModal.addEventListener('click', (e) => {
+    if (e.target === kickModal) kickModal.classList.remove('show');
+});
 
 // =============================================
 // COLOR PALETTE
@@ -160,8 +261,8 @@ const defaultColors = [
 ];
 
 let selectedColorElement = null;
-let paletteInitialized = false;
-let currentColor = '#000000';
+let paletteInitialized   = false;
+let currentColor         = '#000000';
 
 function initColorPalette() {
     if (paletteInitialized) return;
@@ -187,9 +288,7 @@ function initColorPalette() {
         colorPickerModal.classList.remove('show');
     });
 
-    colorPickerCancel.addEventListener('click', () => {
-        colorPickerModal.classList.remove('show');
-    });
+    colorPickerCancel.addEventListener('click', () => colorPickerModal.classList.remove('show'));
 
     colorPickerModal.addEventListener('click', (e) => {
         if (e.target === colorPickerModal) colorPickerModal.classList.remove('show');
@@ -208,19 +307,16 @@ function selectColor(color, element) {
 // =============================================
 // DRAWING STATE
 // =============================================
-let isDrawing = false;
+let isDrawing        = false;
 let hasDrawnInStroke = false;
 let currentBrushSize = 5;
-let currentTool = 'brush';
-let lastX = 0;
-let lastY = 0;
-let canvasImage = null;
-let mouseX = 0;
-let mouseY = 0;
-let showCursor = false;
-let remoteDrawing = false;
-let remoteLastX = 0;
-let remoteLastY = 0;
+let currentTool      = 'brush';
+let lastX = 0, lastY = 0;
+let canvasImage      = null;
+let mouseX = 0, mouseY = 0;
+let showCursor       = false;
+let remoteDrawing    = false;
+let remoteLastX = 0, remoteLastY = 0;
 
 // =============================================
 // UNDO/REDO STATE
@@ -301,10 +397,7 @@ landingJoinBtn.addEventListener('click', () => {
     socket.emit('join-room', { roomId: code, userName: name });
 });
 
-roomCodeInput.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') landingJoinBtn.click();
-});
-
+roomCodeInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') landingJoinBtn.click(); });
 usernameInput.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') {
         const code = roomCodeInput.value.trim();
@@ -313,7 +406,7 @@ usernameInput.addEventListener('keydown', (e) => {
     }
 });
 
-const urlParams = new URLSearchParams(window.location.search);
+const urlParams  = new URLSearchParams(window.location.search);
 const roomFromUrl = urlParams.get('room');
 if (roomFromUrl) roomCodeInput.value = roomFromUrl.toUpperCase();
 
@@ -326,7 +419,7 @@ copyLinkBtn.addEventListener('click', () => {
         copyLinkBtn.textContent = '✅ Copied!';
         copyLinkBtn.classList.add('copied');
         setTimeout(() => {
-            copyLinkBtn.textContent = 'Copy Link';
+            copyLinkBtn.textContent = '🔗 Copy Link';
             copyLinkBtn.classList.remove('copied');
         }, 2000);
     });
@@ -334,7 +427,6 @@ copyLinkBtn.addEventListener('click', () => {
 
 exitRoomBtn.addEventListener('click', () => {
     if (!currentRoomId) return;
-    socket.disconnect();
     currentRoomId = null;
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     canvasImage = null;
@@ -342,8 +434,11 @@ exitRoomBtn.addEventListener('click', () => {
     localRedoStack = [];
     updateUndoRedoButtons();
     chatMessages.innerHTML = '';
+    roomUsersCache = {};
+    amIHost = false;
     window.history.pushState({}, '', '/');
     appScreen.classList.remove('visible');
+    socket.disconnect(); // reason = 'io client disconnect'
     setTimeout(() => {
         appScreen.style.display = 'none';
         landingScreen.style.display = 'flex';
@@ -363,7 +458,6 @@ chatBtn.addEventListener('click', (e) => {
     e.stopPropagation();
     chatIsOpen = !chatIsOpen;
     chatPopup.classList.toggle('show', chatIsOpen);
-
     if (chatIsOpen) {
         chatNotification.classList.remove('show');
         chatInput.focus();
@@ -378,62 +472,62 @@ document.addEventListener('click', (e) => {
     }
 });
 
-chatPopup.addEventListener('click', (e) => {
-    e.stopPropagation();
-});
+chatPopup.addEventListener('click', (e) => e.stopPropagation());
 
 function sendMessage() {
     const message = chatInput.value.trim();
     if (!message || !currentRoomId) return;
-
-    socket.emit('chat-message', {
-        roomId: currentRoomId,
-        author: myName,
-        text: message
-    });
-
+    socket.emit('chat-message', { roomId: currentRoomId, author: myName, text: message });
     addMessageToChat(myName, message, true);
     chatInput.value = '';
 }
 
 chatSendBtn.addEventListener('click', sendMessage);
-
-chatInput.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') sendMessage();
-});
+chatInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') sendMessage(); });
 
 function addMessageToChat(author, text, isOwn = false) {
     const messageEl = document.createElement('div');
     messageEl.className = `chat-message ${isOwn ? 'own' : ''}`;
-
     const authorEl = document.createElement('div');
     authorEl.className = 'chat-message-author';
     authorEl.textContent = isOwn ? 'You' : author;
-
     const textEl = document.createElement('div');
     textEl.className = 'chat-message-text';
     textEl.textContent = text;
-
     messageEl.appendChild(authorEl);
     messageEl.appendChild(textEl);
     chatMessages.appendChild(messageEl);
-
     chatMessages.scrollTop = chatMessages.scrollHeight;
-
-    if (!chatIsOpen && !isOwn) {
-        chatNotification.classList.add('show');
-    }
+    if (!chatIsOpen && !isOwn) chatNotification.classList.add('show');
 }
 
 // =============================================
 // SOCKET EVENTS
 // =============================================
-socket.on('connect', () => console.log('✅ Connected:', socket.id));
-socket.on('disconnect', () => showToast('⚠️ Disconnected. Reconnecting...'));
+socket.on('connect', () => {
+    console.log('✅ Connected:', socket.id);
+    mySocketId = socket.id;
+});
+
+socket.on('disconnect', (reason) => {
+    if (wasKicked) {
+        // Server forcefully disconnected us after kick
+        // wasKicked flag is reset once we reconnect via socket.io auto-reconnect
+        wasKicked = false;
+        return;
+    }
+    if (reason === 'io client disconnect') return; // intentional exit room
+    showToast('⚠️ Disconnected. Reconnecting...');
+});
 
 socket.on('room-created', (data) => {
-    currentRoomId = data.roomId;
-    myColor = data.userColor;
+    currentRoomId   = data.roomId;
+    myColor         = data.userColor;
+    mySocketId      = socket.id;
+    amIHost         = true;
+    currentHostId   = socket.id;
+    // Seed our own entry in cache
+    roomUsersCache[socket.id] = { name: myName, color: myColor };
     updateRoomUI(data.roomId, data.userCount);
     updateUrl(data.roomId);
     showApp();
@@ -441,10 +535,13 @@ socket.on('room-created', (data) => {
 });
 
 socket.on('room-joined', (data) => {
-    currentRoomId = data.roomId;
-    myColor = data.userColor;
-    serverHasUndo = data.hasUndo || false;
-    serverHasRedo = data.hasRedo || false;
+    currentRoomId   = data.roomId;
+    myColor         = data.userColor;
+    mySocketId      = socket.id;
+    amIHost         = data.isHost || false;
+    currentHostId   = data.hostId;
+    serverHasUndo   = data.hasUndo || false;
+    serverHasRedo   = data.hasRedo || false;
     updateRoomUI(data.roomId, data.userCount);
     updateUndoRedoButtons();
     showApp();
@@ -459,9 +556,70 @@ socket.on('room-not-found', (roomId) => {
     window.history.pushState({}, '', '/');
 });
 
-socket.on('user-count-update', (count) => { userCountDisplay.textContent = count; });
-socket.on('user-joined', (data) => { showToast(`👋 ${data.name} joined`); });
-socket.on('user-left', (socketId) => { removeCursor(socketId); showToast('👋 A user left'); });
+socket.on('user-count-update', (count) => {
+    userCountDisplay.textContent = count;
+});
+
+socket.on('user-joined', (data) => {
+    showToast(`👋 ${data.name} joined`);
+    // Add to local cache
+    roomUsersCache[data.socketId] = { name: data.name, color: data.color };
+    renderMembersList();
+});
+
+socket.on('user-left', (socketId) => {
+    removeCursor(socketId);
+    if (roomUsersCache[socketId]) {
+        showToast(`👋 ${roomUsersCache[socketId].name} left`);
+        delete roomUsersCache[socketId];
+    } else {
+        showToast('👋 A user left');
+    }
+    renderMembersList();
+});
+
+// Full user list update from server
+socket.on('users-update', (data) => {
+    roomUsersCache = data.users || {};
+    currentHostId  = data.hostId;
+    amIHost        = (data.hostId === mySocketId);
+    renderMembersList();
+    // Update host badge
+    updateHostBadge();
+});
+
+socket.on('host-changed', (data) => {
+    currentHostId = data.newHostId;
+    amIHost = (data.newHostId === mySocketId);
+    if (amIHost) showToast('👑 You are now the host!');
+    updateHostBadge();
+    renderMembersList();
+});
+
+// Kicked event — this client was kicked
+socket.on('kicked', () => {
+    wasKicked = true;
+    currentRoomId = null;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    canvasImage = null;
+    localUndoStack = [];
+    localRedoStack = [];
+    chatMessages.innerHTML = '';
+    roomUsersCache = {};
+    amIHost = false;
+    window.history.pushState({}, '', '/');
+    appScreen.classList.remove('visible');
+
+    // Show UI transition first, then show landing
+    setTimeout(() => {
+        appScreen.style.display = 'none';
+        landingScreen.style.display = 'flex';
+        landingScreen.classList.remove('fade-out');
+        animateSplash();
+        // Show toast AFTER landing is visible
+        showToast('✕ You were kicked from the room', 4000);
+    }, 400);
+});
 
 socket.on('draw', (data) => {
     if (data.isStart) remoteDrawing = false;
@@ -491,10 +649,15 @@ socket.on('history-update', (data) => {
 
 socket.on('cursor-move', (data) => updateRemoteCursor(data.socketId, data.x, data.y, data.color, data.name));
 socket.on('cursor-hide', (socketId) => removeCursor(socketId));
+
 socket.on('existing-users', (users) => {
+    roomUsersCache = { ...users };
+    // Make sure we include ourselves
+    roomUsersCache[mySocketId] = { name: myName, color: myColor };
     Object.entries(users).forEach(([socketId, info]) => {
         if (socketId !== socket.id) ensureCursorExists(socketId, info.color, info.name);
     });
+    renderMembersList();
 });
 
 socket.on('chat-message', (data) => {
@@ -505,32 +668,52 @@ socket.on('chat-message', (data) => {
 // UI HELPERS
 // =============================================
 function updateRoomUI(roomId, userCount) {
-    roomIdDisplay.textContent = roomId;
+    roomIdDisplay.textContent   = roomId;
     userCountDisplay.textContent = userCount;
-    roomInfo.style.visibility = 'visible';
-    myNameBadge.textContent = `👤 ${myName}`;
+    roomInfo.style.visibility   = 'visible';
+    myNameBadge.textContent     = `👤 ${myName}`;
+    renderMembersList();
 }
 
 function updateUrl(roomId) {
     window.history.pushState({}, '', `${window.location.origin}/?room=${roomId}`);
 }
 
+function updateHostBadge() {
+    if (amIHost) {
+        myNameBadge.textContent = `👑 ${myName}`;
+    } else {
+        myNameBadge.textContent = `👤 ${myName}`;
+    }
+}
+
+// =============================================
+// REMOTE CURSORS — with name labels
+// =============================================
 function ensureCursorExists(socketId, color, name) {
     if (remoteCursors[socketId]) return;
     const wrapper = document.createElement('div');
     wrapper.className = 'remote-cursor';
     wrapper.style.display = 'none';
+
+    // Custom SVG-style pointer
+    const pointer = document.createElement('div');
+    pointer.className = 'remote-cursor-pointer';
+    pointer.style.borderTopColor = color;  // CSS triangle trick
+
     const dot = document.createElement('div');
     dot.className = 'remote-cursor-dot';
     dot.style.background = color;
+
     const label = document.createElement('div');
     label.className = 'remote-cursor-label';
     label.style.background = color;
     label.textContent = name;
+
     wrapper.appendChild(dot);
     wrapper.appendChild(label);
     cursorOverlay.appendChild(wrapper);
-    remoteCursors[socketId] = { element: wrapper };
+    remoteCursors[socketId] = { element: wrapper, dot, label };
 }
 
 function updateRemoteCursor(socketId, x, y, color, name) {
@@ -539,9 +722,13 @@ function updateRemoteCursor(socketId, x, y, color, name) {
     const overlayRect = cursorOverlay.getBoundingClientRect();
     const scaleX = overlayRect.width / canvas.width;
     const scaleY = overlayRect.height / canvas.height;
-    cursor.element.style.left = `${x * scaleX}px`;
-    cursor.element.style.top = `${y * scaleY}px`;
+    cursor.element.style.left    = `${x * scaleX}px`;
+    cursor.element.style.top     = `${y * scaleY}px`;
     cursor.element.style.display = 'block';
+    // Update name in case it changed
+    cursor.label.textContent = name;
+    cursor.label.style.background = color;
+    cursor.dot.style.background   = color;
 }
 
 function removeCursor(socketId) {
@@ -589,7 +776,7 @@ clearBtn.addEventListener('click', () => {
 downloadBtn.addEventListener('click', () => {
     const link = document.createElement('a');
     const date = new Date();
-    const ts = `${date.getFullYear()}${String(date.getMonth()+1).padStart(2,'0')}${String(date.getDate()).padStart(2,'0')}-${date.getHours()}${date.getMinutes()}${date.getSeconds()}`;
+    const ts   = `${date.getFullYear()}${String(date.getMonth()+1).padStart(2,'0')}${String(date.getDate()).padStart(2,'0')}-${date.getHours()}${date.getMinutes()}${date.getSeconds()}`;
     link.download = `paint-together-${ts}.png`;
     link.href = canvas.toDataURL('image/png');
     link.click();
@@ -599,7 +786,7 @@ undoBtn.addEventListener('click', undo);
 redoBtn.addEventListener('click', redo);
 
 document.addEventListener('keydown', (e) => {
-    if (e.ctrlKey && e.key === 'z') { e.preventDefault(); undo(); }
+    if (e.ctrlKey && e.key === 'z')  { e.preventDefault(); undo(); }
     if ((e.ctrlKey && e.key === 'y') || (e.ctrlKey && e.shiftKey && e.key === 'z')) {
         e.preventDefault(); redo();
     }
@@ -667,22 +854,22 @@ function loadCanvasState(base64) {
 // COORDINATES
 // =============================================
 function getMousePos(e) {
-    const rect = canvas.getBoundingClientRect();
+    const rect   = canvas.getBoundingClientRect();
     const scaleX = canvas.width / rect.width;
     const scaleY = canvas.height / rect.height;
     return {
         x: (e.clientX - rect.left) * scaleX,
-        y: (e.clientY - rect.top) * scaleY
+        y: (e.clientY - rect.top)  * scaleY
     };
 }
 
 function getTouchPos(touch) {
-    const rect = canvas.getBoundingClientRect();
+    const rect   = canvas.getBoundingClientRect();
     const scaleX = canvas.width / rect.width;
     const scaleY = canvas.height / rect.height;
     return {
         x: (touch.clientX - rect.left) * scaleX,
-        y: (touch.clientY - rect.top) * scaleY
+        y: (touch.clientY - rect.top)  * scaleY
     };
 }
 
@@ -735,65 +922,43 @@ let activeTouchId = null;
 canvas.addEventListener('touchstart', (e) => {
     e.preventDefault();
     if (activeTouchId !== null) return;
-
     const t = e.changedTouches[0];
     activeTouchId = t.identifier;
-
     const pos = getTouchPos(t);
     hasDrawnInStroke = false;
-    isDrawing = true;
-    lastX = pos.x;
-    lastY = pos.y;
-    mouseX = pos.x;
-    mouseY = pos.y;
+    isDrawing  = true;
+    lastX = pos.x; lastY = pos.y;
+    mouseX = pos.x; mouseY = pos.y;
     restoreCanvas();
     ctx.beginPath();
     ctx.moveTo(pos.x, pos.y);
-    ctx.lineWidth = currentBrushSize;
-    ctx.lineCap = 'round';
-    ctx.lineJoin = 'round';
+    ctx.lineWidth   = currentBrushSize;
+    ctx.lineCap     = 'round';
+    ctx.lineJoin    = 'round';
     ctx.strokeStyle = currentTool === 'eraser' ? '#ffffff' : currentColor;
-
     if (!currentRoomId) {
         saveToUndoStack();
     } else {
-        socket.emit('save-undo-snapshot', {
-            roomId: currentRoomId,
-            state: canvas.toDataURL('image/png')
-        });
-        socket.emit('draw', {
-            x: pos.x, y: pos.y,
-            color: currentColor, size: currentBrushSize,
-            tool: currentTool, isStart: true, roomId: currentRoomId
-        });
+        socket.emit('save-undo-snapshot', { roomId: currentRoomId, state: canvas.toDataURL('image/png') });
+        socket.emit('draw', { x: pos.x, y: pos.y, color: currentColor, size: currentBrushSize, tool: currentTool, isStart: true, roomId: currentRoomId });
     }
 }, { passive: false });
 
 canvas.addEventListener('touchmove', (e) => {
     e.preventDefault();
     if (!isDrawing) return;
-
     const t = Array.from(e.changedTouches).find(touch => touch.identifier === activeTouchId);
     if (!t) return;
-
     const pos = getTouchPos(t);
-    mouseX = pos.x;
-    mouseY = pos.y;
-
+    mouseX = pos.x; mouseY = pos.y;
     ctx.lineTo(pos.x, pos.y);
     ctx.stroke();
     ctx.beginPath();
     ctx.moveTo(pos.x, pos.y);
     hasDrawnInStroke = true;
-    lastX = pos.x;
-    lastY = pos.y;
-
+    lastX = pos.x; lastY = pos.y;
     if (currentRoomId) {
-        socket.emit('draw', {
-            x: pos.x, y: pos.y,
-            color: currentColor, size: currentBrushSize,
-            tool: currentTool, roomId: currentRoomId
-        });
+        socket.emit('draw', { x: pos.x, y: pos.y, color: currentColor, size: currentBrushSize, tool: currentTool, roomId: currentRoomId });
     }
 }, { passive: false });
 
@@ -801,7 +966,6 @@ canvas.addEventListener('touchend', (e) => {
     e.preventDefault();
     const t = Array.from(e.changedTouches).find(touch => touch.identifier === activeTouchId);
     if (!t) return;
-
     activeTouchId = null;
     stopDrawing();
 }, { passive: false });
@@ -810,7 +974,6 @@ canvas.addEventListener('touchcancel', (e) => {
     e.preventDefault();
     const t = Array.from(e.changedTouches).find(touch => touch.identifier === activeTouchId);
     if (!t) return;
-
     activeTouchId = null;
     stopDrawing();
 }, { passive: false });
@@ -820,29 +983,21 @@ canvas.addEventListener('touchcancel', (e) => {
 // =============================================
 function startDrawing(e) {
     hasDrawnInStroke = false;
-    isDrawing = true;
-    const pos = getMousePos(e);
-    lastX = pos.x;
-    lastY = pos.y;
+    isDrawing  = true;
+    const pos  = getMousePos(e);
+    lastX = pos.x; lastY = pos.y;
     restoreCanvas();
     ctx.beginPath();
     ctx.moveTo(pos.x, pos.y);
-    ctx.lineWidth = currentBrushSize;
-    ctx.lineCap = 'round';
-    ctx.lineJoin = 'round';
+    ctx.lineWidth   = currentBrushSize;
+    ctx.lineCap     = 'round';
+    ctx.lineJoin    = 'round';
     ctx.strokeStyle = currentTool === 'eraser' ? '#ffffff' : currentColor;
     if (!currentRoomId) {
         saveToUndoStack();
     } else {
-        socket.emit('save-undo-snapshot', {
-            roomId: currentRoomId,
-            state: canvas.toDataURL('image/png')
-        });
-        socket.emit('draw', {
-            x: pos.x, y: pos.y,
-            color: currentColor, size: currentBrushSize,
-            tool: currentTool, isStart: true, roomId: currentRoomId
-        });
+        socket.emit('save-undo-snapshot', { roomId: currentRoomId, state: canvas.toDataURL('image/png') });
+        socket.emit('draw', { x: pos.x, y: pos.y, color: currentColor, size: currentBrushSize, tool: currentTool, isStart: true, roomId: currentRoomId });
     }
 }
 
@@ -854,14 +1009,9 @@ function draw(e) {
     ctx.beginPath();
     ctx.moveTo(pos.x, pos.y);
     hasDrawnInStroke = true;
-    lastX = pos.x;
-    lastY = pos.y;
+    lastX = pos.x; lastY = pos.y;
     if (currentRoomId) {
-        socket.emit('draw', {
-            x: pos.x, y: pos.y,
-            color: currentColor, size: currentBrushSize,
-            tool: currentTool, roomId: currentRoomId
-        });
+        socket.emit('draw', { x: pos.x, y: pos.y, color: currentColor, size: currentBrushSize, tool: currentTool, roomId: currentRoomId });
     }
 }
 
@@ -880,10 +1030,7 @@ function stopDrawing() {
     canvasImage = ctx.getImageData(0, 0, canvas.width, canvas.height);
     if (currentRoomId) {
         socket.emit('mouseup', currentRoomId);
-        socket.emit('stroke-complete', {
-            roomId: currentRoomId,
-            state: canvas.toDataURL('image/png')
-        });
+        socket.emit('stroke-complete', { roomId: currentRoomId, state: canvas.toDataURL('image/png') });
     }
     if (currentTool === 'eraser' && showCursor) showCursorPreview();
 }
@@ -894,7 +1041,7 @@ function showCursorPreview() {
     ctx.beginPath();
     ctx.arc(mouseX, mouseY, currentBrushSize / 2, 0, Math.PI * 2);
     ctx.strokeStyle = '#666666';
-    ctx.lineWidth = 2;
+    ctx.lineWidth   = 2;
     ctx.setLineDash([5, 5]);
     ctx.stroke();
     ctx.restore();
@@ -912,21 +1059,19 @@ function drawReceivedLine(x, y, color, size, tool, isStart) {
     ctx.save();
     if (isStart || !remoteDrawing) {
         remoteDrawing = true;
-        remoteLastX = x;
-        remoteLastY = y;
+        remoteLastX = x; remoteLastY = y;
         ctx.beginPath();
         ctx.moveTo(x, y);
     }
-    ctx.lineWidth = size;
-    ctx.lineCap = 'round';
-    ctx.lineJoin = 'round';
+    ctx.lineWidth   = size;
+    ctx.lineCap     = 'round';
+    ctx.lineJoin    = 'round';
     ctx.strokeStyle = tool === 'brush' ? color : '#ffffff';
     ctx.lineTo(x, y);
     ctx.stroke();
     ctx.beginPath();
     ctx.moveTo(x, y);
-    remoteLastX = x;
-    remoteLastY = y;
+    remoteLastX = x; remoteLastY = y;
     ctx.restore();
     canvasImage = ctx.getImageData(0, 0, canvas.width, canvas.height);
 }

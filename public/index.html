@@ -12,40 +12,28 @@
 
     <!-- ===================== LANDING SCREEN ===================== -->
     <div id="landingScreen" class="landing-screen">
-
-        <!-- Animated paint splash background -->
         <canvas id="splashCanvas" class="splash-canvas"></canvas>
-
-        <!-- Dark mode toggle -->
         <button id="darkToggleBtn" class="dark-toggle" title="Toggle dark mode">🌙</button>
-
-        <!-- Card -->
         <div class="landing-card">
             <div class="landing-logo">🎨</div>
             <h1 class="landing-title">Paint Together</h1>
             <p class="landing-subtitle">Draw. Collaborate. Create.</p>
-
             <div class="landing-form">
                 <div class="input-group">
                     <label for="usernameInput">Your Name</label>
                     <input type="text" id="usernameInput" class="landing-input"
                         placeholder="Enter your name..." maxlength="20" autocomplete="off">
                 </div>
-
                 <div class="form-divider"><span>choose an option</span></div>
-
                 <button id="landingCreateBtn" class="btn-create">
                     <span>✦</span> Create New Room
                 </button>
-
                 <div class="or-sep"><span>or join existing</span></div>
-
                 <div class="join-row">
                     <input type="text" id="roomCodeInput" class="landing-input room-code-input"
                         placeholder="Room code..." maxlength="8" autocomplete="off">
                     <button id="landingJoinBtn" class="btn-join">Join →</button>
                 </div>
-
                 <p id="landingError" class="landing-error"></p>
             </div>
         </div>
@@ -60,13 +48,27 @@
                 <span class="app-logo">🎨</span>
                 <span class="app-title">Paint Together</span>
             </div>
+
+            <!-- CENTER: only Room Code + Members button -->
             <div class="header-center" id="roomInfo" style="visibility:hidden;">
                 <span class="room-label">Room:</span>
                 <strong id="roomId" class="room-code"></strong>
-                <span class="user-count-badge">👥 <strong id="userCount">1</strong></span>
-                <button id="copyLinkBtn" class="copy-btn">Copy Link</button>
+
+                <!-- Members button + dropdown -->
+                <div class="members-wrapper">
+                    <button id="membersBtn" class="members-btn">
+                        👥 Members <span id="userCount">1</span>
+                        <span class="members-chevron">▾</span>
+                    </button>
+                    <div id="membersDropdown" class="members-dropdown">
+                        <div class="members-dropdown-header">Room Members</div>
+                        <ul id="membersList" class="members-list"></ul>
+                    </div>
+                </div>
             </div>
+
             <div class="header-right">
+                <button id="copyLinkBtn" class="copy-btn">🔗 Copy Link</button>
                 <span id="myNameBadge" class="my-name-badge"></span>
                 <button id="exitRoomBtn" class="exit-room-btn" title="Leave room">🚪 Exit</button>
                 <button id="darkToggleBtnApp" class="dark-toggle-app" title="Toggle dark mode">🌙</button>
@@ -79,13 +81,11 @@
                 <button id="brushBtn" class="tool-btn active">✏️ Brush</button>
                 <button id="eraserBtn" class="tool-btn">⬜ Eraser</button>
             </div>
-            
             <div class="control-group color-palette-group">
                 <label>Colors:</label>
                 <div class="color-palette" id="colorPalette"></div>
                 <button id="customColorBtn" class="custom-color-btn" title="Custom color">+</button>
             </div>
-            
             <div class="control-group">
                 <label for="brushSize">Size:</label>
                 <input type="range" id="brushSize" min="1" max="50" value="5">
@@ -113,9 +113,7 @@
 
         <!-- Chat Popup -->
         <div id="chatPopup" class="chat-popup">
-            <div class="chat-popup-header">
-                <span>💬 Chat</span>
-            </div>
+            <div class="chat-popup-header"><span>💬 Chat</span></div>
             <div class="chat-messages" id="chatMessages"></div>
             <div class="chat-input-container">
                 <input type="text" id="chatInput" class="chat-input" placeholder="Type a message..." maxlength="200">
@@ -127,6 +125,19 @@
 
     <!-- Toast -->
     <div id="toast" class="toast"></div>
+
+    <!-- Kick Confirmation Modal -->
+    <div id="kickModal" class="kick-modal">
+        <div class="kick-modal-content">
+            <div class="kick-modal-icon">✕</div>
+            <h3>Kick Member?</h3>
+            <p id="kickModalText">Remove this user from the room?</p>
+            <div class="kick-modal-buttons">
+                <button id="kickCancelBtn" class="picker-btn cancel-btn">Cancel</button>
+                <button id="kickConfirmBtn" class="picker-btn kick-confirm-btn">Kick</button>
+            </div>
+        </div>
+    </div>
 
     <!-- Color Picker Modal -->
     <div id="colorPickerModal" class="color-picker-modal">

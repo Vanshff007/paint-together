@@ -4,53 +4,37 @@ const http = require('http');
 const socketIo = require('socket.io');
 const path = require('path');
 
-// Create Express app
 const app = express();
-
-// Create HTTP server (needed for Socket.io)
 const server = http.createServer(app);
-
-// Create Socket.io instance
 const io = socketIo(server, {
-    cors: {
-        origin: '*',
-        methods: ['GET', 'POST']
-    }
+    cors: { origin: '*', methods: ['GET', 'POST'] }
 });
 
-// Define port — uses environment variable for Render, falls back to 3000 locally
 const PORT = process.env.PORT || 3000;
 
-// Serve static files from 'public' folder
 app.use(express.static(path.join(__dirname, 'public')));
-
-// Route: Send index.html
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// Function to generate random room ID
 function generateRoomId() {
     return Math.random().toString(36).substring(2, 8).toUpperCase();
 }
 
-// Function to get user count in a room
 function getRoomUserCount(roomId) {
     const room = io.sockets.adapter.rooms.get(roomId);
     return room ? room.size : 0;
 }
 
-// Store room data per room:
+// roomData structure:
 // {
-//   canvasState: base64string,       — current canvas (shown to new joiners)
-//   undoStack:   [base64, ...],      — shared undo history (max 30)
-//   redoStack:   [base64, ...],      — shared redo history
-//   users:       { socketId: { name, color } }
+//   canvasState, undoStack, redoStack, pendingSnapshot,
+//   hostId: socketId of room creator,
+//   users: { socketId: { name, color } }
 // }
 const roomData = {};
 const MAX_HISTORY = 30;
 
-// Generate a random color for a user's cursor
 function randomUserColor() {
     const colors = [
         '#ef4444', '#f97316', '#eab308', '#22c55e',
@@ -59,22 +43,18 @@ function randomUserColor() {
     return colors[Math.floor(Math.random() * colors.length)];
 }
 
-// Socket.io connection handling
 io.on('connection', (socket) => {
     console.log('✅ New user connected! Socket ID:', socket.id);
 
-    // Assign this user a random color for their cursor
     const userColor = randomUserColor();
-    const userName = `User_${socket.id.substring(0, 4)}`;
-
-    // Track which room this socket is in
     let currentRoom = null;
+    let currentName = `User_${socket.id.substring(0, 4)}`;
 
-    // Handle create room request
+    // ── CREATE ROOM ──────────────────────────────────────
     socket.on('create-room', (data) => {
-        const roomId  = generateRoomId();
-        const name    = (data && data.userName) ? data.userName.trim().substring(0, 20) : `User_${socket.id.substring(0,4)}`;
-        const uName   = name || `User_${socket.id.substring(0,4)}`;
+        const roomId = generateRoomId();
+        const uName  = (data && data.userName) ? data.userName.trim().substring(0, 20) : currentName;
+        currentName  = uName;
 
         socket.join(roomId);
         currentRoom = roomId;
@@ -84,21 +64,26 @@ io.on('connection', (socket) => {
             undoStack: [],
             redoStack: [],
             pendingSnapshot: null,
+            hostId: socket.id,          // creator is host
             users: {}
         };
 
         roomData[roomId].users[socket.id] = { name: uName, color: userColor };
 
         const userCount = getRoomUserCount(roomId);
-        socket.emit('room-created', { roomId, userCount, userColor, userName: uName });
+        socket.emit('room-created', {
+            roomId, userCount, userColor, userName: uName,
+            isHost: true
+        });
 
         console.log(`🚪 Room created: ${roomId} by ${uName}`);
     });
 
-    // Handle join room request
+    // ── JOIN ROOM ────────────────────────────────────────
     socket.on('join-room', (data) => {
         const roomId = (typeof data === 'string') ? data : data.roomId;
-        const uName  = (data && data.userName) ? data.userName.trim().substring(0, 20) : `User_${socket.id.substring(0,4)}`;
+        const uName  = (data && data.userName) ? data.userName.trim().substring(0, 20) : currentName;
+        currentName  = uName;
 
         const roomExists = io.sockets.adapter.rooms.has(roomId);
         if (!roomExists && !roomData[roomId]) {
@@ -110,155 +95,122 @@ io.on('connection', (socket) => {
         currentRoom = roomId;
 
         if (!roomData[roomId]) {
-            roomData[roomId] = { canvasState: null, undoStack: [], redoStack: [], pendingSnapshot: null, users: {} };
+            roomData[roomId] = {
+                canvasState: null, undoStack: [], redoStack: [],
+                pendingSnapshot: null, hostId: socket.id, users: {}
+            };
         }
 
         roomData[roomId].users[socket.id] = { name: uName, color: userColor };
 
         const userCount = getRoomUserCount(roomId);
+        const isHost    = roomData[roomId].hostId === socket.id;
 
         socket.emit('room-joined', {
-            roomId,
-            userCount,
-            userColor,
-            userName: uName,
+            roomId, userCount, userColor, userName: uName,
             canvasState: roomData[roomId].canvasState,
             hasUndo: roomData[roomId].undoStack.length > 0,
-            hasRedo: roomData[roomId].redoStack.length > 0
+            hasRedo: roomData[roomId].redoStack.length > 0,
+            isHost,
+            hostId: roomData[roomId].hostId
         });
 
         io.to(roomId).emit('user-count-update', userCount);
-        socket.emit('existing-users', roomData[roomId].users);
+        // Send full user list to everyone so member panel stays in sync
+        io.to(roomId).emit('users-update', {
+            users: roomData[roomId].users,
+            hostId: roomData[roomId].hostId
+        });
         socket.to(roomId).emit('user-joined', { socketId: socket.id, name: uName, color: userColor });
 
         console.log(`🚪 ${uName} joined room: ${roomId} | Users: ${userCount}`);
     });
 
-    // Listen for drawing data — broadcast to room
+    // ── DRAW ─────────────────────────────────────────────
     socket.on('draw', (data) => {
-        if (data.roomId) {
-            socket.to(data.roomId).emit('draw', data);
-        }
+        if (data.roomId) socket.to(data.roomId).emit('draw', data);
     });
 
-    // Listen for shape drawing — broadcast to room
     socket.on('draw-shape', (data) => {
-        if (data.roomId) {
-            socket.to(data.roomId).emit('draw-shape', data);
-        }
+        if (data.roomId) socket.to(data.roomId).emit('draw-shape', data);
     });
 
-    // Client signals: "I'm about to draw — save current canvas as undo snapshot"
+    // ── UNDO/REDO SNAPSHOTS ──────────────────────────────
     socket.on('save-undo-snapshot', ({ roomId, state }) => {
         if (!roomId || !roomData[roomId]) return;
-        const room = roomData[roomId];
-
-        // Push current state onto undo stack
-        room.pendingSnapshot = state; // hold it until stroke-complete confirms it
-        room.redoStack = []; // new stroke invalidates redo
+        roomData[roomId].pendingSnapshot = state;
+        roomData[roomId].redoStack = [];
     });
 
-    // Client signals: "I clicked but didn't draw — discard the snapshot"
     socket.on('discard-undo-snapshot', (roomId) => {
         if (!roomId || !roomData[roomId]) return;
         roomData[roomId].pendingSnapshot = null;
     });
 
-    // Client signals: "Stroke is complete — commit snapshot and update current state"
     socket.on('stroke-complete', ({ roomId, state }) => {
         if (!roomId || !roomData[roomId]) return;
         const room = roomData[roomId];
-
-        // Commit the pending snapshot to undoStack
         if (room.pendingSnapshot !== null && room.pendingSnapshot !== undefined) {
             room.undoStack.push(room.pendingSnapshot);
             if (room.undoStack.length > MAX_HISTORY) room.undoStack.shift();
             room.pendingSnapshot = null;
         }
-
-        // Update current canvas state
         room.canvasState = state;
-
-        // Tell ALL clients in room to update button states
         io.to(roomId).emit('history-update', {
             hasUndo: room.undoStack.length > 0,
             hasRedo: room.redoStack.length > 0
         });
     });
 
-    // Listen for clear canvas event
+    // ── CLEAR ────────────────────────────────────────────
     socket.on('clear', (roomId) => {
         if (roomId) {
             socket.to(roomId).emit('clear');
-            // Clear saved canvas state and history
             if (roomData[roomId]) {
                 roomData[roomId].canvasState = null;
-                roomData[roomId].undoStack = [];
-                roomData[roomId].redoStack = [];
+                roomData[roomId].undoStack   = [];
+                roomData[roomId].redoStack   = [];
             }
-            // Tell all clients undo/redo is now disabled
             io.to(roomId).emit('history-update', { hasUndo: false, hasRedo: false });
         }
     });
 
-    // Any user requests UNDO — server pops shared stack and broadcasts to ALL
+    // ── UNDO ─────────────────────────────────────────────
     socket.on('undo', (roomId) => {
         if (!roomId || !roomData[roomId]) return;
         const room = roomData[roomId];
         if (room.undoStack.length === 0) return;
-
-        // Push current state to redo stack
-        if (room.canvasState) {
-            room.redoStack.push(room.canvasState);
-        }
-
-        // Pop previous state from undo stack
+        if (room.canvasState) room.redoStack.push(room.canvasState);
         const previousState = room.undoStack.pop();
         room.canvasState = previousState;
-
-        // Broadcast new canvas state to ALL users in room (including sender)
         io.to(roomId).emit('canvas-restore', {
             state: previousState,
             hasUndo: room.undoStack.length > 0,
             hasRedo: room.redoStack.length > 0
         });
-
-        console.log(`↩ Undo in room ${roomId} | undoStack: ${room.undoStack.length} | redoStack: ${room.redoStack.length}`);
     });
 
-    // Any user requests REDO — server pops redo stack and broadcasts to ALL
+    // ── REDO ─────────────────────────────────────────────
     socket.on('redo', (roomId) => {
         if (!roomId || !roomData[roomId]) return;
         const room = roomData[roomId];
         if (room.redoStack.length === 0) return;
-
-        // Push current state to undo stack
-        if (room.canvasState) {
-            room.undoStack.push(room.canvasState);
-        }
-
-        // Pop next state from redo stack
+        if (room.canvasState) room.undoStack.push(room.canvasState);
         const nextState = room.redoStack.pop();
         room.canvasState = nextState;
-
-        // Broadcast new canvas state to ALL users in room (including sender)
         io.to(roomId).emit('canvas-restore', {
             state: nextState,
             hasUndo: room.undoStack.length > 0,
             hasRedo: room.redoStack.length > 0
         });
-
-        console.log(`↪ Redo in room ${roomId} | undoStack: ${room.undoStack.length} | redoStack: ${room.redoStack.length}`);
     });
 
-    // Listen for mouse up event
+    // ── MOUSE UP ─────────────────────────────────────────
     socket.on('mouseup', (roomId) => {
-        if (roomId) {
-            socket.to(roomId).emit('mouseup');
-        }
+        if (roomId) socket.to(roomId).emit('mouseup');
     });
 
-    // Live cursor position — broadcast to room
+    // ── CURSOR ───────────────────────────────────────────
     socket.on('cursor-move', (data) => {
         if (data.roomId) {
             socket.to(data.roomId).emit('cursor-move', {
@@ -266,12 +218,16 @@ io.on('connection', (socket) => {
                 x: data.x,
                 y: data.y,
                 color: userColor,
-                name: userName
+                name: currentName      // always use latest name from join
             });
         }
     });
 
-    // Chat message — broadcast to room
+    socket.on('cursor-leave', (roomId) => {
+        if (roomId) socket.to(roomId).emit('cursor-hide', socket.id);
+    });
+
+    // ── CHAT ─────────────────────────────────────────────
     socket.on('chat-message', (data) => {
         if (data.roomId) {
             socket.to(data.roomId).emit('chat-message', {
@@ -281,37 +237,67 @@ io.on('connection', (socket) => {
         }
     });
 
-    // Cursor left canvas
-    socket.on('cursor-leave', (roomId) => {
-        if (roomId) {
-            socket.to(roomId).emit('cursor-hide', socket.id);
-        }
+    // ── KICK (host only) ─────────────────────────────────
+    socket.on('kick-user', ({ roomId, targetSocketId }) => {
+        if (!roomId || !roomData[roomId]) return;
+        // Only host can kick
+        if (roomData[roomId].hostId !== socket.id) return;
+        // Can't kick yourself
+        if (targetSocketId === socket.id) return;
+
+        // Get the target socket instance
+        const targetSocket = io.sockets.sockets.get(targetSocketId);
+        if (!targetSocket) return;
+
+        // Tell the kicked user they've been kicked first, then disconnect them
+        targetSocket.emit('kicked');
+        console.log(`✕ ${targetSocketId} kicked from room ${roomId} by host`);
+
+        // Force disconnect after a delay so the client receives the 'kicked' event first
+        setTimeout(() => {
+            targetSocket.disconnect(true);
+        }, 500);
     });
 
-    // When user is disconnecting
+    // ── DISCONNECT ───────────────────────────────────────
     socket.on('disconnecting', () => {
         const rooms = Array.from(socket.rooms);
-
         rooms.forEach(roomId => {
-            if (roomId !== socket.id) {
-                const currentCount = getRoomUserCount(roomId);
-                const newCount = currentCount - 1;
+            if (roomId === socket.id) return;
 
-                // Remove user from room data
-                if (roomData[roomId] && roomData[roomId].users) {
-                    delete roomData[roomId].users[socket.id];
+            const currentCount = getRoomUserCount(roomId);
+            const newCount     = currentCount - 1;
+
+            if (roomData[roomId] && roomData[roomId].users) {
+                delete roomData[roomId].users[socket.id];
+            }
+
+            socket.to(roomId).emit('user-count-update', newCount);
+            socket.to(roomId).emit('cursor-hide', socket.id);
+            socket.to(roomId).emit('user-left', socket.id);
+
+            // If host left, assign new host
+            if (roomData[roomId] && roomData[roomId].hostId === socket.id) {
+                const remainingUsers = Object.keys(roomData[roomId].users);
+                if (remainingUsers.length > 0) {
+                    roomData[roomId].hostId = remainingUsers[0];
+                    io.to(roomId).emit('host-changed', { newHostId: remainingUsers[0] });
+                    io.to(roomId).emit('users-update', {
+                        users: roomData[roomId].users,
+                        hostId: roomData[roomId].hostId
+                    });
                 }
+            } else if (roomData[roomId]) {
+                // Still send updated user list
+                io.to(roomId).emit('users-update', {
+                    users: roomData[roomId].users,
+                    hostId: roomData[roomId].hostId
+                });
+            }
 
-                // Notify others
-                socket.to(roomId).emit('user-count-update', newCount);
-                socket.to(roomId).emit('cursor-hide', socket.id);
-                socket.to(roomId).emit('user-left', socket.id);
-
-                // Clean up empty rooms
-                if (newCount <= 0 && roomData[roomId]) {
-                    delete roomData[roomId];
-                    console.log(`🗑️ Room ${roomId} cleaned up (empty)`);
-                }
+            if (newCount <= 0 && roomData[roomId]) {
+                delete roomData[roomId];
+                console.log(`🗑️ Room ${roomId} cleaned up (empty)`);
             }
         });
     });
@@ -321,7 +307,6 @@ io.on('connection', (socket) => {
     });
 });
 
-// Start server
 server.listen(PORT, () => {
     console.log('===========================================');
     console.log('🚀 SERVER STARTED SUCCESSFULLY!');
