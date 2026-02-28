@@ -623,7 +623,16 @@ socket.on('kicked', () => {
 
 socket.on('draw', (data) => {
     if (data.isStart) remoteDrawing = false;
-    drawReceivedLine(data.x, data.y, data.color, data.size, data.tool, data.isStart);
+    // Support both normalized (nx/ny/ns) and legacy (x/y/size) formats
+    let rx, ry, rsize;
+    if (data.nx !== undefined) {
+        const p = fromNorm(data.nx, data.ny);
+        rx = p.x; ry = p.y;
+        rsize = denormSize(data.ns);
+    } else {
+        rx = data.x; ry = data.y; rsize = data.size;
+    }
+    drawReceivedLine(rx, ry, data.color, rsize, data.tool, data.isStart);
 });
 
 socket.on('clear', () => {
@@ -647,7 +656,16 @@ socket.on('history-update', (data) => {
     updateUndoRedoButtons();
 });
 
-socket.on('cursor-move', (data) => updateRemoteCursor(data.socketId, data.x, data.y, data.color, data.name));
+socket.on('cursor-move', (data) => {
+    let cx, cy;
+    if (data.nx !== undefined) {
+        const p = fromNorm(data.nx, data.ny);
+        cx = p.x; cy = p.y;
+    } else {
+        cx = data.x; cy = data.y;
+    }
+    updateRemoteCursor(data.socketId, cx, cy, data.color, data.name);
+});
 socket.on('cursor-hide', (socketId) => removeCursor(socketId));
 
 socket.on('existing-users', (users) => {
@@ -905,6 +923,32 @@ function getTouchPos(touch) {
     };
 }
 
+// Normalize pixel coords → 0..1 fractions for network transmission
+function toNorm(x, y) {
+    return {
+        nx: x / canvas.width,
+        ny: y / canvas.height
+    };
+}
+
+// Denormalize 0..1 fractions → pixel coords on THIS canvas
+function fromNorm(nx, ny) {
+    return {
+        x: nx * canvas.width,
+        y: ny * canvas.height
+    };
+}
+
+// Normalize brush size as fraction of canvas width
+function normSize(size) {
+    return size / canvas.width;
+}
+
+// Denormalize brush size back to pixels on THIS canvas
+function denormSize(ns) {
+    return ns * canvas.width;
+}
+
 // =============================================
 // MOUSE EVENTS
 // =============================================
@@ -942,7 +986,8 @@ function handleMouseMove(e) {
         showCursorPreview();
     }
     if (currentRoomId) {
-        socket.emit('cursor-move', { roomId: currentRoomId, x: pos.x, y: pos.y });
+        const _nc = toNorm(pos.x, pos.y);
+    socket.emit('cursor-move', { roomId: currentRoomId, nx: _nc.nx, ny: _nc.ny });
     }
 }
 
@@ -972,7 +1017,8 @@ canvas.addEventListener('touchstart', (e) => {
         saveToUndoStack();
     } else {
         socket.emit('save-undo-snapshot', { roomId: currentRoomId, state: canvas.toDataURL('image/png') });
-        socket.emit('draw', { x: pos.x, y: pos.y, color: currentColor, size: currentBrushSize, tool: currentTool, isStart: true, roomId: currentRoomId });
+        const _n1 = toNorm(pos.x, pos.y);
+        socket.emit('draw', { nx: _n1.nx, ny: _n1.ny, color: currentColor, ns: normSize(currentBrushSize), tool: currentTool, isStart: true, roomId: currentRoomId });
     }
 }, { passive: false });
 
@@ -990,7 +1036,8 @@ canvas.addEventListener('touchmove', (e) => {
     hasDrawnInStroke = true;
     lastX = pos.x; lastY = pos.y;
     if (currentRoomId) {
-        socket.emit('draw', { x: pos.x, y: pos.y, color: currentColor, size: currentBrushSize, tool: currentTool, roomId: currentRoomId });
+        const _n2 = toNorm(pos.x, pos.y);
+        socket.emit('draw', { nx: _n2.nx, ny: _n2.ny, color: currentColor, ns: normSize(currentBrushSize), tool: currentTool, roomId: currentRoomId });
     }
 }, { passive: false });
 
@@ -1029,7 +1076,8 @@ function startDrawing(e) {
         saveToUndoStack();
     } else {
         socket.emit('save-undo-snapshot', { roomId: currentRoomId, state: canvas.toDataURL('image/png') });
-        socket.emit('draw', { x: pos.x, y: pos.y, color: currentColor, size: currentBrushSize, tool: currentTool, isStart: true, roomId: currentRoomId });
+        const _n3 = toNorm(pos.x, pos.y);
+        socket.emit('draw', { nx: _n3.nx, ny: _n3.ny, color: currentColor, ns: normSize(currentBrushSize), tool: currentTool, isStart: true, roomId: currentRoomId });
     }
 }
 
@@ -1043,7 +1091,8 @@ function draw(e) {
     hasDrawnInStroke = true;
     lastX = pos.x; lastY = pos.y;
     if (currentRoomId) {
-        socket.emit('draw', { x: pos.x, y: pos.y, color: currentColor, size: currentBrushSize, tool: currentTool, roomId: currentRoomId });
+        const _n4 = toNorm(pos.x, pos.y);
+        socket.emit('draw', { nx: _n4.nx, ny: _n4.ny, color: currentColor, ns: normSize(currentBrushSize), tool: currentTool, roomId: currentRoomId });
     }
 }
 
