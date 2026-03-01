@@ -27,7 +27,7 @@ function initAppDarkMode() {
 }
 
 // =============================================
-// SPLASH CANVAS ANIMATION
+// SPLASH CANVAS ANIMATION (Organic "Watercolor" Pulse added)
 // =============================================
 const splashCanvas = document.getElementById('splashCanvas');
 const splashCtx = splashCanvas.getContext('2d');
@@ -49,7 +49,9 @@ function createBubble() {
     return {
         x: Math.random() * splashCanvas.width,
         y: Math.random() * splashCanvas.height,
-        r: 60 + Math.random() * 120,
+        baseR: 60 + Math.random() * 120, // Store base radius
+        pulsePhase: Math.random() * Math.PI * 2, // For organic breathing effect
+        pulseSpeed: 0.02 + Math.random() * 0.03,
         color: colors[Math.floor(Math.random() * colors.length)],
         vx: (Math.random() - 0.5) * 0.5,
         vy: (Math.random() - 0.5) * 0.5,
@@ -64,17 +66,25 @@ function animateSplash() {
     splashCtx.clearRect(0, 0, splashCanvas.width, splashCanvas.height);
     splashBubbles.forEach(b => {
         b.phase += b.speed;
+        b.pulsePhase += b.pulseSpeed;
+        
         b.x += b.vx + Math.sin(b.phase) * 0.3;
         b.y += b.vy + Math.cos(b.phase * 0.7) * 0.3;
-        if (b.x < -b.r) b.x = splashCanvas.width + b.r;
-        if (b.x > splashCanvas.width + b.r) b.x = -b.r;
-        if (b.y < -b.r) b.y = splashCanvas.height + b.r;
-        if (b.y > splashCanvas.height + b.r) b.y = -b.r;
-        const grad = splashCtx.createRadialGradient(b.x, b.y, 0, b.x, b.y, b.r);
+        
+        // Calculate breathing radius
+        const currentR = b.baseR + Math.sin(b.pulsePhase) * 15;
+
+        if (b.x < -currentR) b.x = splashCanvas.width + currentR;
+        if (b.x > splashCanvas.width + currentR) b.x = -currentR;
+        if (b.y < -currentR) b.y = splashCanvas.height + currentR;
+        if (b.y > splashCanvas.height + currentR) b.y = -currentR;
+        
+        const grad = splashCtx.createRadialGradient(b.x, b.y, 0, b.x, b.y, currentR);
         grad.addColorStop(0, b.color);
         grad.addColorStop(1, 'rgba(0,0,0,0)');
+        
         splashCtx.beginPath();
-        splashCtx.arc(b.x, b.y, b.r, 0, Math.PI * 2);
+        splashCtx.arc(b.x, b.y, currentR, 0, Math.PI * 2);
         splashCtx.fillStyle = grad;
         splashCtx.fill();
     });
@@ -160,7 +170,7 @@ const redoBtn          = document.getElementById('redoBtn');
 // MEMBERS PANEL
 // =============================================
 let membersOpen = false;
-let roomUsersCache = {}; // { socketId: { name, color } }
+let roomUsersCache = {}; 
 
 membersBtn.addEventListener('click', (e) => {
     e.stopPropagation();
@@ -189,17 +199,14 @@ function renderMembersList() {
         const li = document.createElement('li');
         li.className = 'member-item';
 
-        // Color dot
         const dot = document.createElement('span');
         dot.className = 'member-dot';
         dot.style.background = info.color || '#06b6d4';
 
-        // Name
         const nameSpan = document.createElement('span');
         nameSpan.className = 'member-name';
         nameSpan.textContent = info.name + (isMe ? ' (you)' : '');
 
-        // Crown for host
         if (isHost) {
             const crown = document.createElement('span');
             crown.className = 'member-crown';
@@ -213,7 +220,6 @@ function renderMembersList() {
             li.appendChild(nameSpan);
         }
 
-        // Kick button (only visible to host, not for themselves)
         if (canKick) {
             const kickBtn = document.createElement('button');
             kickBtn.className = 'member-kick-btn';
@@ -233,7 +239,6 @@ function renderMembersList() {
     });
 }
 
-// Kick modal buttons
 kickCancelBtn.addEventListener('click', () => {
     kickModal.classList.remove('show');
     pendingKickId = null;
@@ -256,9 +261,9 @@ kickModal.addEventListener('click', (e) => {
 // COLOR PALETTE
 // =============================================
 const defaultColors = [
-    '#FFFFFF', '#FF0000', '#FFFF00', '#00FF00', '#00FFFF', '#0000FF', '#FF00FF',
-    '#C0C0C0', '#FFFF80', '#00FF80', '#80FFFF', '#8080FF', '#FF0080', '#FF8040'
-];
+    '#000000', '#FF0000', '#FFFF00', '#00FF00', '#00FFFF', '#0000FF', '#FF00FF',
+    '#C0C0C0', '#FFFFFF', '#00FF80', '#80FFFF', '#8080FF', '#FF0080', '#FF8040'
+]; // Moved black to the front for easier default selection
 
 let selectedColorElement = null;
 let paletteInitialized   = false;
@@ -268,12 +273,22 @@ function initColorPalette() {
     if (paletteInitialized) return;
     paletteInitialized = true;
 
-    defaultColors.forEach((color) => {
+    defaultColors.forEach((color, index) => {
         const swatch = document.createElement('div');
         swatch.className = 'color-swatch';
         swatch.style.background = color;
         swatch.dataset.color = color;
-        swatch.addEventListener('click', () => selectColor(color, swatch));
+        
+        // Make the first color (black) active by default
+        if (index === 0) {
+            swatch.classList.add('active');
+            selectedColorElement = swatch;
+        }
+
+        swatch.addEventListener('click', () => {
+            customColorBtn.classList.remove('active'); // Turn off custom button glow
+            selectColor(color, swatch);
+        });
         colorPalette.appendChild(swatch);
     });
 
@@ -283,8 +298,18 @@ function initColorPalette() {
     });
 
     colorPickerOk.addEventListener('click', () => {
-        selectColor(colorPicker.value, null);
+        const pickedColor = colorPicker.value;
+        selectColor(pickedColor, null);
+        
+        // Remove active from palette swatches
         document.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('active'));
+        
+        // Make the custom button look active and show the new color!
+        customColorBtn.classList.add('active');
+        customColorBtn.style.background = pickedColor;
+        // Adjust text color based on brightness so the '+' remains visible
+        customColorBtn.style.color = getBrightness(pickedColor) > 128 ? '#000000' : '#ffffff';
+        
         colorPickerModal.classList.remove('show');
     });
 
@@ -297,11 +322,28 @@ function initColorPalette() {
 
 function selectColor(color, element) {
     currentColor = color;
-    if (selectedColorElement) selectedColorElement.classList.remove('active');
+    if (selectedColorElement && selectedColorElement !== customColorBtn) {
+        selectedColorElement.classList.remove('active');
+    }
     if (element) {
         element.classList.add('active');
         selectedColorElement = element;
     }
+    
+    // If we select a normal swatch, reset the custom button's look
+    if (element) {
+        customColorBtn.style.background = '';
+        customColorBtn.style.color = '';
+    }
+}
+
+// Quick helper function to determine if a hex color is light or dark
+function getBrightness(hexColor) {
+    const hex = hexColor.replace('#', '');
+    const r = parseInt(hex.substr(0, 2), 16);
+    const g = parseInt(hex.substr(2, 2), 16);
+    const b = parseInt(hex.substr(4, 2), 16);
+    return (r * 299 + g * 587 + b * 114) / 1000;
 }
 
 // =============================================
@@ -438,7 +480,7 @@ exitRoomBtn.addEventListener('click', () => {
     amIHost = false;
     window.history.pushState({}, '', '/');
     appScreen.classList.remove('visible');
-    socket.disconnect(); // reason = 'io client disconnect'
+    socket.disconnect(); 
     setTimeout(() => {
         appScreen.style.display = 'none';
         landingScreen.style.display = 'flex';
@@ -511,12 +553,10 @@ socket.on('connect', () => {
 
 socket.on('disconnect', (reason) => {
     if (wasKicked) {
-        // Server forcefully disconnected us after kick
-        // wasKicked flag is reset once we reconnect via socket.io auto-reconnect
         wasKicked = false;
         return;
     }
-    if (reason === 'io client disconnect') return; // intentional exit room
+    if (reason === 'io client disconnect') return; 
     showToast('⚠️ Disconnected. Reconnecting...');
 });
 
@@ -526,7 +566,6 @@ socket.on('room-created', (data) => {
     mySocketId      = socket.id;
     amIHost         = true;
     currentHostId   = socket.id;
-    // Seed our own entry in cache
     roomUsersCache[socket.id] = { name: myName, color: myColor };
     updateRoomUI(data.roomId, data.userCount);
     updateUrl(data.roomId);
@@ -562,7 +601,6 @@ socket.on('user-count-update', (count) => {
 
 socket.on('user-joined', (data) => {
     showToast(`👋 ${data.name} joined`);
-    // Add to local cache
     roomUsersCache[data.socketId] = { name: data.name, color: data.color };
     renderMembersList();
 });
@@ -578,13 +616,11 @@ socket.on('user-left', (socketId) => {
     renderMembersList();
 });
 
-// Full user list update from server
 socket.on('users-update', (data) => {
     roomUsersCache = data.users || {};
     currentHostId  = data.hostId;
     amIHost        = (data.hostId === mySocketId);
     renderMembersList();
-    // Update host badge
     updateHostBadge();
 });
 
@@ -596,7 +632,6 @@ socket.on('host-changed', (data) => {
     renderMembersList();
 });
 
-// Kicked event — this client was kicked
 socket.on('kicked', () => {
     wasKicked = true;
     currentRoomId = null;
@@ -610,20 +645,17 @@ socket.on('kicked', () => {
     window.history.pushState({}, '', '/');
     appScreen.classList.remove('visible');
 
-    // Show UI transition first, then show landing
     setTimeout(() => {
         appScreen.style.display = 'none';
         landingScreen.style.display = 'flex';
         landingScreen.classList.remove('fade-out');
         animateSplash();
-        // Show toast AFTER landing is visible
         showToast('✕ You were kicked from the room', 4000);
     }, 400);
 });
 
 socket.on('draw', (data) => {
     if (data.isStart) remoteDrawing = false;
-    // Support both normalized (nx/ny/ns) and legacy (x/y/size) formats
     let rx, ry, rsize;
     if (data.nx !== undefined) {
         const p = fromNorm(data.nx, data.ny);
@@ -670,7 +702,6 @@ socket.on('cursor-hide', (socketId) => removeCursor(socketId));
 
 socket.on('existing-users', (users) => {
     roomUsersCache = { ...users };
-    // Make sure we include ourselves
     roomUsersCache[mySocketId] = { name: myName, color: myColor };
     Object.entries(users).forEach(([socketId, info]) => {
         if (socketId !== socket.id) ensureCursorExists(socketId, info.color, info.name);
@@ -706,7 +737,7 @@ function updateHostBadge() {
 }
 
 // =============================================
-// REMOTE CURSORS — with name labels
+// REMOTE CURSORS
 // =============================================
 function ensureCursorExists(socketId, color, name) {
     if (remoteCursors[socketId]) return;
@@ -714,10 +745,9 @@ function ensureCursorExists(socketId, color, name) {
     wrapper.className = 'remote-cursor';
     wrapper.style.display = 'none';
 
-    // Custom SVG-style pointer
     const pointer = document.createElement('div');
     pointer.className = 'remote-cursor-pointer';
-    pointer.style.borderTopColor = color;  // CSS triangle trick
+    pointer.style.borderTopColor = color; 
 
     const dot = document.createElement('div');
     dot.className = 'remote-cursor-dot';
@@ -743,7 +773,6 @@ function updateRemoteCursor(socketId, x, y, color, name) {
     cursor.element.style.left    = `${x * scaleX}px`;
     cursor.element.style.top     = `${y * scaleY}px`;
     cursor.element.style.display = 'block';
-    // Update name in case it changed
     cursor.label.textContent = name;
     cursor.label.style.background = color;
     cursor.dot.style.background   = color;
@@ -764,7 +793,7 @@ brushBtn.addEventListener('click', () => {
     brushBtn.classList.add('active');
     eraserBtn.classList.remove('active');
     canvas.style.cursor = 'crosshair';
-    restoreCanvas();
+    restoreCanvas(); // Clear eraser preview
 });
 
 eraserBtn.addEventListener('click', () => {
@@ -777,6 +806,7 @@ eraserBtn.addEventListener('click', () => {
 brushSize.addEventListener('input', (e) => {
     currentBrushSize = e.target.value;
     brushSizeValue.textContent = `${currentBrushSize}px`;
+    if (currentTool === 'eraser' && showCursor) showCursorPreview();
 });
 
 clearBtn.addEventListener('click', () => {
@@ -869,16 +899,14 @@ function loadCanvasState(base64) {
 }
 
 // =============================================
-// CANVAS RESIZE — keep internal resolution in sync
+// CANVAS RESIZE
 // =============================================
 function syncCanvasResolution() {
     const rect = canvas.getBoundingClientRect();
     const displayW = Math.floor(rect.width);
-    // Always maintain 5:3 aspect ratio for the internal resolution
     const displayH = Math.floor(displayW * 3 / 5);
     if (canvas.width === displayW && canvas.height === displayH) return;
 
-    // Save current drawing, resize, restore
     const snapshot = canvas.width > 0 && canvas.height > 0
         ? ctx.getImageData(0, 0, canvas.width, canvas.height)
         : null;
@@ -923,7 +951,6 @@ function getTouchPos(touch) {
     };
 }
 
-// Normalize pixel coords → 0..1 fractions for network transmission
 function toNorm(x, y) {
     return {
         nx: x / canvas.width,
@@ -931,7 +958,6 @@ function toNorm(x, y) {
     };
 }
 
-// Denormalize 0..1 fractions → pixel coords on THIS canvas
 function fromNorm(nx, ny) {
     return {
         x: nx * canvas.width,
@@ -939,15 +965,19 @@ function fromNorm(nx, ny) {
     };
 }
 
-// Normalize brush size as fraction of canvas width
 function normSize(size) {
     return size / canvas.width;
 }
 
-// Denormalize brush size back to pixels on THIS canvas
 function denormSize(ns) {
     return ns * canvas.width;
 }
+
+// =============================================
+// EVENT EMITTER THROTTLE (Network Optimization)
+// =============================================
+let lastEmitTime = 0;
+const EMIT_THROTTLE = 30; // ms (~30fps limit for cursor updates)
 
 // =============================================
 // MOUSE EVENTS
@@ -974,20 +1004,27 @@ canvas.addEventListener('mouseout', (e) => {
 canvas.addEventListener('mouseenter', (e) => {
     if (e.sourceCapabilities && e.sourceCapabilities.firesTouchEvents) return;
     showCursor = true;
+    if (currentTool === 'eraser') showCursorPreview();
 });
 
 function handleMouseMove(e) {
     const pos = getMousePos(e);
     mouseX = pos.x;
     mouseY = pos.y;
+    
     if (isDrawing) {
         draw(e);
     } else if (currentTool === 'eraser' && showCursor) {
         showCursorPreview();
     }
+    
     if (currentRoomId) {
-        const _nc = toNorm(pos.x, pos.y);
-    socket.emit('cursor-move', { roomId: currentRoomId, nx: _nc.nx, ny: _nc.ny });
+        const now = Date.now();
+        if (now - lastEmitTime > EMIT_THROTTLE) {
+            const _nc = toNorm(pos.x, pos.y);
+            socket.emit('cursor-move', { roomId: currentRoomId, nx: _nc.nx, ny: _nc.ny });
+            lastEmitTime = now;
+        }
     }
 }
 
@@ -1035,9 +1072,17 @@ canvas.addEventListener('touchmove', (e) => {
     ctx.moveTo(pos.x, pos.y);
     hasDrawnInStroke = true;
     lastX = pos.x; lastY = pos.y;
+    
     if (currentRoomId) {
         const _n2 = toNorm(pos.x, pos.y);
         socket.emit('draw', { nx: _n2.nx, ny: _n2.ny, color: currentColor, ns: normSize(currentBrushSize), tool: currentTool, roomId: currentRoomId });
+        
+        // Touch devices also need to update cursor position for others
+        const now = Date.now();
+        if (now - lastEmitTime > EMIT_THROTTLE) {
+            socket.emit('cursor-move', { roomId: currentRoomId, nx: _n2.nx, ny: _n2.ny });
+            lastEmitTime = now;
+        }
     }
 }, { passive: false });
 
@@ -1117,7 +1162,7 @@ function stopDrawing() {
 }
 
 function showCursorPreview() {
-    restoreCanvas();
+    restoreCanvas(); // Always start from clean state
     ctx.save();
     ctx.beginPath();
     ctx.arc(mouseX, mouseY, currentBrushSize / 2, 0, Math.PI * 2);

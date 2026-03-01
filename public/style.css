@@ -496,64 +496,67 @@ body {
 
 .exit-room-btn {
     padding: 0.4rem 0.9rem;
-    background: linear-gradient(135deg, #f093fb, #f5576c);
-    color: white;
-    border: none;
+    background: transparent;
+    color: var(--text-secondary);
+    border: 1.5px solid var(--divider-color);
     border-radius: 0.5rem;
     cursor: pointer;
     font-family: 'DM Sans', sans-serif;
     font-size: 0.75rem;
     font-weight: 600;
-    transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
-    box-shadow: 0 2px 10px rgba(245, 87, 108, 0.3);
+    transition: all 0.25s ease;
 }
 
 .exit-room-btn:hover {
-    transform: translateY(-2px) scale(1.03);
-    box-shadow: 0 6px 18px rgba(245, 87, 108, 0.5);
+    background: rgba(239, 68, 68, 0.1);
+    color: #ef4444;
+    border-color: rgba(239, 68, 68, 0.3);
+    transform: translateY(-2px);
 }
 
 .dark-toggle-app {
     width: 36px;
     height: 36px;
-    border-radius: 10px;
-    border: 1.5px solid var(--btn-tool-border);
-    background: var(--btn-tool-bg);
+    border-radius: 50%;
+    border: 1.5px solid var(--divider-color);
+    background: var(--card-bg);
     cursor: pointer;
-    font-size: 16px;
+    font-size: 18px;
     display: flex;
     align-items: center;
     justify-content: center;
     transition: all 0.3s ease;
-    color: var(--btn-tool-color);
+    color: var(--text-primary);
 }
 
 .dark-toggle-app:hover {
     transform: rotate(25deg) scale(1.1);
-    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    background: var(--input-bg);
 }
 
 /* =============================================
    TOOLBAR
    ============================================= */
 .toolbar {
-    max-width: 62rem;
-    margin: 1.2rem auto 1rem;
-    padding: 0.6rem 1.1rem;
+    max-width: 1100px;
+    margin: 0.5rem auto;
+    padding: 0.45rem 1.2rem;
     background: var(--toolbar-bg);
     backdrop-filter: blur(20px);
     -webkit-backdrop-filter: blur(20px);
-    border-radius: 1rem;
-    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.07), 0 1px 0 rgba(255,255,255,0.5) inset;
+    border-radius: 0.8rem;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.07), 0 1px 0 rgba(255,255,255,0.5) inset;
     display: flex;
     align-items: center;
-    gap: 0.6rem;
+    justify-content: flex-start;
+    gap: 12px;
     flex-wrap: nowrap;
     border: 1px solid var(--toolbar-border);
-    width: calc(100% - 2.5rem);
-    overflow-x: auto;
+    width: calc(100% - 2rem);
+    overflow: visible;
     transition: background 0.4s ease, box-shadow 0.4s ease;
     animation: toolbarSlide 0.5s 0.2s cubic-bezier(0.22, 1, 0.36, 1) both;
+    user-select: none; /* Prevents accidental blue text highlighting */
 }
 
 @keyframes toolbarSlide {
@@ -566,21 +569,29 @@ body {
 .control-group {
     display: flex;
     align-items: center;
-    gap: 7px;
+    gap: 6px;
     flex-shrink: 0;
 }
 
 .control-group + .control-group {
-    padding-left: 10px;
+    padding-left: 12px;
     border-left: 1px solid var(--divider-color);
 }
 
+/* Make the Size section stretch and fill the middle of the toolbar */
+.control-group:nth-child(3) {
+    flex: 1; 
+    display: flex;
+    justify-content: center;
+}
+
 label {
-    font-weight: 600;
+    font-weight: 700;
     font-size: 11px;
-    color: var(--text-muted);
+    color: var(--text-secondary);
     text-transform: uppercase;
     letter-spacing: 0.5px;
+    white-space: nowrap;
 }
 
 /* =============================================
@@ -589,18 +600,19 @@ label {
 .color-palette-group {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 6px;
+    flex: 0 0 auto !important; /* Destroys the empty gap */
 }
 
 .color-palette {
     display: grid;
-    grid-template-columns: repeat(7, 22px);
-    grid-template-rows: repeat(2, 22px);
+    grid-template-columns: repeat(7, 16px);
+    grid-template-rows: repeat(2, 16px);
     gap: 3px;
-    padding: 6px 8px;
+    padding: 5px 7px;
     background: rgba(209, 250, 229, 0.6);
     border: 1.5px solid rgba(110, 231, 183, 0.6);
-    border-radius: 10px;
+    border-radius: 8px;
     backdrop-filter: blur(8px);
 }
 
@@ -610,44 +622,48 @@ label {
 }
 
 .color-swatch {
-    width: 22px;
-    height: 22px;
-    border-radius: 5px;
+    width: 16px;
+    height: 16px;
+    border-radius: 3px;
     cursor: pointer;
     border: 1.5px solid rgba(0, 0, 0, 0.12);
     transition: all 0.18s cubic-bezier(0.34, 1.56, 0.64, 1);
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    display: block;
 }
 
 [data-theme="dark"] .color-swatch { border-color: rgba(255, 255, 255, 0.15); }
 
 .color-swatch:hover {
-    transform: scale(1.25) translateY(-1px);
+    transform: scale(1.3) translateY(-1px);
     box-shadow: 0 4px 10px rgba(0, 0, 0, 0.25);
     z-index: 2;
     position: relative;
 }
 
 .color-swatch.active {
-    border-color: var(--input-focus);
-    border-width: 2.5px;
-    box-shadow: 0 0 0 3px rgba(6, 182, 212, 0.35);
-    transform: scale(1.1);
+    border: 2px solid #ffffff;
+    outline: 2px solid var(--text-primary);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+    transform: scale(1.35);
+    position: relative;
+    z-index: 5;
 }
 
 .custom-color-btn {
-    width: 32px;
-    height: 48px;
+    width: 24px;
+    height: 38px;
     background: linear-gradient(135deg, #fed7aa, #fdba74);
     border: 1.5px solid #fb923c;
-    border-radius: 8px;
+    border-radius: 6px;
     cursor: pointer;
-    font-size: 16px;
+    font-size: 14px;
     display: flex;
     align-items: center;
     justify-content: center;
     transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
     color: #c2410c;
+    flex-shrink: 0;
 }
 
 .custom-color-btn:hover {
@@ -659,30 +675,30 @@ label {
 }
 
 .tool-btn {
-    padding: 0.45rem 0.85rem;
+    padding: 0.35rem 0.7rem;
     background: var(--btn-tool-bg);
     color: var(--btn-tool-color);
     border: 1.5px solid var(--btn-tool-border);
-    border-radius: 0.6rem;
+    border-radius: 0.5rem;
     cursor: pointer;
     font-family: 'DM Sans', sans-serif;
-    font-size: 0.75rem;
+    font-size: 0.72rem;
     font-weight: 600;
     transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
     white-space: nowrap;
 }
 
 #eraserBtn {
-    background: linear-gradient(135deg, rgba(252,231,243,0.9), rgba(251,207,232,0.9));
-    color: #be185d;
-    border-color: #f9a8d4;
+    background: var(--btn-tool-bg);
+    color: var(--btn-tool-color);
+    border-color: var(--btn-tool-border);
 }
 
-#eraserBtn:hover {
-    background: linear-gradient(135deg, #fce7f3, #fbcfe8);
-    border-color: #f472b6;
-    transform: translateY(-2px) scale(1.04);
-    box-shadow: 0 4px 12px rgba(249, 168, 212, 0.4);
+#eraserBtn.active {
+    background: linear-gradient(135deg, #0e7490, #06b6d4);
+    color: white;
+    border-color: transparent;
+    box-shadow: 0 4px 14px rgba(14, 116, 144, 0.4);
 }
 
 .tool-btn:hover {
@@ -699,7 +715,8 @@ label {
 }
 
 #brushSize {
-    width: 90px;
+    width: 100%; /* Stretches the slider to fill the toolbar */
+    max-width: 220px; /* Prevents it from getting too insanely long */
     height: 4px;
     cursor: pointer;
     -webkit-appearance: none;
@@ -737,76 +754,81 @@ label {
 #brushSizeValue {
     font-weight: 700;
     color: #0e7490;
-    min-width: 32px;
-    font-size: 12px;
+    min-width: 30px;
+    font-size: 11px;
 }
 
 .toolbar-actions {
     display: flex;
-    gap: 6px;
+    gap: 12px;
     flex-wrap: nowrap;
+    flex-shrink: 0;
+    margin-left: auto;
+    padding-left: 16px;
+    border-left: 1px solid var(--divider-color);
 }
 
 .action-btn {
-    padding: 0.45rem 0.8rem;
-    border: none;
-    border-radius: 0.6rem;
+    padding: 0.45rem 0.9rem;
+    background: var(--btn-tool-bg);
+    color: var(--btn-tool-color);
+    border: 1.5px solid var(--btn-tool-border);
+    border-radius: 0.5rem;
     cursor: pointer;
     font-family: 'DM Sans', sans-serif;
     font-size: 0.75rem;
     font-weight: 600;
-    color: white;
     transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
     white-space: nowrap;
 }
 
 .action-btn:hover:not(:disabled) {
-    transform: translateY(-2px) scale(1.05);
-    filter: brightness(1.08);
+    transform: translateY(-2px);
+    background: var(--input-border);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
 }
 
 .action-btn:active:not(:disabled) { transform: scale(0.97); }
 
 .action-btn:disabled {
-    opacity: 0.3;
+    opacity: 0.6;
     cursor: not-allowed;
-    transform: none;
-    filter: none;
+    background: rgba(148, 163, 184, 0.15);
+    color: var(--text-muted);
+    border-color: transparent;
+    box-shadow: none;
 }
 
-.clear-btn {
-    background: linear-gradient(135deg, #f093fb, #f5576c);
-    box-shadow: 0 3px 10px rgba(245, 87, 108, 0.3);
+.download-btn:not(:disabled) {
+    background: linear-gradient(135deg, #0e7490, #06b6d4);
+    color: white;
+    border-color: transparent;
+    box-shadow: 0 3px 10px rgba(14, 116, 144, 0.3);
 }
 
-.download-btn {
-    background: linear-gradient(135deg, #a78bfa, #ec4899);
-    box-shadow: 0 3px 10px rgba(167, 139, 250, 0.3);
+.clear-btn:not(:disabled) {
+    background: rgba(239, 68, 68, 0.08);
+    color: #ef4444;
+    border-color: rgba(239, 68, 68, 0.3);
 }
 
-.undo-btn {
-    background: linear-gradient(135deg, #f7971e, #ffd200);
-    box-shadow: 0 3px 10px rgba(247, 151, 30, 0.3);
-}
-
-.redo-btn {
-    background: linear-gradient(135deg, #56ab2f, #a8e063);
-    box-shadow: 0 3px 10px rgba(86, 171, 47, 0.3);
+.clear-btn:not(:disabled):hover {
+    background: #ef4444;
+    color: white;
 }
 
 /* =============================================
    CANVAS AREA
    ============================================= */
 .canvas-container {
-    max-width: 62rem;
+    max-width: 1100px;
     margin: 0 auto;
-    padding: 0 1.25rem 1rem;
+    padding: 0 1rem 0.75rem;
     position: relative;
     width: 100%;
     flex: 1;
     display: flex;
     flex-direction: column;
-    justify-content: center;
     animation: canvasReveal 0.6s 0.3s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
@@ -818,12 +840,12 @@ label {
 .canvas-container::before {
     content: '';
     position: absolute;
-    inset: -2px 18px;
-    border-radius: 18px;
+    inset: 0 1rem;
+    border-radius: 16px;
     background: linear-gradient(135deg, rgba(6,182,212,0.15), rgba(56,239,125,0.1), rgba(167,139,250,0.12));
     filter: blur(20px);
     z-index: 0;
-    transition: opacity 0.4s ease;
+    pointer-events: none;
 }
 
 /* CANVAS — always white, no exceptions */
@@ -831,12 +853,12 @@ canvas#canvas {
     border: 2px solid rgba(255, 255, 255, 0.3);
     background: #ffffff !important;
     cursor: crosshair;
-    border-radius: 16px;
+    border-radius: 14px;
     box-shadow: var(--canvas-shadow);
     display: block;
     width: 100%;
-    aspect-ratio: 5 / 3;
-    max-height: calc(100vh - 180px);
+    flex: 1;
+    min-height: 0;
     position: relative;
     z-index: 1;
     transition: box-shadow 0.4s ease;
@@ -849,11 +871,11 @@ canvas#canvas:active {
 .cursor-overlay {
     position: absolute;
     top: 0;
-    left: 20px;
-    right: 20px;
-    bottom: 0;
+    left: 1rem;
+    right: 1rem;
+    bottom: 0.75rem;
     pointer-events: none;
-    border-radius: 16px;
+    border-radius: 14px;
     overflow: hidden;
     z-index: 2;
 }
@@ -898,12 +920,12 @@ canvas#canvas:active {
     width: 54px;
     height: 54px;
     border-radius: 50%;
-    background: linear-gradient(135deg, #0e7490, #06b6d4);
-    color: white;
-    border: none;
+    background: linear-gradient(135deg, #0369a1, #0284c7);
+    color: #ffffff;
+    border: 2px solid rgba(255,255,255,0.2);
     font-size: 22px;
     cursor: pointer;
-    box-shadow: 0 6px 28px rgba(14, 116, 144, 0.45);
+    box-shadow: 0 6px 24px rgba(2, 132, 199, 0.5);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -1270,13 +1292,12 @@ canvas#canvas:active {
     .canvas-container {
         padding: 0 0.5rem 0.5rem;
     }
-    canvas#canvas {
-        max-height: calc(100dvh - 140px);
-        border-radius: 10px;
-    }
     .cursor-overlay {
+        top: 0;
         left: 0.5rem;
         right: 0.5rem;
+        bottom: 0.5rem;
+        border-radius: 10px;
     }
 
     /* Chat */
@@ -1359,27 +1380,26 @@ canvas#canvas:active {
     #brushSize { width: 55px; }
     #brushSizeValue { min-width: 26px; font-size: 0.65rem; }
 
-    /* Color palette — smaller swatches */
+    /* Color palette — smaller swatches, 2-row grid */
     .color-palette {
-        grid-template-columns: repeat(7, 18px);
-        grid-template-rows: repeat(2, 18px);
+        grid-template-columns: repeat(7, 14px);
+        grid-template-rows: repeat(2, 14px);
         gap: 2px;
-        padding: 4px 5px;
+        padding: 3px 4px;
     }
-    .color-swatch { width: 18px; height: 18px; border-radius: 3px; }
-    .custom-color-btn { width: 26px; height: 40px; font-size: 14px; }
+    .color-swatch { width: 14px; height: 14px; border-radius: 2px; }
+    .custom-color-btn { width: 20px; height: 32px; font-size: 11px; }
 
     /* Canvas — maximize space */
     .canvas-container {
         padding: 0 0.35rem 0.35rem;
     }
-    canvas#canvas {
-        max-height: calc(100dvh - 125px);
-        border-radius: 8px;
-    }
     .cursor-overlay {
+        top: 0;
         left: 0.35rem;
         right: 0.35rem;
+        bottom: 0.35rem;
+        border-radius: 8px;
     }
 
     /* Chat */
@@ -1567,7 +1587,7 @@ canvas#canvas:active {
 .remote-cursor {
     position: absolute;
     pointer-events: none;
-    transform: translate(0, 0);   /* anchor at top-left of dot */
+    transform: translate(0, 0);  /* anchor at top-left of dot */
     transition: left 0.04s linear, top 0.04s linear;
     z-index: 10;
     display: flex;
