@@ -1,4 +1,3 @@
-// Import required modules
 const express = require('express');
 const http = require('http');
 const socketIo = require('socket.io');
@@ -26,12 +25,6 @@ function getRoomUserCount(roomId) {
     return room ? room.size : 0;
 }
 
-// roomData structure:
-// {
-//   canvasState, undoStack, redoStack, pendingSnapshot,
-//   hostId: socketId of room creator,
-//   users: { socketId: { name, color } }
-// }
 const roomData = {};
 const MAX_HISTORY = 30;
 
@@ -64,7 +57,7 @@ io.on('connection', (socket) => {
             undoStack: [],
             redoStack: [],
             pendingSnapshot: null,
-            hostId: socket.id,          // creator is host
+            hostId: socket.id,
             users: {}
         };
 
@@ -72,8 +65,7 @@ io.on('connection', (socket) => {
 
         const userCount = getRoomUserCount(roomId);
         socket.emit('room-created', {
-            roomId, userCount, userColor, userName: uName,
-            isHost: true
+            roomId, userCount, userColor, userName: uName, isHost: true
         });
 
         console.log(`🚪 Room created: ${roomId} by ${uName}`);
@@ -116,19 +108,28 @@ io.on('connection', (socket) => {
         });
 
         io.to(roomId).emit('user-count-update', userCount);
-        // Send full user list to everyone so member panel stays in sync
         io.to(roomId).emit('users-update', {
             users: roomData[roomId].users,
             hostId: roomData[roomId].hostId
         });
         socket.to(roomId).emit('user-joined', { socketId: socket.id, name: uName, color: userColor });
 
+        // Send existing users to new joiner so their cursors can be created
+        const existingUsers = {};
+        Object.entries(roomData[roomId].users).forEach(([sid, info]) => {
+            if (sid !== socket.id) existingUsers[sid] = info;
+        });
+        socket.emit('existing-users', existingUsers);
+
         console.log(`🚪 ${uName} joined room: ${roomId} | Users: ${userCount}`);
     });
 
     // ── DRAW ─────────────────────────────────────────────
+    // FIXED: include socketId so each receiver knows which user drew the stroke
     socket.on('draw', (data) => {
-        if (data.roomId) socket.to(data.roomId).emit('draw', data);
+        if (data.roomId) {
+            socket.to(data.roomId).emit('draw', { ...data, socketId: socket.id });
+        }
     });
 
     socket.on('draw-shape', (data) => {
@@ -206,8 +207,9 @@ io.on('connection', (socket) => {
     });
 
     // ── MOUSE UP ─────────────────────────────────────────
+    // FIXED: include socketId so receiver clears correct user's drawing state
     socket.on('mouseup', (roomId) => {
-        if (roomId) socket.to(roomId).emit('mouseup');
+        if (roomId) socket.to(roomId).emit('mouseup', { socketId: socket.id });
     });
 
     // ── CURSOR ───────────────────────────────────────────
@@ -215,10 +217,12 @@ io.on('connection', (socket) => {
         if (data.roomId) {
             socket.to(data.roomId).emit('cursor-move', {
                 socketId: socket.id,
+                nx: data.nx,
+                ny: data.ny,
                 x: data.x,
                 y: data.y,
                 color: userColor,
-                name: currentName      // always use latest name from join
+                name: currentName
             });
         }
     });
@@ -240,23 +244,16 @@ io.on('connection', (socket) => {
     // ── KICK (host only) ─────────────────────────────────
     socket.on('kick-user', ({ roomId, targetSocketId }) => {
         if (!roomId || !roomData[roomId]) return;
-        // Only host can kick
         if (roomData[roomId].hostId !== socket.id) return;
-        // Can't kick yourself
         if (targetSocketId === socket.id) return;
 
-        // Get the target socket instance
         const targetSocket = io.sockets.sockets.get(targetSocketId);
         if (!targetSocket) return;
 
-        // Tell the kicked user they've been kicked first, then disconnect them
         targetSocket.emit('kicked');
         console.log(`✕ ${targetSocketId} kicked from room ${roomId} by host`);
 
-        // Force disconnect after a delay so the client receives the 'kicked' event first
-        setTimeout(() => {
-            targetSocket.disconnect(true);
-        }, 500);
+        setTimeout(() => { targetSocket.disconnect(true); }, 500);
     });
 
     // ── DISCONNECT ───────────────────────────────────────
@@ -276,7 +273,6 @@ io.on('connection', (socket) => {
             socket.to(roomId).emit('cursor-hide', socket.id);
             socket.to(roomId).emit('user-left', socket.id);
 
-            // If host left, assign new host
             if (roomData[roomId] && roomData[roomId].hostId === socket.id) {
                 const remainingUsers = Object.keys(roomData[roomId].users);
                 if (remainingUsers.length > 0) {
@@ -288,7 +284,6 @@ io.on('connection', (socket) => {
                     });
                 }
             } else if (roomData[roomId]) {
-                // Still send updated user list
                 io.to(roomId).emit('users-update', {
                     users: roomData[roomId].users,
                     hostId: roomData[roomId].hostId

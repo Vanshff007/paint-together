@@ -27,7 +27,7 @@ function initAppDarkMode() {
 }
 
 // =============================================
-// SPLASH CANVAS ANIMATION (Organic "Watercolor" Pulse added)
+// SPLASH CANVAS ANIMATION
 // =============================================
 const splashCanvas = document.getElementById('splashCanvas');
 const splashCtx = splashCanvas.getContext('2d');
@@ -49,8 +49,8 @@ function createBubble() {
     return {
         x: Math.random() * splashCanvas.width,
         y: Math.random() * splashCanvas.height,
-        baseR: 60 + Math.random() * 120, // Store base radius
-        pulsePhase: Math.random() * Math.PI * 2, // For organic breathing effect
+        baseR: 60 + Math.random() * 120,
+        pulsePhase: Math.random() * Math.PI * 2,
         pulseSpeed: 0.02 + Math.random() * 0.03,
         color: colors[Math.floor(Math.random() * colors.length)],
         vx: (Math.random() - 0.5) * 0.5,
@@ -67,22 +67,16 @@ function animateSplash() {
     splashBubbles.forEach(b => {
         b.phase += b.speed;
         b.pulsePhase += b.pulseSpeed;
-        
         b.x += b.vx + Math.sin(b.phase) * 0.3;
         b.y += b.vy + Math.cos(b.phase * 0.7) * 0.3;
-        
-        // Calculate breathing radius
         const currentR = b.baseR + Math.sin(b.pulsePhase) * 15;
-
         if (b.x < -currentR) b.x = splashCanvas.width + currentR;
         if (b.x > splashCanvas.width + currentR) b.x = -currentR;
         if (b.y < -currentR) b.y = splashCanvas.height + currentR;
         if (b.y > splashCanvas.height + currentR) b.y = -currentR;
-        
         const grad = splashCtx.createRadialGradient(b.x, b.y, 0, b.x, b.y, currentR);
         grad.addColorStop(0, b.color);
         grad.addColorStop(1, 'rgba(0,0,0,0)');
-        
         splashCtx.beginPath();
         splashCtx.arc(b.x, b.y, currentR, 0, Math.PI * 2);
         splashCtx.fillStyle = grad;
@@ -118,32 +112,29 @@ const landingCreateBtn = document.getElementById('landingCreateBtn');
 const landingJoinBtn   = document.getElementById('landingJoinBtn');
 const landingError     = document.getElementById('landingError');
 
-const roomInfo        = document.getElementById('roomInfo');
-const roomIdDisplay   = document.getElementById('roomId');
+const roomInfo         = document.getElementById('roomInfo');
+const roomIdDisplay    = document.getElementById('roomId');
 const userCountDisplay = document.getElementById('userCount');
-const copyLinkBtn     = document.getElementById('copyLinkBtn');
-const exitRoomBtn     = document.getElementById('exitRoomBtn');
-const myNameBadge     = document.getElementById('myNameBadge');
-const toast           = document.getElementById('toast');
+const copyLinkBtn      = document.getElementById('copyLinkBtn');
+const exitRoomBtn      = document.getElementById('exitRoomBtn');
+const myNameBadge      = document.getElementById('myNameBadge');
+const toast            = document.getElementById('toast');
 
-// Members panel
-const membersBtn       = document.getElementById('membersBtn');
-const membersDropdown  = document.getElementById('membersDropdown');
-const membersList      = document.getElementById('membersList');
+const membersBtn      = document.getElementById('membersBtn');
+const membersDropdown = document.getElementById('membersDropdown');
+const membersList     = document.getElementById('membersList');
 
-// Kick modal
-const kickModal        = document.getElementById('kickModal');
-const kickModalText    = document.getElementById('kickModalText');
-const kickCancelBtn    = document.getElementById('kickCancelBtn');
-const kickConfirmBtn   = document.getElementById('kickConfirmBtn');
-let   pendingKickId    = null;
-let   pendingKickName  = null;
+const kickModal       = document.getElementById('kickModal');
+const kickModalText   = document.getElementById('kickModalText');
+const kickCancelBtn   = document.getElementById('kickCancelBtn');
+const kickConfirmBtn  = document.getElementById('kickConfirmBtn');
+let   pendingKickId   = null;
+let   pendingKickName = null;
 
-const canvas       = document.getElementById('canvas');
-const ctx          = canvas.getContext('2d');
+const canvas        = document.getElementById('canvas');
+const ctx           = canvas.getContext('2d');
 const cursorOverlay = document.getElementById('cursorOverlay');
 
-// Chat elements
 const chatBtn          = document.getElementById('chatBtn');
 const chatPopup        = document.getElementById('chatPopup');
 const chatMessages     = document.getElementById('chatMessages');
@@ -151,26 +142,26 @@ const chatInput        = document.getElementById('chatInput');
 const chatSendBtn      = document.getElementById('chatSendBtn');
 const chatNotification = document.getElementById('chatNotification');
 
-const brushBtn         = document.getElementById('brushBtn');
-const eraserBtn        = document.getElementById('eraserBtn');
-const colorPalette     = document.getElementById('colorPalette');
-const customColorBtn   = document.getElementById('customColorBtn');
-const colorPickerModal = document.getElementById('colorPickerModal');
-const colorPicker      = document.getElementById('colorPicker');
-const colorPickerOk    = document.getElementById('colorPickerOk');
+const brushBtn          = document.getElementById('brushBtn');
+const eraserBtn         = document.getElementById('eraserBtn');
+const colorPalette      = document.getElementById('colorPalette');
+const customColorBtn    = document.getElementById('customColorBtn');
+const colorPickerModal  = document.getElementById('colorPickerModal');
+const colorPicker       = document.getElementById('colorPicker');
+const colorPickerOk     = document.getElementById('colorPickerOk');
 const colorPickerCancel = document.getElementById('colorPickerCancel');
-const brushSize        = document.getElementById('brushSize');
-const brushSizeValue   = document.getElementById('brushSizeValue');
-const clearBtn         = document.getElementById('clearBtn');
-const downloadBtn      = document.getElementById('downloadBtn');
-const undoBtn          = document.getElementById('undoBtn');
-const redoBtn          = document.getElementById('redoBtn');
+const brushSize         = document.getElementById('brushSize');
+const brushSizeValue    = document.getElementById('brushSizeValue');
+const clearBtn          = document.getElementById('clearBtn');
+const downloadBtn       = document.getElementById('downloadBtn');
+const undoBtn           = document.getElementById('undoBtn');
+const redoBtn           = document.getElementById('redoBtn');
 
 // =============================================
 // MEMBERS PANEL
 // =============================================
 let membersOpen = false;
-let roomUsersCache = {}; 
+let roomUsersCache = {};
 
 membersBtn.addEventListener('click', (e) => {
     e.stopPropagation();
@@ -189,12 +180,10 @@ membersDropdown.addEventListener('click', e => e.stopPropagation());
 
 function renderMembersList() {
     membersList.innerHTML = '';
-    const entries = Object.entries(roomUsersCache);
-
-    entries.forEach(([socketId, info]) => {
-        const isHost   = socketId === currentHostId;
-        const isMe     = socketId === mySocketId;
-        const canKick  = amIHost && !isMe;
+    Object.entries(roomUsersCache).forEach(([socketId, info]) => {
+        const isHost  = socketId === currentHostId;
+        const isMe    = socketId === mySocketId;
+        const canKick = amIHost && !isMe;
 
         const li = document.createElement('li');
         li.className = 'member-item';
@@ -263,7 +252,7 @@ kickModal.addEventListener('click', (e) => {
 const defaultColors = [
     '#000000', '#FF0000', '#FFFF00', '#00FF00', '#00FFFF', '#0000FF', '#FF00FF',
     '#C0C0C0', '#FFFFFF', '#00FF80', '#80FFFF', '#8080FF', '#FF0080', '#FF8040'
-]; // Moved black to the front for easier default selection
+];
 
 let selectedColorElement = null;
 let paletteInitialized   = false;
@@ -278,15 +267,12 @@ function initColorPalette() {
         swatch.className = 'color-swatch';
         swatch.style.background = color;
         swatch.dataset.color = color;
-        
-        // Make the first color (black) active by default
         if (index === 0) {
             swatch.classList.add('active');
             selectedColorElement = swatch;
         }
-
         swatch.addEventListener('click', () => {
-            customColorBtn.classList.remove('active'); // Turn off custom button glow
+            customColorBtn.classList.remove('active');
             selectColor(color, swatch);
         });
         colorPalette.appendChild(swatch);
@@ -300,21 +286,14 @@ function initColorPalette() {
     colorPickerOk.addEventListener('click', () => {
         const pickedColor = colorPicker.value;
         selectColor(pickedColor, null);
-        
-        // Remove active from palette swatches
         document.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('active'));
-        
-        // Make the custom button look active and show the new color!
         customColorBtn.classList.add('active');
         customColorBtn.style.background = pickedColor;
-        // Adjust text color based on brightness so the '+' remains visible
         customColorBtn.style.color = getBrightness(pickedColor) > 128 ? '#000000' : '#ffffff';
-        
         colorPickerModal.classList.remove('show');
     });
 
     colorPickerCancel.addEventListener('click', () => colorPickerModal.classList.remove('show'));
-
     colorPickerModal.addEventListener('click', (e) => {
         if (e.target === colorPickerModal) colorPickerModal.classList.remove('show');
     });
@@ -328,16 +307,11 @@ function selectColor(color, element) {
     if (element) {
         element.classList.add('active');
         selectedColorElement = element;
-    }
-    
-    // If we select a normal swatch, reset the custom button's look
-    if (element) {
         customColorBtn.style.background = '';
         customColorBtn.style.color = '';
     }
 }
 
-// Quick helper function to determine if a hex color is light or dark
 function getBrightness(hexColor) {
     const hex = hexColor.replace('#', '');
     const r = parseInt(hex.substr(0, 2), 16);
@@ -357,8 +331,12 @@ let lastX = 0, lastY = 0;
 let canvasImage      = null;
 let mouseX = 0, mouseY = 0;
 let showCursor       = false;
-let remoteDrawing    = false;
-let remoteLastX = 0, remoteLastY = 0;
+
+// =============================================
+// REMOTE DRAWING STATE — per user, keyed by socketId
+// FIX: was a single shared boolean causing zigzag when 2 users drew simultaneously
+// =============================================
+const remoteDrawingState = {};
 
 // =============================================
 // UNDO/REDO STATE
@@ -448,7 +426,7 @@ usernameInput.addEventListener('keydown', (e) => {
     }
 });
 
-const urlParams  = new URLSearchParams(window.location.search);
+const urlParams   = new URLSearchParams(window.location.search);
 const roomFromUrl = urlParams.get('room');
 if (roomFromUrl) roomCodeInput.value = roomFromUrl.toUpperCase();
 
@@ -478,9 +456,11 @@ exitRoomBtn.addEventListener('click', () => {
     chatMessages.innerHTML = '';
     roomUsersCache = {};
     amIHost = false;
+    // Clear all remote cursors and drawing state
+    Object.keys(remoteCursors).forEach(id => removeCursor(id));
     window.history.pushState({}, '', '/');
     appScreen.classList.remove('visible');
-    socket.disconnect(); 
+    socket.disconnect();
     setTimeout(() => {
         appScreen.style.display = 'none';
         landingScreen.style.display = 'flex';
@@ -552,20 +532,17 @@ socket.on('connect', () => {
 });
 
 socket.on('disconnect', (reason) => {
-    if (wasKicked) {
-        wasKicked = false;
-        return;
-    }
-    if (reason === 'io client disconnect') return; 
+    if (wasKicked) { wasKicked = false; return; }
+    if (reason === 'io client disconnect') return;
     showToast('⚠️ Disconnected. Reconnecting...');
 });
 
 socket.on('room-created', (data) => {
-    currentRoomId   = data.roomId;
-    myColor         = data.userColor;
-    mySocketId      = socket.id;
-    amIHost         = true;
-    currentHostId   = socket.id;
+    currentRoomId  = data.roomId;
+    myColor        = data.userColor;
+    mySocketId     = socket.id;
+    amIHost        = true;
+    currentHostId  = socket.id;
     roomUsersCache[socket.id] = { name: myName, color: myColor };
     updateRoomUI(data.roomId, data.userCount);
     updateUrl(data.roomId);
@@ -574,13 +551,13 @@ socket.on('room-created', (data) => {
 });
 
 socket.on('room-joined', (data) => {
-    currentRoomId   = data.roomId;
-    myColor         = data.userColor;
-    mySocketId      = socket.id;
-    amIHost         = data.isHost || false;
-    currentHostId   = data.hostId;
-    serverHasUndo   = data.hasUndo || false;
-    serverHasRedo   = data.hasRedo || false;
+    currentRoomId  = data.roomId;
+    myColor        = data.userColor;
+    mySocketId     = socket.id;
+    amIHost        = data.isHost || false;
+    currentHostId  = data.hostId;
+    serverHasUndo  = data.hasUndo || false;
+    serverHasRedo  = data.hasRedo || false;
     updateRoomUI(data.roomId, data.userCount);
     updateUndoRedoButtons();
     showApp();
@@ -595,9 +572,7 @@ socket.on('room-not-found', (roomId) => {
     window.history.pushState({}, '', '/');
 });
 
-socket.on('user-count-update', (count) => {
-    userCountDisplay.textContent = count;
-});
+socket.on('user-count-update', (count) => { userCountDisplay.textContent = count; });
 
 socket.on('user-joined', (data) => {
     showToast(`👋 ${data.name} joined`);
@@ -642,9 +617,9 @@ socket.on('kicked', () => {
     chatMessages.innerHTML = '';
     roomUsersCache = {};
     amIHost = false;
+    Object.keys(remoteCursors).forEach(id => removeCursor(id));
     window.history.pushState({}, '', '/');
     appScreen.classList.remove('visible');
-
     setTimeout(() => {
         appScreen.style.display = 'none';
         landingScreen.style.display = 'flex';
@@ -654,8 +629,10 @@ socket.on('kicked', () => {
     }, 400);
 });
 
+// =============================================
+// DRAW EVENT — FIX: use per-user state via socketId
+// =============================================
 socket.on('draw', (data) => {
-    if (data.isStart) remoteDrawing = false;
     let rx, ry, rsize;
     if (data.nx !== undefined) {
         const p = fromNorm(data.nx, data.ny);
@@ -664,7 +641,8 @@ socket.on('draw', (data) => {
     } else {
         rx = data.x; ry = data.y; rsize = data.size;
     }
-    drawReceivedLine(rx, ry, data.color, rsize, data.tool, data.isStart);
+    // data.socketId tells us exactly which remote user sent this stroke
+    drawReceivedLine(data.socketId, rx, ry, data.color, rsize, data.tool, data.isStart);
 });
 
 socket.on('clear', () => {
@@ -673,7 +651,12 @@ socket.on('clear', () => {
     showToast('🗑️ Canvas cleared');
 });
 
-socket.on('mouseup', () => { remoteDrawing = false; });
+// FIX: mouseup now carries socketId so we clear only that user's drawing state
+socket.on('mouseup', (data) => {
+    if (data && data.socketId && remoteDrawingState[data.socketId]) {
+        remoteDrawingState[data.socketId].drawing = false;
+    }
+});
 
 socket.on('canvas-restore', (data) => {
     loadCanvasState(data.state);
@@ -698,6 +681,7 @@ socket.on('cursor-move', (data) => {
     }
     updateRemoteCursor(data.socketId, cx, cy, data.color, data.name);
 });
+
 socket.on('cursor-hide', (socketId) => removeCursor(socketId));
 
 socket.on('existing-users', (users) => {
@@ -717,10 +701,10 @@ socket.on('chat-message', (data) => {
 // UI HELPERS
 // =============================================
 function updateRoomUI(roomId, userCount) {
-    roomIdDisplay.textContent   = roomId;
+    roomIdDisplay.textContent    = roomId;
     userCountDisplay.textContent = userCount;
-    roomInfo.style.visibility   = 'visible';
-    myNameBadge.textContent     = `👤 ${myName}`;
+    roomInfo.style.visibility    = 'visible';
+    myNameBadge.textContent      = `👤 ${myName}`;
     renderMembersList();
 }
 
@@ -729,25 +713,18 @@ function updateUrl(roomId) {
 }
 
 function updateHostBadge() {
-    if (amIHost) {
-        myNameBadge.textContent = `👑 ${myName}`;
-    } else {
-        myNameBadge.textContent = `👤 ${myName}`;
-    }
+    myNameBadge.textContent = amIHost ? `👑 ${myName}` : `👤 ${myName}`;
 }
 
 // =============================================
 // REMOTE CURSORS
+// FIX: positioning uses % of canvas dimensions so cursors always land correctly
 // =============================================
 function ensureCursorExists(socketId, color, name) {
     if (remoteCursors[socketId]) return;
     const wrapper = document.createElement('div');
     wrapper.className = 'remote-cursor';
     wrapper.style.display = 'none';
-
-    const pointer = document.createElement('div');
-    pointer.className = 'remote-cursor-pointer';
-    pointer.style.borderTopColor = color; 
 
     const dot = document.createElement('div');
     dot.className = 'remote-cursor-dot';
@@ -767,13 +744,16 @@ function ensureCursorExists(socketId, color, name) {
 function updateRemoteCursor(socketId, x, y, color, name) {
     ensureCursorExists(socketId, color, name);
     const cursor = remoteCursors[socketId];
-    const overlayRect = cursorOverlay.getBoundingClientRect();
-    const scaleX = overlayRect.width / canvas.width;
-    const scaleY = overlayRect.height / canvas.height;
-    cursor.element.style.left    = `${x * scaleX}px`;
-    cursor.element.style.top     = `${y * scaleY}px`;
+
+    // FIX: express position as % of canvas dimensions
+    // The overlay covers the canvas exactly, so % coordinates always match
+    const pctX = (x / canvas.width)  * 100;
+    const pctY = (y / canvas.height) * 100;
+
+    cursor.element.style.left    = `${pctX}%`;
+    cursor.element.style.top     = `${pctY}%`;
     cursor.element.style.display = 'block';
-    cursor.label.textContent = name;
+    cursor.label.textContent      = name;
     cursor.label.style.background = color;
     cursor.dot.style.background   = color;
 }
@@ -783,6 +763,8 @@ function removeCursor(socketId) {
         remoteCursors[socketId].element.remove();
         delete remoteCursors[socketId];
     }
+    // Also clear that user's drawing state
+    delete remoteDrawingState[socketId];
 }
 
 // =============================================
@@ -793,7 +775,7 @@ brushBtn.addEventListener('click', () => {
     brushBtn.classList.add('active');
     eraserBtn.classList.remove('active');
     canvas.style.cursor = 'crosshair';
-    restoreCanvas(); // Clear eraser preview
+    restoreCanvas();
 });
 
 eraserBtn.addEventListener('click', () => {
@@ -902,9 +884,9 @@ function loadCanvasState(base64) {
 // CANVAS RESIZE
 // =============================================
 function syncCanvasResolution() {
-    const rect = canvas.getBoundingClientRect();
+    const rect     = canvas.getBoundingClientRect();
     const displayW = Math.floor(rect.width);
-    const displayH = Math.floor(displayW * 3 / 5);
+    const displayH = Math.floor(rect.height);
     if (canvas.width === displayW && canvas.height === displayH) return;
 
     const snapshot = canvas.width > 0 && canvas.height > 0
@@ -933,7 +915,7 @@ canvasResizeObserver.observe(canvas);
 // =============================================
 function getMousePos(e) {
     const rect   = canvas.getBoundingClientRect();
-    const scaleX = canvas.width / rect.width;
+    const scaleX = canvas.width  / rect.width;
     const scaleY = canvas.height / rect.height;
     return {
         x: (e.clientX - rect.left) * scaleX,
@@ -943,7 +925,7 @@ function getMousePos(e) {
 
 function getTouchPos(touch) {
     const rect   = canvas.getBoundingClientRect();
-    const scaleX = canvas.width / rect.width;
+    const scaleX = canvas.width  / rect.width;
     const scaleY = canvas.height / rect.height;
     return {
         x: (touch.clientX - rect.left) * scaleX,
@@ -951,33 +933,16 @@ function getTouchPos(touch) {
     };
 }
 
-function toNorm(x, y) {
-    return {
-        nx: x / canvas.width,
-        ny: y / canvas.height
-    };
-}
-
-function fromNorm(nx, ny) {
-    return {
-        x: nx * canvas.width,
-        y: ny * canvas.height
-    };
-}
-
-function normSize(size) {
-    return size / canvas.width;
-}
-
-function denormSize(ns) {
-    return ns * canvas.width;
-}
+function toNorm(x, y)     { return { nx: x / canvas.width, ny: y / canvas.height }; }
+function fromNorm(nx, ny) { return { x: nx * canvas.width,  y: ny * canvas.height }; }
+function normSize(size)   { return size / canvas.width; }
+function denormSize(ns)   { return ns   * canvas.width; }
 
 // =============================================
-// EVENT EMITTER THROTTLE (Network Optimization)
+// EVENT EMITTER THROTTLE
 // =============================================
 let lastEmitTime = 0;
-const EMIT_THROTTLE = 30; // ms (~30fps limit for cursor updates)
+const EMIT_THROTTLE = 30;
 
 // =============================================
 // MOUSE EVENTS
@@ -1011,13 +976,11 @@ function handleMouseMove(e) {
     const pos = getMousePos(e);
     mouseX = pos.x;
     mouseY = pos.y;
-    
     if (isDrawing) {
         draw(e);
     } else if (currentTool === 'eraser' && showCursor) {
         showCursorPreview();
     }
-    
     if (currentRoomId) {
         const now = Date.now();
         if (now - lastEmitTime > EMIT_THROTTLE) {
@@ -1054,8 +1017,8 @@ canvas.addEventListener('touchstart', (e) => {
         saveToUndoStack();
     } else {
         socket.emit('save-undo-snapshot', { roomId: currentRoomId, state: canvas.toDataURL('image/png') });
-        const _n1 = toNorm(pos.x, pos.y);
-        socket.emit('draw', { nx: _n1.nx, ny: _n1.ny, color: currentColor, ns: normSize(currentBrushSize), tool: currentTool, isStart: true, roomId: currentRoomId });
+        const _n = toNorm(pos.x, pos.y);
+        socket.emit('draw', { nx: _n.nx, ny: _n.ny, color: currentColor, ns: normSize(currentBrushSize), tool: currentTool, isStart: true, roomId: currentRoomId });
     }
 }, { passive: false });
 
@@ -1072,15 +1035,12 @@ canvas.addEventListener('touchmove', (e) => {
     ctx.moveTo(pos.x, pos.y);
     hasDrawnInStroke = true;
     lastX = pos.x; lastY = pos.y;
-    
     if (currentRoomId) {
-        const _n2 = toNorm(pos.x, pos.y);
-        socket.emit('draw', { nx: _n2.nx, ny: _n2.ny, color: currentColor, ns: normSize(currentBrushSize), tool: currentTool, roomId: currentRoomId });
-        
-        // Touch devices also need to update cursor position for others
+        const _n = toNorm(pos.x, pos.y);
+        socket.emit('draw', { nx: _n.nx, ny: _n.ny, color: currentColor, ns: normSize(currentBrushSize), tool: currentTool, roomId: currentRoomId });
         const now = Date.now();
         if (now - lastEmitTime > EMIT_THROTTLE) {
-            socket.emit('cursor-move', { roomId: currentRoomId, nx: _n2.nx, ny: _n2.ny });
+            socket.emit('cursor-move', { roomId: currentRoomId, nx: _n.nx, ny: _n.ny });
             lastEmitTime = now;
         }
     }
@@ -1121,8 +1081,8 @@ function startDrawing(e) {
         saveToUndoStack();
     } else {
         socket.emit('save-undo-snapshot', { roomId: currentRoomId, state: canvas.toDataURL('image/png') });
-        const _n3 = toNorm(pos.x, pos.y);
-        socket.emit('draw', { nx: _n3.nx, ny: _n3.ny, color: currentColor, ns: normSize(currentBrushSize), tool: currentTool, isStart: true, roomId: currentRoomId });
+        const _n = toNorm(pos.x, pos.y);
+        socket.emit('draw', { nx: _n.nx, ny: _n.ny, color: currentColor, ns: normSize(currentBrushSize), tool: currentTool, isStart: true, roomId: currentRoomId });
     }
 }
 
@@ -1136,8 +1096,8 @@ function draw(e) {
     hasDrawnInStroke = true;
     lastX = pos.x; lastY = pos.y;
     if (currentRoomId) {
-        const _n4 = toNorm(pos.x, pos.y);
-        socket.emit('draw', { nx: _n4.nx, ny: _n4.ny, color: currentColor, ns: normSize(currentBrushSize), tool: currentTool, roomId: currentRoomId });
+        const _n = toNorm(pos.x, pos.y);
+        socket.emit('draw', { nx: _n.nx, ny: _n.ny, color: currentColor, ns: normSize(currentBrushSize), tool: currentTool, roomId: currentRoomId });
     }
 }
 
@@ -1162,7 +1122,7 @@ function stopDrawing() {
 }
 
 function showCursorPreview() {
-    restoreCanvas(); // Always start from clean state
+    restoreCanvas();
     ctx.save();
     ctx.beginPath();
     ctx.arc(mouseX, mouseY, currentBrushSize / 2, 0, Math.PI * 2);
@@ -1181,23 +1141,44 @@ function restoreCanvas() {
     }
 }
 
-function drawReceivedLine(x, y, color, size, tool, isStart) {
-    ctx.save();
-    if (isStart || !remoteDrawing) {
-        remoteDrawing = true;
-        remoteLastX = x; remoteLastY = y;
-        ctx.beginPath();
-        ctx.moveTo(x, y);
+// =============================================
+// drawReceivedLine — FIX: per-user state via socketId
+// Each remote user gets their own { drawing, lastX, lastY } state object.
+// This prevents User A's stroke from jumping to User B's position when
+// both users are drawing at the same time.
+// =============================================
+function drawReceivedLine(socketId, x, y, color, size, tool, isStart) {
+    // Initialise state for this user if not seen before
+    if (!remoteDrawingState[socketId]) {
+        remoteDrawingState[socketId] = { drawing: false, lastX: x, lastY: y };
     }
+    const state = remoteDrawingState[socketId];
+
+    ctx.save();
     ctx.lineWidth   = size;
     ctx.lineCap     = 'round';
     ctx.lineJoin    = 'round';
     ctx.strokeStyle = tool === 'brush' ? color : '#ffffff';
-    ctx.lineTo(x, y);
+
+    if (isStart || !state.drawing) {
+        // Begin a fresh path anchored to THIS user's position
+        state.drawing = true;
+        state.lastX   = x;
+        state.lastY   = y;
+        ctx.beginPath();
+        ctx.moveTo(x, y);
+        ctx.lineTo(x, y); // render single-click dots
+    } else {
+        // Continue from exactly where THIS user's last point was
+        ctx.beginPath();
+        ctx.moveTo(state.lastX, state.lastY);
+        ctx.lineTo(x, y);
+    }
+
     ctx.stroke();
-    ctx.beginPath();
-    ctx.moveTo(x, y);
-    remoteLastX = x; remoteLastY = y;
+    state.lastX = x;
+    state.lastY = y;
     ctx.restore();
+
     canvasImage = ctx.getImageData(0, 0, canvas.width, canvas.height);
 }

@@ -479,7 +479,7 @@ body {
 .header-right {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 8px;
 }
 
 .my-name-badge {
@@ -498,40 +498,45 @@ body {
     padding: 0.4rem 0.9rem;
     background: transparent;
     color: var(--text-secondary);
-    border: 1.5px solid var(--divider-color);
+    border: 1.5px solid var(--btn-tool-border);
     border-radius: 0.5rem;
     cursor: pointer;
     font-family: 'DM Sans', sans-serif;
     font-size: 0.75rem;
     font-weight: 600;
-    transition: all 0.25s ease;
+    transition: all 0.2s ease;
 }
 
 .exit-room-btn:hover {
-    background: rgba(239, 68, 68, 0.1);
+    background: rgba(239, 68, 68, 0.08);
+    border-color: #ef4444;
     color: #ef4444;
-    border-color: rgba(239, 68, 68, 0.3);
-    transform: translateY(-2px);
 }
 
 .dark-toggle-app {
-    width: 36px;
-    height: 36px;
-    border-radius: 50%;
-    border: 1.5px solid var(--divider-color);
-    background: var(--card-bg);
+    width: 38px;
+    height: 38px;
+    border-radius: 10px;
+    border: 1.5px solid var(--btn-tool-border);
+    background: var(--btn-tool-bg);
     cursor: pointer;
     font-size: 18px;
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: all 0.3s ease;
-    color: var(--text-primary);
+    transition: all 0.2s ease;
+    color: var(--btn-tool-color);
+    box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+}
+
+.dark-toggle-app:hover {
+    background: var(--input-border);
+    transform: scale(1.08);
 }
 
 .dark-toggle-app:hover {
     transform: rotate(25deg) scale(1.1);
-    background: var(--input-bg);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
 }
 
 /* =============================================
@@ -556,7 +561,6 @@ body {
     overflow: visible;
     transition: background 0.4s ease, box-shadow 0.4s ease;
     animation: toolbarSlide 0.5s 0.2s cubic-bezier(0.22, 1, 0.36, 1) both;
-    user-select: none; /* Prevents accidental blue text highlighting */
 }
 
 @keyframes toolbarSlide {
@@ -578,16 +582,9 @@ body {
     border-left: 1px solid var(--divider-color);
 }
 
-/* Make the Size section stretch and fill the middle of the toolbar */
-.control-group:nth-child(3) {
-    flex: 1; 
-    display: flex;
-    justify-content: center;
-}
-
 label {
     font-weight: 700;
-    font-size: 11px;
+    font-size: 10px;
     color: var(--text-secondary);
     text-transform: uppercase;
     letter-spacing: 0.5px;
@@ -601,7 +598,7 @@ label {
     display: flex;
     align-items: center;
     gap: 6px;
-    flex: 0 0 auto !important; /* Destroys the empty gap */
+    flex: 1;
 }
 
 .color-palette {
@@ -642,12 +639,11 @@ label {
 }
 
 .color-swatch.active {
-    border: 2px solid #ffffff;
-    outline: 2px solid var(--text-primary);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
-    transform: scale(1.35);
+    border: 2.5px solid white;
+    box-shadow: 0 0 0 2.5px #0e7490, 0 2px 8px rgba(0,0,0,0.3);
+    transform: scale(1.25);
     position: relative;
-    z-index: 5;
+    z-index: 3;
 }
 
 .custom-color-btn {
@@ -694,11 +690,10 @@ label {
     border-color: var(--btn-tool-border);
 }
 
-#eraserBtn.active {
-    background: linear-gradient(135deg, #0e7490, #06b6d4);
-    color: white;
-    border-color: transparent;
-    box-shadow: 0 4px 14px rgba(14, 116, 144, 0.4);
+#eraserBtn:hover {
+    background: var(--input-border);
+    transform: translateY(-2px) scale(1.04);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
 }
 
 .tool-btn:hover {
@@ -707,16 +702,19 @@ label {
 }
 
 .tool-btn.active {
-    background: linear-gradient(135deg, #0e7490, #06b6d4);
+    background: #0e7490;
     color: white;
     border-color: transparent;
-    box-shadow: 0 4px 14px rgba(14, 116, 144, 0.4);
-    transform: scale(1.02);
+    box-shadow: 0 3px 10px rgba(14, 116, 144, 0.35);
+}
+
+.tool-btn.active:hover {
+    background: #0891b2;
+    transform: translateY(-1px);
 }
 
 #brushSize {
-    width: 100%; /* Stretches the slider to fill the toolbar */
-    max-width: 220px; /* Prevents it from getting too insanely long */
+    width: 80px;
     height: 4px;
     cursor: pointer;
     -webkit-appearance: none;
@@ -760,61 +758,79 @@ label {
 
 .toolbar-actions {
     display: flex;
-    gap: 12px;
+    gap: 7px;
     flex-wrap: nowrap;
     flex-shrink: 0;
     margin-left: auto;
-    padding-left: 16px;
+    padding-left: 14px;
     border-left: 1px solid var(--divider-color);
 }
 
 .action-btn {
-    padding: 0.45rem 0.9rem;
-    background: var(--btn-tool-bg);
-    color: var(--btn-tool-color);
-    border: 1.5px solid var(--btn-tool-border);
+    padding: 0.35rem 0.7rem;
+    border: none;
     border-radius: 0.5rem;
     cursor: pointer;
     font-family: 'DM Sans', sans-serif;
-    font-size: 0.75rem;
+    font-size: 0.72rem;
     font-weight: 600;
+    color: white;
     transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
     white-space: nowrap;
 }
 
 .action-btn:hover:not(:disabled) {
-    transform: translateY(-2px);
-    background: var(--input-border);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    transform: translateY(-2px) scale(1.05);
+    filter: brightness(1.08);
 }
 
 .action-btn:active:not(:disabled) { transform: scale(0.97); }
 
 .action-btn:disabled {
-    opacity: 0.6;
-    cursor: not-allowed;
-    background: rgba(148, 163, 184, 0.15);
+    opacity: 1;
+    background: transparent;
     color: var(--text-muted);
-    border-color: transparent;
+    border: 1.5px solid var(--btn-tool-border);
     box-shadow: none;
+    cursor: not-allowed;
+    transform: none;
+    filter: none;
 }
 
-.download-btn:not(:disabled) {
-    background: linear-gradient(135deg, #0e7490, #06b6d4);
-    color: white;
-    border-color: transparent;
-    box-shadow: 0 3px 10px rgba(14, 116, 144, 0.3);
+.clear-btn {
+    background: #dc2626;
+    box-shadow: 0 2px 8px rgba(220, 38, 38, 0.3);
 }
 
-.clear-btn:not(:disabled) {
-    background: rgba(239, 68, 68, 0.08);
-    color: #ef4444;
-    border-color: rgba(239, 68, 68, 0.3);
+.clear-btn:hover:not(:disabled) {
+    background: #b91c1c;
 }
 
-.clear-btn:not(:disabled):hover {
-    background: #ef4444;
-    color: white;
+.download-btn {
+    background: #0e7490;
+    box-shadow: 0 2px 8px rgba(14, 116, 144, 0.3);
+}
+
+.download-btn:hover:not(:disabled) {
+    background: #0891b2;
+}
+
+.undo-btn {
+    background: #475569;
+    box-shadow: 0 2px 8px rgba(71, 85, 105, 0.3);
+}
+
+.redo-btn {
+    background: #475569;
+    box-shadow: 0 2px 8px rgba(71, 85, 105, 0.3);
+}
+
+.redo-btn:hover:not(:disabled) {
+    background: #334155;
+}
+
+.undo-btn:hover:not(:disabled) {
+    background: #334155;
 }
 
 /* =============================================
@@ -871,9 +887,9 @@ canvas#canvas:active {
 .cursor-overlay {
     position: absolute;
     top: 0;
-    left: 1rem;
-    right: 1rem;
-    bottom: 0.75rem;
+    left: 0;
+    width: 100%;
+    height: 100%;
     pointer-events: none;
     border-radius: 14px;
     overflow: hidden;
@@ -883,9 +899,13 @@ canvas#canvas:active {
 .remote-cursor {
     position: absolute;
     pointer-events: none;
-    transform: translate(-50%, -50%);
+    transform: translate(0, 0);
     transition: left 0.04s linear, top 0.04s linear;
     z-index: 10;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 3px;
 }
 
 .remote-cursor-dot {
@@ -893,12 +913,10 @@ canvas#canvas:active {
     height: 12px;
     border-radius: 50%;
     border: 2.5px solid white;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
-    margin: 0 auto;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
 }
 
 .remote-cursor-label {
-    margin-top: 5px;
     padding: 3px 8px;
     border-radius: 6px;
     font-size: 11px;
@@ -906,8 +924,9 @@ canvas#canvas:active {
     color: white;
     white-space: nowrap;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
-    text-align: center;
     font-family: 'DM Sans', sans-serif;
+    margin-left: 4px;
+    letter-spacing: 0.3px;
 }
 
 /* =============================================
@@ -917,15 +936,15 @@ canvas#canvas:active {
     position: fixed;
     bottom: 28px;
     right: 28px;
-    width: 54px;
-    height: 54px;
+    width: 56px;
+    height: 56px;
     border-radius: 50%;
-    background: linear-gradient(135deg, #0369a1, #0284c7);
-    color: #ffffff;
+    background: #0e7490;
+    color: white;
     border: 2px solid rgba(255,255,255,0.2);
-    font-size: 22px;
+    font-size: 24px;
     cursor: pointer;
-    box-shadow: 0 6px 24px rgba(2, 132, 199, 0.5);
+    box-shadow: 0 6px 24px rgba(14, 116, 144, 0.5), 0 2px 8px rgba(0,0,0,0.2);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -1294,9 +1313,9 @@ canvas#canvas:active {
     }
     .cursor-overlay {
         top: 0;
-        left: 0.5rem;
-        right: 0.5rem;
-        bottom: 0.5rem;
+        left: 0;
+        width: 100%;
+        height: 100%;
         border-radius: 10px;
     }
 
@@ -1396,9 +1415,9 @@ canvas#canvas:active {
     }
     .cursor-overlay {
         top: 0;
-        left: 0.35rem;
-        right: 0.35rem;
-        bottom: 0.35rem;
+        left: 0;
+        width: 100%;
+        height: 100%;
         border-radius: 8px;
     }
 
@@ -1587,7 +1606,7 @@ canvas#canvas:active {
 .remote-cursor {
     position: absolute;
     pointer-events: none;
-    transform: translate(0, 0);  /* anchor at top-left of dot */
+    transform: translate(0, 0);   /* anchor at top-left of dot */
     transition: left 0.04s linear, top 0.04s linear;
     z-index: 10;
     display: flex;
