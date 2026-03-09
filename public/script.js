@@ -701,13 +701,37 @@ socket.on('clear', () => {
     showToast('🗑️ Canvas cleared');
 });
 
-// FIX: mouseup now carries socketId so we clear only that user's drawing state
+// FIX: mouseup — commit the remote user's offscreen layer into canvasImage, then clear it
 socket.on('mouseup', (data) => {
-    if (data && data.socketId && remoteDrawingState[data.socketId]) {
-        remoteDrawingState[data.socketId].drawing = false;
+    const sid = data && data.socketId;
+
+    if (sid && remoteLayerState[sid] && remoteLayerState[sid].drawing) {
+        // 1. Flatten committed pixels + this user's completed stroke into one image
+        //    Start from latest committed state
+        if (canvasImage) {
+            ctx.putImageData(canvasImage, 0, 0);
+        } else {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+        }
+        // Draw all OTHER still-active remote layers on top
+        Object.entries(remoteLayerState).forEach(([id, layer]) => {
+            if (id !== sid && layer.drawing) ctx.drawImage(layer.canvas, 0, 0);
+        });
+        // Draw the completed stroke on top
+        ctx.drawImage(remoteLayerState[sid].canvas, 0, 0);
+
+        // 2. Commit everything as the new baseline
+        canvasImage = ctx.getImageData(0, 0, canvas.width, canvas.height);
+
+        // 3. Mark this layer as done and clear its offscreen canvas
+        remoteLayerState[sid].drawing = false;
+        remoteLayerState[sid].ctx.clearRect(0, 0, remoteLayerState[sid].canvas.width, remoteLayerState[sid].canvas.height);
     }
-    // Commit whatever is on the canvas now that the remote stroke is done
-    canvasImage = ctx.getImageData(0, 0, canvas.width, canvas.height);
+
+    // Keep legacy remoteDrawingState in sync too
+    if (sid && remoteDrawingState[sid]) {
+        remoteDrawingState[sid].drawing = false;
+    }
 });
 
 socket.on('canvas-restore', (data) => {
@@ -815,8 +839,13 @@ function removeCursor(socketId) {
         remoteCursors[socketId].element.remove();
         delete remoteCursors[socketId];
     }
-    // Clean up remote layer for this user
+    delete remoteDrawingState[socketId];
     if (remoteLayerState[socketId]) {
+        // Commit any in-progress stroke before removing
+        if (remoteLayerState[socketId].drawing) {
+            ctx.drawImage(remoteLayerState[socketId].canvas, 0, 0);
+            canvasImage = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        }
         remoteLayerState[socketId].ctx.clearRect(0, 0,
             remoteLayerState[socketId].canvas.width,
             remoteLayerState[socketId].canvas.height);
