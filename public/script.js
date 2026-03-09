@@ -333,10 +333,55 @@ let mouseX = 0, mouseY = 0;
 let showCursor       = false;
 
 // =============================================
-// REMOTE DRAWING STATE — per user, keyed by socketId
-// FIX: was a single shared boolean causing zigzag when 2 users drew simultaneously
+// REMOTE DRAWING — each user gets their own offscreen canvas + context
+// This completely isolates remote strokes from each other and from local drawing.
+// remoteLayerState[socketId] = { canvas, ctx, lastX, lastY, drawing }
 // =============================================
-const remoteDrawingState = {};
+const remoteLayerState = {};
+
+function getRemoteLayer(socketId) {
+    if (!remoteLayerState[socketId]) {
+        const offscreen = document.createElement('canvas');
+        offscreen.width  = canvas.width;
+        offscreen.height = canvas.height;
+        const offCtx = offscreen.getContext('2d');
+        remoteLayerState[socketId] = {
+            canvas: offscreen,
+            ctx: offCtx,
+            drawing: false,
+            lastX: 0,
+            lastY: 0
+        };
+    }
+    return remoteLayerState[socketId];
+}
+
+// Resize all remote layers when main canvas resizes
+function resizeRemoteLayers(w, h) {
+    Object.values(remoteLayerState).forEach(layer => {
+        // Snapshot, resize, redraw
+        const snap = layer.ctx.getImageData(0, 0, layer.canvas.width, layer.canvas.height);
+        layer.canvas.width  = w;
+        layer.canvas.height = h;
+        // Don't restore snap — on resize strokes are lost anyway (same as main canvas)
+    });
+}
+
+// Composite all remote layers onto the main canvas on top of committed pixels
+function compositeRemoteLayers() {
+    // Start from committed state
+    if (canvasImage) {
+        ctx.putImageData(canvasImage, 0, 0);
+    } else {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+    }
+    // Draw each active remote layer on top
+    Object.values(remoteLayerState).forEach(layer => {
+        if (layer.drawing) {
+            ctx.drawImage(layer.canvas, 0, 0);
+        }
+    });
+}
 
 // =============================================
 // UNDO/REDO STATE
@@ -648,6 +693,11 @@ socket.on('draw', (data) => {
 socket.on('clear', () => {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     canvasImage = null;
+    // Also clear all remote layers
+    Object.values(remoteLayerState).forEach(layer => {
+        layer.ctx.clearRect(0, 0, layer.canvas.width, layer.canvas.height);
+        layer.drawing = false;
+    });
     showToast('🗑️ Canvas cleared');
 });
 
@@ -656,6 +706,8 @@ socket.on('mouseup', (data) => {
     if (data && data.socketId && remoteDrawingState[data.socketId]) {
         remoteDrawingState[data.socketId].drawing = false;
     }
+    // Commit whatever is on the canvas now that the remote stroke is done
+    canvasImage = ctx.getImageData(0, 0, canvas.width, canvas.height);
 });
 
 socket.on('canvas-restore', (data) => {
@@ -763,8 +815,13 @@ function removeCursor(socketId) {
         remoteCursors[socketId].element.remove();
         delete remoteCursors[socketId];
     }
-    // Also clear that user's drawing state
-    delete remoteDrawingState[socketId];
+    // Clean up remote layer for this user
+    if (remoteLayerState[socketId]) {
+        remoteLayerState[socketId].ctx.clearRect(0, 0,
+            remoteLayerState[socketId].canvas.width,
+            remoteLayerState[socketId].canvas.height);
+        delete remoteLayerState[socketId];
+    }
 }
 
 // =============================================
@@ -895,6 +952,7 @@ function syncCanvasResolution() {
 
     canvas.width  = displayW;
     canvas.height = displayH;
+    resizeRemoteLayers(displayW, displayH);
 
     if (snapshot) {
         const tmpCanvas = document.createElement('canvas');
@@ -1134,51 +1192,42 @@ function showCursorPreview() {
 }
 
 function restoreCanvas() {
-    if (canvasImage) {
-        ctx.putImageData(canvasImage, 0, 0);
-    } else {
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-    }
+    // Composite committed pixels + all active remote layers
+    compositeRemoteLayers();
 }
 
 // =============================================
-// drawReceivedLine — FIX: per-user state via socketId
-// Each remote user gets their own { drawing, lastX, lastY } state object.
-// This prevents User A's stroke from jumping to User B's position when
-// both users are drawing at the same time.
+// drawReceivedLine — each remote user draws on their own offscreen canvas
+// so remote strokes never touch ctx state used by local drawing.
 // =============================================
 function drawReceivedLine(socketId, x, y, color, size, tool, isStart) {
-    // Initialise state for this user if not seen before
-    if (!remoteDrawingState[socketId]) {
-        remoteDrawingState[socketId] = { drawing: false, lastX: x, lastY: y };
-    }
-    const state = remoteDrawingState[socketId];
+    const layer = getRemoteLayer(socketId);
+    const rc    = layer.ctx;
 
-    ctx.save();
-    ctx.lineWidth   = size;
-    ctx.lineCap     = 'round';
-    ctx.lineJoin    = 'round';
-    ctx.strokeStyle = tool === 'brush' ? color : '#ffffff';
+    rc.lineWidth   = size;
+    rc.lineCap     = 'round';
+    rc.lineJoin    = 'round';
+    rc.strokeStyle = tool === 'brush' ? color : '#ffffff';
 
-    if (isStart || !state.drawing) {
-        // Begin a fresh path anchored to THIS user's position
-        state.drawing = true;
-        state.lastX   = x;
-        state.lastY   = y;
-        ctx.beginPath();
-        ctx.moveTo(x, y);
-        ctx.lineTo(x, y); // render single-click dots
+    if (isStart || !layer.drawing) {
+        // Clear this user's offscreen canvas for a new stroke
+        rc.clearRect(0, 0, layer.canvas.width, layer.canvas.height);
+        layer.drawing = true;
+        layer.lastX   = x;
+        layer.lastY   = y;
+        rc.beginPath();
+        rc.moveTo(x, y);
+        rc.lineTo(x, y); // single-click dot
     } else {
-        // Continue from exactly where THIS user's last point was
-        ctx.beginPath();
-        ctx.moveTo(state.lastX, state.lastY);
-        ctx.lineTo(x, y);
+        rc.beginPath();
+        rc.moveTo(layer.lastX, layer.lastY);
+        rc.lineTo(x, y);
     }
 
-    ctx.stroke();
-    state.lastX = x;
-    state.lastY = y;
-    ctx.restore();
+    rc.stroke();
+    layer.lastX = x;
+    layer.lastY = y;
 
-    canvasImage = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    // Composite all layers onto main canvas (does NOT touch ctx path state)
+    compositeRemoteLayers();
 }
