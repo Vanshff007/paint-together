@@ -2,7 +2,8 @@
 // DARK MODE
 // =============================================
 const html = document.documentElement;
-let isDark = localStorage.getItem('theme') === 'dark';
+let isDark = false; // Always start light — Decker aesthetic is beige/cream
+localStorage.removeItem('theme'); // Clear any stale dark preference
 
 function applyTheme(dark) {
     html.setAttribute('data-theme', dark ? 'dark' : 'light');
@@ -413,15 +414,25 @@ function showToast(message, duration = 2500) {
 // SHOW APP
 // =============================================
 function showApp() {
+    console.log('🎯 showApp() called — switching to canvas view');
     initColorPalette();
     initAppDarkMode();
-    landingScreen.classList.add('fade-out');
+
+    // Hide landing immediately
+    landingScreen.style.opacity = '0';
+    landingScreen.style.pointerEvents = 'none';
+
+    // Show app screen — remove inline opacity:0, set display, add visible class
+    appScreen.style.display        = 'flex';
+    appScreen.style.flexDirection  = 'column';
+    appScreen.style.opacity        = '1';   // override inline style
+    appScreen.classList.add('visible');
+
+    // Hide landing after transition completes
     setTimeout(() => {
         landingScreen.style.display = 'none';
-        appScreen.style.display = 'flex';
-        appScreen.style.flexDirection = 'column';
-        requestAnimationFrame(() => appScreen.classList.add('visible'));
-    }, 600);
+        landingScreen.classList.add('fade-out');
+    }, 400);
 }
 
 // =============================================
@@ -443,9 +454,11 @@ function showLandingError(msg) {
 }
 
 landingCreateBtn.addEventListener('click', () => {
+    console.log('🖱️ Create button clicked');
     const name = getLandingName();
     if (!name) return;
     myName = name;
+    console.log('📡 Emitting create-room with name:', name);
     socket.emit('create-room', { userName: name });
 });
 
@@ -573,6 +586,7 @@ function addMessageToChat(author, text, isOwn = false) {
 // =============================================
 socket.on('connect', () => {
     console.log('✅ Connected:', socket.id);
+    console.log('🔌 Socket connected — ready to create/join rooms');
     mySocketId = socket.id;
 });
 
@@ -583,6 +597,7 @@ socket.on('disconnect', (reason) => {
 });
 
 socket.on('room-created', (data) => {
+    console.log('🏠 room-created received:', data);
     currentRoomId  = data.roomId;
     myColor        = data.userColor;
     mySocketId     = socket.id;
@@ -596,6 +611,7 @@ socket.on('room-created', (data) => {
 });
 
 socket.on('room-joined', (data) => {
+    console.log('🚪 room-joined received:', data);
     currentRoomId  = data.roomId;
     myColor        = data.userColor;
     mySocketId     = socket.id;
@@ -728,10 +744,7 @@ socket.on('mouseup', (data) => {
         remoteLayerState[sid].ctx.clearRect(0, 0, remoteLayerState[sid].canvas.width, remoteLayerState[sid].canvas.height);
     }
 
-    // Keep legacy remoteDrawingState in sync too
-    if (sid && remoteDrawingState[sid]) {
-        remoteDrawingState[sid].drawing = false;
-    }
+    // Layer is now cleaned up above
 });
 
 socket.on('canvas-restore', (data) => {
@@ -839,7 +852,6 @@ function removeCursor(socketId) {
         remoteCursors[socketId].element.remove();
         delete remoteCursors[socketId];
     }
-    delete remoteDrawingState[socketId];
     if (remoteLayerState[socketId]) {
         // Commit any in-progress stroke before removing
         if (remoteLayerState[socketId].drawing) {
@@ -973,6 +985,9 @@ function syncCanvasResolution() {
     const rect     = canvas.getBoundingClientRect();
     const displayW = Math.floor(rect.width);
     const displayH = Math.floor(rect.height);
+
+    // Skip if canvas has no size yet (not visible / not in DOM)
+    if (displayW <= 0 || displayH <= 0) return;
     if (canvas.width === displayW && canvas.height === displayH) return;
 
     const snapshot = canvas.width > 0 && canvas.height > 0
