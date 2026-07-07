@@ -1,6 +1,4 @@
-// =============================================
 // DARK MODE
-// =============================================
 const html = document.documentElement;
 let isDark = false; // Always start light — Decker aesthetic is beige/cream
 localStorage.removeItem('theme'); // Clear any stale dark preference
@@ -27,9 +25,7 @@ function initAppDarkMode() {
     }
 }
 
-// =============================================
 // SPLASH CANVAS ANIMATION
-// =============================================
 const splashCanvas = document.getElementById('splashCanvas');
 const splashCtx = splashCanvas.getContext('2d');
 let splashBubbles = [];
@@ -89,9 +85,7 @@ function animateSplash() {
 }
 animateSplash();
 
-// =============================================
 // SOCKET.IO
-// =============================================
 const socket = io();
 
 let currentRoomId = null;
@@ -102,9 +96,7 @@ let currentHostId = null;
 let mySocketId = null;
 let wasKicked = false;
 
-// =============================================
 // DOM ELEMENTS
-// =============================================
 const landingScreen    = document.getElementById('landingScreen');
 const appScreen        = document.getElementById('appScreen');
 const usernameInput    = document.getElementById('usernameInput');
@@ -158,9 +150,7 @@ const downloadBtn       = document.getElementById('downloadBtn');
 const undoBtn           = document.getElementById('undoBtn');
 const redoBtn           = document.getElementById('redoBtn');
 
-// =============================================
 // MEMBERS PANEL
-// =============================================
 let membersOpen = false;
 let roomUsersCache = {};
 
@@ -247,9 +237,8 @@ kickModal.addEventListener('click', (e) => {
     if (e.target === kickModal) kickModal.classList.remove('show');
 });
 
-// =============================================
+
 // COLOR PALETTE
-// =============================================
 const defaultColors = [
     '#000000', '#FF0000', '#FFFF00', '#00FF00', '#00FFFF', '#0000FF', '#FF00FF',
     '#C0C0C0', '#FFFFFF', '#00FF80', '#80FFFF', '#8080FF', '#FF0080', '#FF8040'
@@ -321,9 +310,8 @@ function getBrightness(hexColor) {
     return (r * 299 + g * 587 + b * 114) / 1000;
 }
 
-// =============================================
 // DRAWING STATE
-// =============================================
+
 let isDrawing        = false;
 let hasDrawnInStroke = false;
 let currentBrushSize = 5;
@@ -333,11 +321,9 @@ let canvasImage      = null;
 let mouseX = 0, mouseY = 0;
 let showCursor       = false;
 
-// =============================================
-// REMOTE DRAWING — each user gets their own offscreen canvas + context
+
 // This completely isolates remote strokes from each other and from local drawing.
-// remoteLayerState[socketId] = { canvas, ctx, lastX, lastY, drawing }
-// =============================================
+
 const remoteLayerState = {};
 
 function getRemoteLayer(socketId) {
@@ -384,23 +370,21 @@ function compositeRemoteLayers() {
     });
 }
 
-// =============================================
+
 // UNDO/REDO STATE
-// =============================================
 let localUndoStack = [];
 let localRedoStack = [];
 const MAX_LOCAL_HISTORY = 30;
 let serverHasUndo = false;
 let serverHasRedo = false;
 
-// =============================================
+
 // REMOTE CURSORS
-// =============================================
+
 const remoteCursors = {};
 
-// =============================================
 // TOAST
-// =============================================
+
 let toastTimer = null;
 
 function showToast(message, duration = 2500) {
@@ -410,9 +394,7 @@ function showToast(message, duration = 2500) {
     toastTimer = setTimeout(() => toast.classList.remove('show'), duration);
 }
 
-// =============================================
 // SHOW APP
-// =============================================
 function showApp() {
     console.log('🎯 showApp() called — switching to canvas view');
     initColorPalette();
@@ -425,7 +407,7 @@ function showApp() {
     // Show app screen — remove inline opacity:0, set display, add visible class
     appScreen.style.display        = 'flex';
     appScreen.style.flexDirection  = 'column';
-    appScreen.style.opacity        = '1';   // override inline style
+    appScreen.style.opacity        = '1';   
     appScreen.classList.add('visible');
 
     // Hide landing after transition completes
@@ -435,9 +417,8 @@ function showApp() {
     }, 400);
 }
 
-// =============================================
 // LANDING LOGIC
-// =============================================
+
 function getLandingName() {
     const name = usernameInput.value.trim();
     if (!name) {
@@ -488,9 +469,9 @@ const urlParams   = new URLSearchParams(window.location.search);
 const roomFromUrl = urlParams.get('room');
 if (roomFromUrl) roomCodeInput.value = roomFromUrl.toUpperCase();
 
-// =============================================
+
 // BUTTONS
-// =============================================
+
 copyLinkBtn.addEventListener('click', () => {
     const link = `${window.location.origin}/?room=${currentRoomId}`;
     navigator.clipboard.writeText(link).then(() => {
@@ -529,9 +510,8 @@ exitRoomBtn.addEventListener('click', () => {
     showToast('👋 Left the room');
 });
 
-// =============================================
 // CHAT FUNCTIONS
-// =============================================
+
 let chatIsOpen = false;
 
 chatBtn.addEventListener('click', (e) => {
@@ -581,9 +561,8 @@ function addMessageToChat(author, text, isOwn = false) {
     if (!chatIsOpen && !isOwn) chatNotification.classList.add('show');
 }
 
-// =============================================
 // SOCKET EVENTS
-// =============================================
+
 socket.on('connect', () => {
     console.log('✅ Connected:', socket.id);
     console.log('🔌 Socket connected — ready to create/join rooms');
@@ -690,9 +669,8 @@ socket.on('kicked', () => {
     }, 400);
 });
 
-// =============================================
 // DRAW EVENT — FIX: use per-user state via socketId
-// =============================================
+
 socket.on('draw', (data) => {
     let rx, ry, rsize;
     if (data.nx !== undefined) {
@@ -722,7 +700,7 @@ socket.on('mouseup', (data) => {
     const sid = data && data.socketId;
 
     if (sid && remoteLayerState[sid] && remoteLayerState[sid].drawing) {
-        // 1. Flatten committed pixels + this user's completed stroke into one image
+        // Flatten committed pixels + this user's completed stroke into one image
         //    Start from latest committed state
         if (canvasImage) {
             ctx.putImageData(canvasImage, 0, 0);
@@ -736,10 +714,10 @@ socket.on('mouseup', (data) => {
         // Draw the completed stroke on top
         ctx.drawImage(remoteLayerState[sid].canvas, 0, 0);
 
-        // 2. Commit everything as the new baseline
+        // Commit everything as the new baseline
         canvasImage = ctx.getImageData(0, 0, canvas.width, canvas.height);
 
-        // 3. Mark this layer as done and clear its offscreen canvas
+        // Mark this layer as done and clear its offscreen canvas
         remoteLayerState[sid].drawing = false;
         remoteLayerState[sid].ctx.clearRect(0, 0, remoteLayerState[sid].canvas.width, remoteLayerState[sid].canvas.height);
     }
@@ -786,9 +764,8 @@ socket.on('chat-message', (data) => {
     addMessageToChat(data.author, data.text, false);
 });
 
-// =============================================
 // UI HELPERS
-// =============================================
+
 function updateRoomUI(roomId, userCount) {
     roomIdDisplay.textContent    = roomId;
     userCountDisplay.textContent = userCount;
@@ -805,10 +782,7 @@ function updateHostBadge() {
     myNameBadge.textContent = amIHost ? `👑 ${myName}` : `👤 ${myName}`;
 }
 
-// =============================================
 // REMOTE CURSORS
-// FIX: positioning uses % of canvas dimensions so cursors always land correctly
-// =============================================
 function ensureCursorExists(socketId, color, name) {
     if (remoteCursors[socketId]) return;
     const wrapper = document.createElement('div');
@@ -834,8 +808,7 @@ function updateRemoteCursor(socketId, x, y, color, name) {
     ensureCursorExists(socketId, color, name);
     const cursor = remoteCursors[socketId];
 
-    // FIX: express position as % of canvas dimensions
-    // The overlay covers the canvas exactly, so % coordinates always match
+    // overlay and canvas ko aalign kra
     const pctX = (x / canvas.width)  * 100;
     const pctY = (y / canvas.height) * 100;
 
@@ -865,9 +838,8 @@ function removeCursor(socketId) {
     }
 }
 
-// =============================================
 // TOOLBAR
-// =============================================
+
 brushBtn.addEventListener('click', () => {
     currentTool = 'brush';
     brushBtn.classList.add('active');
@@ -920,9 +892,8 @@ document.addEventListener('keydown', (e) => {
     }
 });
 
-// =============================================
 // UNDO/REDO
-// =============================================
+
 function saveToUndoStack() {
     if (currentRoomId) return;
     const state = ctx.getImageData(0, 0, canvas.width, canvas.height);
@@ -978,9 +949,8 @@ function loadCanvasState(base64) {
     img.src = base64;
 }
 
-// =============================================
 // CANVAS RESIZE
-// =============================================
+
 function syncCanvasResolution() {
     const rect     = canvas.getBoundingClientRect();
     const displayW = Math.floor(rect.width);
@@ -1012,9 +982,8 @@ window.addEventListener('load', syncCanvasResolution);
 const canvasResizeObserver = new ResizeObserver(() => syncCanvasResolution());
 canvasResizeObserver.observe(canvas);
 
-// =============================================
 // COORDINATES
-// =============================================
+
 function getMousePos(e) {
     const rect   = canvas.getBoundingClientRect();
     const scaleX = canvas.width  / rect.width;
@@ -1040,15 +1009,13 @@ function fromNorm(nx, ny) { return { x: nx * canvas.width,  y: ny * canvas.heigh
 function normSize(size)   { return size / canvas.width; }
 function denormSize(ns)   { return ns   * canvas.width; }
 
-// =============================================
 // EVENT EMITTER THROTTLE
-// =============================================
+
 let lastEmitTime = 0;
 const EMIT_THROTTLE = 30;
 
-// =============================================
 // MOUSE EVENTS
-// =============================================
+
 canvas.addEventListener('mousedown', (e) => {
     if (e.sourceCapabilities && e.sourceCapabilities.firesTouchEvents) return;
     startDrawing(e);
@@ -1093,9 +1060,8 @@ function handleMouseMove(e) {
     }
 }
 
-// =============================================
 // TOUCH EVENTS
-// =============================================
+
 let activeTouchId = null;
 
 canvas.addEventListener('touchstart', (e) => {
@@ -1164,9 +1130,8 @@ canvas.addEventListener('touchcancel', (e) => {
     stopDrawing();
 }, { passive: false });
 
-// =============================================
 // DRAWING FUNCTIONS
-// =============================================
+
 function startDrawing(e) {
     hasDrawnInStroke = false;
     isDrawing  = true;
@@ -1240,10 +1205,6 @@ function restoreCanvas() {
     compositeRemoteLayers();
 }
 
-// =============================================
-// drawReceivedLine — each remote user draws on their own offscreen canvas
-// so remote strokes never touch ctx state used by local drawing.
-// =============================================
 function drawReceivedLine(socketId, x, y, color, size, tool, isStart) {
     const layer = getRemoteLayer(socketId);
     const rc    = layer.ctx;
@@ -1261,7 +1222,7 @@ function drawReceivedLine(socketId, x, y, color, size, tool, isStart) {
         layer.lastY   = y;
         rc.beginPath();
         rc.moveTo(x, y);
-        rc.lineTo(x, y); // single-click dot
+        rc.lineTo(x, y); 
     } else {
         rc.beginPath();
         rc.moveTo(layer.lastX, layer.lastY);

@@ -1,7 +1,11 @@
+require('dotenv').config();
+
 const express = require('express');
 const http = require('http');
 const socketIo = require('socket.io');
 const path = require('path');
+const connectDB = require('./db');
+const Room = require('./models/Room');
 
 const app = express();
 const server = http.createServer(app);
@@ -19,7 +23,6 @@ app.get('/', (req, res) => {
 function generateRoomId() {
     return Math.random().toString(36).substring(2, 8).toUpperCase();
 }
-
 function getRoomUserCount(roomId) {
     const room = io.sockets.adapter.rooms.get(roomId);
     return room ? room.size : 0;
@@ -27,6 +30,39 @@ function getRoomUserCount(roomId) {
 
 const roomData = {};
 const MAX_HISTORY = 30;
+const AUTOSAVE_INTERVAL_MS = 30 * 1000;
+
+//  Mongo persistence helper - only ever writes the latest canvasState,
+//  never called from draw/mousemove/cursor events
+async function saveRoomState(roomId) {
+    const room = roomData[roomId];
+    if (!room) return;
+    try {
+        await Room.findOneAndUpdate(
+            { roomId },
+            {
+                $set: {
+                    canvasState: room.canvasState,
+                    hostId: room.hostId,
+                    users: Object.values(room.users).map(u => u.name),
+                    updatedAt: new Date(),
+                    lastSavedAt: new Date()
+                },
+                $setOnInsert: { createdAt: new Date() }
+            },
+            { upsert: true }
+        );
+    } catch (err) {
+        console.error(`❌ Failed to save room ${roomId} to MongoDB:`, err);
+    }
+}
+
+//  Autosave: every 30s, persist only the latest canvasState per active room
+setInterval(() => {
+    Object.keys(roomData).forEach(roomId => {
+        saveRoomState(roomId);
+    });
+}, AUTOSAVE_INTERVAL_MS);
 
 function randomUserColor() {
     const colors = [
@@ -43,8 +79,8 @@ io.on('connection', (socket) => {
     let currentRoom = null;
     let currentName = `User_${socket.id.substring(0, 4)}`;
 
-    // ── CREATE ROOM ──────────────────────────────────────
-    socket.on('create-room', (data) => {
+    //  rooom banane ke liye
+    socket.on('create-room', async (data) => {
         const roomId = generateRoomId();
         const uName  = (data && data.userName) ? data.userName.trim().substring(0, 20) : currentName;
         currentName  = uName;
@@ -63,6 +99,21 @@ io.on('connection', (socket) => {
 
         roomData[roomId].users[socket.id] = { name: uName, color: userColor };
 
+        // create the MongoDB document for this room if it doesn't exist yet
+        try {
+            const existing = await Room.findOne({ roomId });
+            if (!existing) {
+                await Room.create({
+                    roomId,
+                    canvasState: null,
+                    hostId: socket.id,
+                    users: [uName]
+                });
+            }
+        } catch (err) {
+            console.error(`❌ Failed to create MongoDB document for room ${roomId}:`, err);
+        }
+
         const userCount = getRoomUserCount(roomId);
         socket.emit('room-created', {
             roomId, userCount, userColor, userName: uName, isHost: true
@@ -71,11 +122,32 @@ io.on('connection', (socket) => {
         console.log(`🚪 Room created: ${roomId} by ${uName}`);
     });
 
-    // ── JOIN ROOM ────────────────────────────────────────
-    socket.on('join-room', (data) => {
+    //  join room
+    socket.on('join-room', async (data) => {
         const roomId = (typeof data === 'string') ? data : data.roomId;
         const uName  = (data && data.userName) ? data.userName.trim().substring(0, 20) : currentName;
         currentName  = uName;
+
+        // roomData not in memory (fresh server or room was emptied) - try MongoDB before giving up
+        if (!roomData[roomId]) {
+            try {
+                const dbRoom = await Room.findOne({ roomId });
+                if (dbRoom) {
+                    roomData[roomId] = {
+                        canvasState: dbRoom.canvasState || null,
+                        undoStack: [],
+                        redoStack: [],
+                        pendingSnapshot: null,
+                        // old hostId belonged to a socket that's long gone; joining user becomes host
+                        hostId: socket.id,
+                        users: {}
+                    };
+                    console.log(`♻️ Room ${roomId} restored from MongoDB`);
+                }
+            } catch (err) {
+                console.error(`❌ Failed to restore room ${roomId} from MongoDB:`, err);
+            }
+        }
 
         const roomExists = io.sockets.adapter.rooms.has(roomId);
         if (!roomExists && !roomData[roomId]) {
@@ -114,7 +186,7 @@ io.on('connection', (socket) => {
         });
         socket.to(roomId).emit('user-joined', { socketId: socket.id, name: uName, color: userColor });
 
-        // Send existing users to new joiner so their cursors can be created
+        // har user ko cursor dena
         const existingUsers = {};
         Object.entries(roomData[roomId].users).forEach(([sid, info]) => {
             if (sid !== socket.id) existingUsers[sid] = info;
@@ -124,8 +196,7 @@ io.on('connection', (socket) => {
         console.log(`🚪 ${uName} joined room: ${roomId} | Users: ${userCount}`);
     });
 
-    // ── DRAW ─────────────────────────────────────────────
-    // FIXED: include socketId so each receiver knows which user drew the stroke
+    //  DRAW and pata rhe konse user ne draw kia
     socket.on('draw', (data) => {
         if (data.roomId) {
             socket.to(data.roomId).emit('draw', { ...data, socketId: socket.id });
@@ -136,7 +207,7 @@ io.on('connection', (socket) => {
         if (data.roomId) socket.to(data.roomId).emit('draw-shape', data);
     });
 
-    // ── UNDO/REDO SNAPSHOTS ──────────────────────────────
+    //  undo redo ki state save krne ke liye
     socket.on('save-undo-snapshot', ({ roomId, state }) => {
         if (!roomId || !roomData[roomId]) return;
         roomData[roomId].pendingSnapshot = state;
@@ -163,7 +234,7 @@ io.on('connection', (socket) => {
         });
     });
 
-    // ── CLEAR ────────────────────────────────────────────
+    //  Clear krna  
     socket.on('clear', (roomId) => {
         if (roomId) {
             socket.to(roomId).emit('clear');
@@ -176,7 +247,7 @@ io.on('connection', (socket) => {
         }
     });
 
-    // ── UNDO ─────────────────────────────────────────────
+    //  Undo
     socket.on('undo', (roomId) => {
         if (!roomId || !roomData[roomId]) return;
         const room = roomData[roomId];
@@ -191,7 +262,7 @@ io.on('connection', (socket) => {
         });
     });
 
-    // ── REDO ─────────────────────────────────────────────
+    //  redo ke liye
     socket.on('redo', (roomId) => {
         if (!roomId || !roomData[roomId]) return;
         const room = roomData[roomId];
@@ -206,13 +277,13 @@ io.on('connection', (socket) => {
         });
     });
 
-    // ── MOUSE UP ─────────────────────────────────────────
+    //  MOUSE UP 
     // FIXED: include socketId so receiver clears correct user's drawing state
     socket.on('mouseup', (roomId) => {
         if (roomId) socket.to(roomId).emit('mouseup', { socketId: socket.id });
     });
 
-    // ── CURSOR ───────────────────────────────────────────
+    //  Cursor dono ko dikhe move hote hue
     socket.on('cursor-move', (data) => {
         if (data.roomId) {
             socket.to(data.roomId).emit('cursor-move', {
@@ -231,7 +302,7 @@ io.on('connection', (socket) => {
         if (roomId) socket.to(roomId).emit('cursor-hide', socket.id);
     });
 
-    // ── CHAT ─────────────────────────────────────────────
+    // Chatting
     socket.on('chat-message', (data) => {
         if (data.roomId) {
             socket.to(data.roomId).emit('chat-message', {
@@ -241,7 +312,7 @@ io.on('connection', (socket) => {
         }
     });
 
-    // ── KICK (host only) ─────────────────────────────────
+    // Kick krne ke liye
     socket.on('kick-user', ({ roomId, targetSocketId }) => {
         if (!roomId || !roomData[roomId]) return;
         if (roomData[roomId].hostId !== socket.id) return;
@@ -256,11 +327,11 @@ io.on('connection', (socket) => {
         setTimeout(() => { targetSocket.disconnect(true); }, 500);
     });
 
-    // ── DISCONNECT ───────────────────────────────────────
-    socket.on('disconnecting', () => {
+    // when disconnecting
+    socket.on('disconnecting', async () => {
         const rooms = Array.from(socket.rooms);
-        rooms.forEach(roomId => {
-            if (roomId === socket.id) return;
+        for (const roomId of rooms) {
+            if (roomId === socket.id) continue;
 
             const currentCount = getRoomUserCount(roomId);
             const newCount     = currentCount - 1;
@@ -291,21 +362,25 @@ io.on('connection', (socket) => {
             }
 
             if (newCount <= 0 && roomData[roomId]) {
+                // persist the final canvasState before dropping the in-memory copy
+                await saveRoomState(roomId);
                 delete roomData[roomId];
                 console.log(`🗑️ Room ${roomId} cleaned up (empty)`);
             }
-        });
+        }
     });
 
     socket.on('disconnect', () => {
         console.log('❌ User disconnected:', socket.id);
     });
 });
-
-server.listen(PORT, () => {
-    console.log('===========================================');
-    console.log('🚀 SERVER STARTED SUCCESSFULLY!');
-    console.log(`📡 Running at: http://localhost:${PORT}`);
-    console.log('🔌 Socket.io ready for real-time drawing!');
-    console.log('===========================================');
+// to start the server and check if tis working or not
+connectDB().then(() => {
+    server.listen(PORT, () => {
+        console.log('===========================================');
+        console.log('🚀 SERVER STARTED SUCCESSFULLY!');
+        console.log(`📡 Running at: http://localhost:${PORT}`);
+        console.log('🔌 Socket.io ready for real-time drawing!');
+        console.log('===========================================');
+    });
 });

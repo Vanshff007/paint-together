@@ -1,14 +1,8 @@
-/* =============================================
-   DECKER AESTHETIC — HyperCard / Old Mac feel
-   Pixel font, beige/cream, hand-drawn borders
-   ============================================= */
 @import url('https://fonts.googleapis.com/css2?family=VT323&family=Press+Start+2P&family=Special+Elite&display=swap');
 
 html { font-size: clamp(13px, 0.9vw, 15px); }
 
-/* =============================================
-   CSS VARIABLES
-   ============================================= */
+/* CSS VARIABLES */
 :root {
     --bg:           #c8b89a;
     --bg-dark:      #a89880;
@@ -112,9 +106,9 @@ body {
 ::-webkit-scrollbar-thumb { background: var(--border); border: 2px solid var(--paper-dark); }
 ::-webkit-scrollbar-thumb:hover { background: var(--ink-mid); }
 
-/* =============================================
+/* 
    DARK MODE TOGGLE (landing)
-   ============================================= */
+    */
 .dark-toggle {
     position: fixed;
     top: 16px; right: 16px;
@@ -132,9 +126,9 @@ body {
 .dark-toggle:hover { background: var(--highlight); }
 .dark-toggle:active { box-shadow: none; transform: translate(2px,2px); }
 
-/* =============================================
+/* 
    LANDING SCREEN
-   ============================================= */
+   */
 .landing-screen {
     position: fixed; inset: 0;
     display: flex; align-items: center; justify-content: center;
@@ -299,9 +293,9 @@ body {
     min-height: 18px; letter-spacing: 0.5px;
 }
 
-/* =============================================
+/* 
    APP SCREEN
-   ============================================= */
+ */
 .app-screen {
     height: 100vh; height: 100dvh;
     max-height: 100dvh;
@@ -316,9 +310,9 @@ body {
 }
 .app-screen.visible { opacity: 1; }
 
-/* =============================================
+/* 
    APP HEADER — Mac menu bar
-   ============================================= */
+    */
 .app-header {
     background: var(--header-bg);
     border-bottom: 3px solid var(--border);
@@ -402,9 +396,9 @@ body {
 .dark-toggle-app:hover { background: var(--highlight); }
 .dark-toggle-app:active { box-shadow: none; transform: translate(2px,2px); }
 
-/* =============================================
+/* 
    TOOLBAR
-   ============================================= */
+    */
 .toolbar {
     max-width: 1100px;
     margin: 0.4rem auto;
@@ -428,9 +422,9 @@ body {
 
 label { font-family: var(--font-pixel); font-size: 7px; color: var(--ink-mid); text-transform: uppercase; letter-spacing: 0.5px; white-space: nowrap; }
 
-/* =============================================
+/* 
    COLOR PALETTE
-   ============================================= */
+    */
 .color-palette-group { display: flex; align-items: center; gap: 5px; flex: 0 0 auto !important; }
 
 .color-palette {
@@ -466,9 +460,9 @@ label { font-family: var(--font-pixel); font-size: 7px; color: var(--ink-mid); t
 .custom-color-btn:active { box-shadow: none; transform: translate(2px,2px); }
 .custom-color-btn.active { box-shadow: inset 2px 2px 0 rgba(0,0,0,0.2); transform: translate(2px,2px); }
 
-/* =============================================
+/* 
    TOOL BUTTONS — chunky Decker stamp style
-   ============================================= */
+    */
 .tool-btn {
     padding: 6px 10px;
     background: var(--paper); color: var(--ink);
@@ -483,9 +477,9 @@ label { font-family: var(--font-pixel); font-size: 7px; color: var(--ink-mid); t
 .tool-btn.active { background: var(--ink); color: var(--paper); border-color: var(--ink); box-shadow: inset 2px 2px 0 rgba(0,0,0,0.3); transform: translate(2px,2px); }
 #eraserBtn.active { background: var(--ink); color: var(--paper); border-color: var(--ink); box-shadow: inset 2px 2px 0 rgba(0,0,0,0.3); transform: translate(2px,2px); }
 
-/* =============================================
+/* 
    BRUSH SIZE
-   ============================================= */
+    */
 #brushSize {
     width: 100%; max-width: 200px; height: 6px;
     cursor: pointer; -webkit-appearance: none;
@@ -496,9 +490,9 @@ label { font-family: var(--font-pixel); font-size: 7px; color: var(--ink-mid); t
 #brushSize::-moz-range-thumb { width: 14px; height: 18px; background: var(--ink); border: 2px solid var(--border); cursor: pointer; }
 #brushSizeValue { font-family: var(--font-pixel); font-size: 8px; color: var(--ink); min-width: 30px; }
 
-/* =============================================
+/* 
    ACTION BUTTONS
-   ============================================= */
+    */
 .toolbar-actions {
     display: flex; gap: 6px; flex-wrap: nowrap;
     flex-shrink: 0; margin-left: auto;
@@ -525,9 +519,9 @@ label { font-family: var(--font-pixel); font-size: 7px; color: var(--ink-mid); t
 .clear-btn:not(:disabled) { background: var(--paper); color: var(--accent-red); border-color: var(--accent-red); box-shadow: 2px 2px 0 rgba(139,32,32,0.4); }
 .clear-btn:not(:disabled):hover { background: var(--accent-red); color: var(--white); }
 
-/* =============================================
+/* 
    CANVAS AREA
-   ============================================= */
+    */
 .canvas-container {
     max-width: 1100px; margin: 0 auto;
     padding: 0 0.75rem 0.75rem;
@@ -553,9 +547,9 @@ canvas#canvas:active { box-shadow: 2px 2px 0 var(--border); }
     pointer-events: none; overflow: hidden; z-index: 2;
 }
 
-/* =============================================
+/* 
    REMOTE CURSORS
-   ============================================= */
+    */
 .remote-cursor {
     position: absolute; pointer-events: none;
     transform: translate(0,0);
@@ -570,9 +564,9 @@ canvas#canvas:active { box-shadow: 2px 2px 0 var(--border); }
     box-shadow: 1px 1px 0 rgba(0,0,0,0.3); margin-left: 2px; letter-spacing: 0.5px;
 }
 
-/* =============================================
+/* 
    CHAT
-   ============================================= */
+    */
 .chat-btn {
     position: fixed; bottom: 24px; right: 24px;
     width: 52px; height: 52px;
@@ -654,9 +648,9 @@ canvas#canvas:active { box-shadow: 2px 2px 0 var(--border); }
 .chat-send-btn:hover { background: var(--ink-mid); }
 .chat-send-btn:active { box-shadow: none; transform: translate(2px,2px); }
 
-/* =============================================
+/* 
    TOAST
-   ============================================= */
+    */
 .toast {
     position: fixed; bottom: 28px; left: 50%;
     transform: translateX(-50%) translateY(12px);
@@ -671,9 +665,9 @@ canvas#canvas:active { box-shadow: 2px 2px 0 var(--border); }
 }
 .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 
-/* =============================================
+/* 
    COLOR PICKER MODAL
-   ============================================= */
+    */
 .color-picker-modal {
     position: fixed; inset: 0;
     background: rgba(26,16,8,0.75);
@@ -717,9 +711,9 @@ canvas#canvas:active { box-shadow: 2px 2px 0 var(--border); }
 .ok-btn:hover { background: var(--ink-mid); }
 .ok-btn:active { box-shadow: none; transform: translate(2px,2px); }
 
-/* =============================================
+/* 
    MEMBERS BUTTON & DROPDOWN
-   ============================================= */
+    */
 .members-wrapper { position: relative; }
 
 .members-btn {
@@ -777,9 +771,9 @@ canvas#canvas:active { box-shadow: 2px 2px 0 var(--border); }
 }
 .member-kick-btn:hover { background: var(--accent-red); color: var(--white); box-shadow: none; transform: translate(1px,1px); }
 
-/* =============================================
+/* 
    KICK MODAL
-   ============================================= */
+    */
 .kick-modal {
     position: fixed; inset: 0;
     background: rgba(26,16,8,0.75);
@@ -818,9 +812,9 @@ canvas#canvas:active { box-shadow: 2px 2px 0 var(--border); }
 .kick-confirm-btn:hover { background: #6b1010; box-shadow: 3px 3px 0 rgba(139,32,32,0.4); }
 .kick-confirm-btn:active { box-shadow: none; transform: translate(2px,2px); }
 
-/* =============================================
+/* 
    RESPONSIVE — TABLET (768px)
-   ============================================= */
+    */
 @media (max-width: 768px) {
     .landing-card { margin: 16px; }
     .landing-card-inner { padding: 22px 20px 20px; }
@@ -850,9 +844,9 @@ canvas#canvas:active { box-shadow: 2px 2px 0 var(--border); }
     .members-dropdown.show { transform: translateX(0) translateY(0); }
 }
 
-/* =============================================
+/* 
    RESPONSIVE — MOBILE (480px)
-   ============================================= */
+    */
 @media (max-width: 480px) {
     .landing-card { margin: 8px; }
     .landing-card-inner { padding: 18px 14px 18px; }
@@ -895,9 +889,9 @@ canvas#canvas:active { box-shadow: 2px 2px 0 var(--border); }
     .members-dropdown.show { transform: none; }
 }
 
-/* =============================================
+/* 
    RESPONSIVE — VERY SMALL (360px)
-   ============================================= */
+    */
 @media (max-width: 360px) {
     .app-title { display: none; }
     .room-code { font-size: 14px; }
