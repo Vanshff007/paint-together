@@ -14,7 +14,7 @@ persistence of room canvases. Live state is in memory (see
 
 So the server **does not start without a working `MONGO_URI`**.
 
-## Model: `Room` (`models/Room.js`)
+## Model: `Room` (`features/persistence/Room.js`)
 
 Collection: `rooms` (Mongoose default for model `Room`).
 
@@ -32,21 +32,23 @@ Socket objects and undo/redo stacks are never stored.
 
 ## Reads and writes
 
-| Where (`server.js`) | Operation |
+| Where | Operation |
 |---------------------|-----------|
-| `create-room` | `Room.findOne({ roomId })`, then `Room.create(...)` if missing. |
-| `join-room` (room not in memory) | `Room.findOne({ roomId })` to restore `canvasState`. |
+| `create-room` (rooms) via `ensureRoomDoc` | `Room.findOne({ roomId })`, then `Room.create(...)` if missing. |
+| `join-room` (rooms, room not in memory) via `loadRoom` | `Room.findOne({ roomId })` to restore `canvasState`. |
 | `saveRoomState(roomId)` | `Room.findOneAndUpdate({ roomId }, { $set, $setOnInsert }, { upsert: true })`. |
-| Autosave (`setInterval`, 30 s) | `saveRoomState` for every room in `roomData`. |
-| Last user leaves | `await saveRoomState(roomId)`, then remove from memory. |
+| Autosave (`startAutosave`, 30 s) | `saveRoomState` for every room in `roomData`. |
+| Last user leaves (rooms) | `await saveRoomState(roomId)`, then remove from memory. |
+
+All of these live in `features/persistence/server.js`. Other features call
+them through `ctx.persistence`. See `features/persistence/README.md`.
 
 All database calls are in `try/catch` and log errors. A failed save does not
 crash the server or affect connected users.
 
 ## Rules
 
-- Keep all persistence in `saveRoomState()` or the existing `create-room` /
-  `join-room` paths. Do not add writes to `draw`, `cursor-move`, or other
+- Keep all database access in `features/persistence/`. Do not add writes to `draw`, `cursor-move`, or other
   high-frequency events.
 - Keep the schema flat. Add new fields with a `default` so that old documents
   still load.

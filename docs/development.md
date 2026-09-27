@@ -27,10 +27,11 @@ PORT=3000
 |---------|--------------|
 | `npm start` | `node server.js`. Production-style run. |
 | `npm run dev` | `nodemon server.js`. Restarts on server file changes. |
+| `npm test` | `node --test`. Runs every `features/**/*.test.js`. No MongoDB needed. |
 
 Open `http://localhost:3000`.
 
-Frontend files in `public/` are served directly. Refresh the browser after you
+Frontend files (`public/` and `features/*/client.js`) are served directly. Refresh the browser after you
 change them. There is no build step.
 
 ## Testing multiplayer locally
@@ -47,15 +48,18 @@ For phones on the same network, open `http://<your-LAN-IP>:3000`.
 
 ## Tests
 
-There is no automated test suite yet. `package.json` has no `test` script.
-Per `CLAUDE.md`, new features must include tests. When you add the first
-tests:
+Tests use Node's built-in runner (`node:test`, `node:assert`). There are
+no test dependencies.
 
-- Prefer Node's built-in runner (`node --test`) before adding a framework.
-- Add `"test": "node --test"` to `package.json`.
-- Put tests in the feature folder (see `docs/contributing.md`).
-- For socket tests, `socket.io-client` is a dev dependency candidate. Ask
-  before adding it.
+- Each feature has `features/<name>/<name>.test.js`.
+- Server handlers are tested with `features/fake-socket.js`: fake `io` and
+  `socket` objects that record every emit. Call a handler with
+  `socket.trigger('event', payload)`.
+- Persistence is tested with a fake Mongoose model, so tests never touch a
+  database.
+- Timers (`setTimeout`, `setInterval`) are tested with `t.mock.timers`.
+- Browser code has no automated tests. Each feature `README.md` has manual
+  test cases. Run them with the multiplayer steps above.
 
 ## Debugging
 

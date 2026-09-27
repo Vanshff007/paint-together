@@ -8,34 +8,67 @@ the server restarts.
 ## High-level diagram
 
 ```
- Browser (public/)                     Node.js (server.js)                 MongoDB
- ┌──────────────────────┐   HTTP GET   ┌──────────────────────────┐
- │ index.html           │ ───────────▶ │ express.static(public/)  │
- │ style.css            │              │                          │
- │ script.js            │  Socket.io   │ io.on('connection')      │   Mongoose
- │  - canvas + tools    │ ◀──────────▶ │  - room handlers         │ ◀──────────▶ rooms
- │  - remote layers     │   (WS)       │  - in-memory roomData    │  (db.js,
- │  - chat, cursors     │              │  - 30 s autosave timer   │  models/Room.js)
- └──────────────────────┘              └──────────────────────────┘
+ Browser                               Node.js (server.js)                     MongoDB
+ ┌──────────────────────┐   HTTP GET   ┌──────────────────────────────┐
+ │ public/index.html    │ ───────────▶ │ express.static(public/)      │
+ │ public/style.css     │              │ /features/:name/client.js    │
+ │ public/core.js       │              │                              │
+ │ features/*/client.js │  Socket.io   │ io.on('connection')          │   Mongoose
+ │  theme, drawing,     │ ◀──────────▶ │  features/*/server.js        │ ◀──────────▶ rooms
+ │  history, cursors,   │   (WS)       │  register(socket, ctx, ...)  │  (db.js,
+ │  chat, rooms         │              │  roomData + 30 s autosave    │  features/persistence/Room.js)
+ └──────────────────────┘              └──────────────────────────────┘
 ```
 
 ## Components
 
 | File | Role |
 |------|------|
-| `server.js` | Express app, HTTP server, Socket.io server, all room/event logic, autosave timer. |
+| `server.js` | Startup only: Express, HTTP server, Socket.io, static routes, creates `roomData` and persistence, registers each feature on every connection. |
 | `db.js` | `connectDB()`: connects Mongoose with `MONGO_URI`. Exits the process on failure. |
-| `models/Room.js` | Mongoose `Room` model (persistence only). |
-| `public/index.html` | Landing screen (name, create/join) and app screen (toolbar, canvas, chat, modals). |
-| `public/script.js` | All client logic: theme, splash animation, drawing, undo/redo, sockets, chat, cursors, kick. |
+| `features/<name>/` | One folder per feature: `server.js` and/or `client.js`, `README.md`, tests. |
+| `features/fake-socket.js` | Fake `io` / `socket` objects for the feature tests. |
+| `public/index.html` | Landing screen (name, create/join) and app screen (toolbar, canvas, chat, modals). Loads the scripts in order. |
+| `public/core.js` | Shared client globals: `socket`, room/user state, shared DOM elements, `showToast()`, `showApp()`. |
 | `public/style.css` | All styles, light/dark themes via `html[data-theme]`. |
+
+## Features
+
+| Feature | Server | Client | What it owns |
+|---------|--------|--------|--------------|
+| `rooms` | yes | yes | Create/join/exit, landing, members, host, kick, disconnect cleanup. |
+| `drawing` | yes | yes | Canvas input, tools, colors, remote stroke layers, clear, download. |
+| `history` | yes | yes | Shared undo/redo. |
+| `cursors` | yes | yes | Live remote cursors. |
+| `chat` | yes | yes | Room chat. |
+| `persistence` | yes | no | `Room` model, save/load, autosave. |
+| `theme` | no | yes | Dark mode, splash animation. |
+
+Each feature `README.md` documents its events, behavior, and test cases.
+
+### Server wiring
+
+Each `features/<name>/server.js` exports `register(socket, ctx, session)`:
+
+- `ctx = { io, roomData, persistence }` is shared by all connections.
+- `session = { userColor, currentName }` is per socket and shared between
+  features (rooms sets the name, cursors reads it).
+
+### Client wiring
+
+Client files are plain scripts (no modules, no bundler). They share globals,
+so **load order matters**. `index.html` loads: Socket.io client, `core.js`,
+then `theme`, `drawing`, `history`, `cursors`, `chat`, `rooms`.
+Code that runs at load time may only use globals from earlier files. Code in
+event handlers may use any file's globals. Two files must never declare the
+same top-level name.
 
 There is no build step, bundler, or frontend framework. The Socket.io client is
 loaded from `/socket.io/socket.io.js`, which the Socket.io server serves.
 
 ## Server state
 
-All live room state is in memory, in the `roomData` object in `server.js`:
+All live room state is in memory, in the `roomData` object created in `server.js` and passed to features as `ctx.roomData`:
 
 ```js
 roomData[roomId] = {

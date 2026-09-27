@@ -9,6 +9,7 @@ events on the default namespace (`/`).
 |--------|------|----------|
 | GET | `/` | `public/index.html` |
 | GET | `/<file>` | Static file from `public/` (`express.static`) |
+| GET | `/features/<name>/client.js` | Browser script of a feature. Only `client.js` files are served; other files in `features/` return 404. |
 | GET | `/socket.io/*` | Socket.io client library and transport (handled by Socket.io) |
 
 Query parameter `?room=<ROOMID>` on `/` fills the room code on the landing
@@ -87,8 +88,9 @@ What the server does **not** check (keep in mind when you change handlers):
 
 ## Rules for changing the protocol
 
-- Change the emitter and the listener in the same change (`server.js` and
-  `public/script.js`).
+- Change the emitter and the listener in the same change (the feature's
+  `server.js` and the `client.js` that uses the event).
+- Update the feature's tests and `README.md` in the same change.
 - Update the tables in this file in the same change.
 - Never write to MongoDB from high-frequency events (`draw`, `cursor-move`,
   `mouseup`).

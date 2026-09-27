@@ -22,7 +22,7 @@ WebSockets work on Render web services with no extra settings.
 
 1. The app runs locally with `npm start` and a real `MONGO_URI`.
 2. Multiplayer manual test passes (see `docs/development.md`).
-3. Tests pass (when a test suite exists).
+3. `npm test` passes.
 4. `MONGO_URI` is set in the Render dashboard. Never put it in the repo.
 5. If you use MongoDB Atlas, the network access list allows Render
    (for example `0.0.0.0/0` with a strong password, or Render's outbound IPs).

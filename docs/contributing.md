@@ -48,20 +48,33 @@ Match the existing code:
 
 ## Feature folders
 
-Per `CLAUDE.md`, each new feature gets its own folder with code, a detailed
-`README.md`, and tests. The current code is not split this way yet, and
-existing code must not be moved without approval. For new features, use:
+Per `CLAUDE.md`, every feature has its own folder with code, a detailed
+`README.md`, and tests. Layout:
 
 ```
-features/<feature-name>/
-├── README.md          # what it does, events, data, how to test
-├── <feature-name>.js  # implementation (server or shared logic)
-└── <feature-name>.test.js
+features/<name>/
+├── server.js        # exports register(socket, ctx, session)  (if it has server code)
+├── client.js        # plain browser script, served at /features/<name>/client.js
+├── README.md        # purpose, events, behavior, manual test cases, known issues
+└── <name>.test.js   # node:test tests (use ../fake-socket.js)
 ```
 
-Client-only code for a feature can go in `public/` and be referenced from the
-feature `README.md`. Agree on the exact layout with the owner before the first
-feature uses it.
+Folder names use lowercase letters only (the serving route matches
+`[a-z]+`).
+
+To add a feature:
+
+1. Create the folder with the files above (skip `server.js` or `client.js`
+   if the feature has no code on that side).
+2. Server: add the feature to the `features` array in `server.js`.
+3. Client: add a `<script src="/features/<name>/client.js">` tag in
+   `public/index.html`. Place it after every file whose globals it uses at
+   load time. Do not reuse a top-level name from another client file.
+4. Update `docs/architecture.md` (features table) and `docs/api.md`
+   (new events).
+
+Shared client state goes in `public/core.js` only when several features need
+it.
 
 ## Definition of done
 

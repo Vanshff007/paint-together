@@ -24,13 +24,12 @@ Last updated: 2026-09-28.
   - Autosave every 30 s, save on last user leave.
   - Restore canvas from MongoDB when someone joins a room not in memory.
 - Production deploy on Render.
+- Feature-folder structure (`features/<name>/`), with a README for each feature.
+- Automated tests (`npm test`, Node built-in runner) for all server features.
 
 ## In progress / pending
 
 - Finish and test the autosave feature, including a restart test.
-- Add a test setup (`node --test`) and the first tests (see
-  `docs/development.md`).
-- Move new features into feature folders (see `docs/contributing.md`).
 
 ## Planned / ideas
 
@@ -51,3 +50,7 @@ Last updated: 2026-09-28.
 - Room IDs are random and are not checked for collisions.
 - Single instance only (in-memory state).
 - A stray tracked file `et --hard HEAD~1` exists in the repo root.
+- A kicked user's socket is not reconnected. They must reload the page
+  before they can join a room again.
+- Browser code has no automated tests (manual test cases are in each
+  feature README).
