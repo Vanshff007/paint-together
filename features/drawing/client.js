@@ -146,7 +146,7 @@ function compositeRemoteLayers() {
     });
 }
 
-// DRAW EVENT — FIX: use per-user state via socketId
+// REMOTE STROKES (each user draws on their own layer, keyed by socketId)
 
 socket.on('draw', (data) => {
     let rx, ry, rsize;
@@ -172,7 +172,7 @@ socket.on('clear', () => {
     showToast('🗑️ Canvas cleared');
 });
 
-// FIX: mouseup — commit the remote user's offscreen layer into canvasImage, then clear it
+// Remote stroke finished: commit that user's layer into canvasImage, then clear it
 socket.on('mouseup', (data) => {
     const sid = data && data.socketId;
 

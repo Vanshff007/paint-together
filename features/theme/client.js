@@ -2,7 +2,7 @@
 
 // DARK MODE
 const html = document.documentElement;
-let isDark = false; // Always start light — Decker aesthetic is beige/cream
+let isDark = false; // Always start light (the default beige/cream look)
 localStorage.removeItem('theme'); // Clear any stale dark preference
 
 function applyTheme(dark) {

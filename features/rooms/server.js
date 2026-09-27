@@ -24,7 +24,7 @@ function randomUserColor() {
 function register(socket, ctx, session) {
     const { io, roomData, persistence } = ctx;
 
-    //  rooom banane ke liye
+    // Create a room
     socket.on('create-room', async (data) => {
         const roomId = generateRoomId();
         const uName  = (data && data.userName) ? data.userName.trim().substring(0, 20) : session.currentName;
@@ -54,7 +54,7 @@ function register(socket, ctx, session) {
         console.log(`🚪 Room created: ${roomId} by ${uName}`);
     });
 
-    //  join room
+    // Join a room
     socket.on('join-room', async (data) => {
         const roomId = (typeof data === 'string') ? data : data.roomId;
         const uName  = (data && data.userName) ? data.userName.trim().substring(0, 20) : session.currentName;
@@ -120,7 +120,7 @@ function register(socket, ctx, session) {
         });
         socket.to(roomId).emit('user-joined', { socketId: socket.id, name: uName, color: session.userColor });
 
-        // har user ko cursor dena
+        // Send the joiner the other users so it can show their cursors
         const existingUsers = {};
         Object.entries(roomData[roomId].users).forEach(([sid, info]) => {
             if (sid !== socket.id) existingUsers[sid] = info;
@@ -130,7 +130,7 @@ function register(socket, ctx, session) {
         console.log(`🚪 ${uName} joined room: ${roomId} | Users: ${userCount}`);
     });
 
-    // Kick krne ke liye
+    // Host removes a user
     socket.on('kick-user', ({ roomId, targetSocketId }) => {
         if (!roomId || !roomData[roomId]) return;
         if (roomData[roomId].hostId !== socket.id) return;
@@ -152,7 +152,7 @@ function register(socket, ctx, session) {
         setTimeout(() => { targetSocket.disconnect(true); }, 500);
     });
 
-    // when disconnecting
+    // Leave rooms: update members, hand over host, save and clean up empty rooms
     socket.on('disconnecting', async () => {
         const rooms = Array.from(socket.rooms);
         for (const roomId of rooms) {

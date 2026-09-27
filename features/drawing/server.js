@@ -1,7 +1,7 @@
 function register(socket, ctx) {
     const { io, roomData } = ctx;
 
-    //  DRAW and pata rhe konse user ne draw kia
+    // Relay stroke points, tagged with the sender so receivers keep strokes apart
     socket.on('draw', (data) => {
         if (data.roomId) {
             socket.to(data.roomId).emit('draw', { ...data, socketId: socket.id });
@@ -12,13 +12,12 @@ function register(socket, ctx) {
         if (data.roomId) socket.to(data.roomId).emit('draw-shape', data);
     });
 
-    //  MOUSE UP
-    // FIXED: include socketId so receiver clears correct user's drawing state
+    // Stroke finished; socketId tells receivers which user's layer to commit
     socket.on('mouseup', (roomId) => {
         if (roomId) socket.to(roomId).emit('mouseup', { socketId: socket.id });
     });
 
-    //  Clear krna
+    // Clear the canvas and the room history
     socket.on('clear', (roomId) => {
         if (roomId) {
             socket.to(roomId).emit('clear');

@@ -1,6 +1,6 @@
 function register(socket, ctx, session) {
 
-    //  Cursor dono ko dikhe move hote hue
+    // Show this user's cursor to the others in the room
     socket.on('cursor-move', (data) => {
         if (data.roomId) {
             socket.to(data.roomId).emit('cursor-move', {

@@ -32,7 +32,6 @@ function showToast(message, duration = 2500) {
 
 // SHOW APP
 function showApp() {
-    console.log('🎯 showApp() called — switching to canvas view');
     initColorPalette();
     initAppDarkMode();
 

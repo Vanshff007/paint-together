@@ -51,7 +51,7 @@ io.on('connection', (socket) => {
     features.forEach(feature => feature.register(socket, ctx, session));
 });
 
-// to start the server and check if tis working or not
+// Start listening only after MongoDB is connected
 connectDB().then(() => {
     server.listen(PORT, () => {
         console.log('===========================================');

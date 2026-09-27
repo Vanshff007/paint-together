@@ -143,11 +143,9 @@ function showLandingError(msg) {
 }
 
 landingCreateBtn.addEventListener('click', () => {
-    console.log('🖱️ Create button clicked');
     const name = getLandingName();
     if (!name) return;
     myName = name;
-    console.log('📡 Emitting create-room with name:', name);
     socket.emit('create-room', { userName: name, clientId });
 });
 
@@ -221,8 +219,6 @@ exitRoomBtn.addEventListener('click', () => {
 // SOCKET EVENTS
 
 socket.on('connect', () => {
-    console.log('✅ Connected:', socket.id);
-    console.log('🔌 Socket connected — ready to create/join rooms');
     mySocketId = socket.id;
 });
 
@@ -234,7 +230,6 @@ socket.on('disconnect', (reason) => {
 });
 
 socket.on('room-created', (data) => {
-    console.log('🏠 room-created received:', data);
     currentRoomId  = data.roomId;
     myColor        = data.userColor;
     mySocketId     = socket.id;
@@ -248,7 +243,6 @@ socket.on('room-created', (data) => {
 });
 
 socket.on('room-joined', (data) => {
-    console.log('🚪 room-joined received:', data);
     currentRoomId  = data.roomId;
     myColor        = data.userColor;
     mySocketId     = socket.id;

@@ -3,7 +3,7 @@ const MAX_HISTORY = 30;
 function register(socket, ctx) {
     const { io, roomData } = ctx;
 
-    //  undo redo ki state save krne ke liye
+    // Canvas before a stroke starts; becomes an undo step on stroke-complete
     socket.on('save-undo-snapshot', ({ roomId, state }) => {
         if (!roomId || !roomData[roomId]) return;
         roomData[roomId].pendingSnapshot = state;
@@ -30,7 +30,7 @@ function register(socket, ctx) {
         });
     });
 
-    //  Undo
+    // Undo
     socket.on('undo', (roomId) => {
         if (!roomId || !roomData[roomId]) return;
         const room = roomData[roomId];
@@ -45,7 +45,7 @@ function register(socket, ctx) {
         });
     });
 
-    //  redo ke liye
+    // Redo
     socket.on('redo', (roomId) => {
         if (!roomId || !roomData[roomId]) return;
         const room = roomData[roomId];

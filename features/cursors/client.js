@@ -46,7 +46,7 @@ function updateRemoteCursor(socketId, x, y, color, name) {
     ensureCursorExists(socketId, color, name);
     const cursor = remoteCursors[socketId];
 
-    // overlay and canvas ko aalign kra
+    // position in percent so the overlay lines up with the canvas at any size
     const pctX = (x / canvas.width)  * 100;
     const pctY = (y / canvas.height) * 100;
 
