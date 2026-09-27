@@ -38,7 +38,7 @@ Socket objects and undo/redo stacks are never stored.
 | `join-room` (rooms, room not in memory) via `loadRoom` | `Room.findOne({ roomId })` to restore `canvasState`. |
 | `saveRoomState(roomId)` | `Room.findOneAndUpdate({ roomId }, { $set, $setOnInsert }, { upsert: true })`. |
 | Autosave (`startAutosave`, 30 s) | `saveRoomState` for every room in `roomData`. |
-| Last user leaves (rooms) | `await saveRoomState(roomId)`, then remove from memory. |
+| Last user leaves (rooms) | `await saveRoomState(roomId)`, then remove from memory unless someone joined during the save. |
 
 All of these live in `features/persistence/server.js`. Other features call
 them through `ctx.persistence`. See `features/persistence/README.md`.

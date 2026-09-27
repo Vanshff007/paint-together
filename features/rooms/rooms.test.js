@@ -209,3 +209,21 @@ test('last user leaving saves the room and removes it from memory', async (t) =>
     assert.deepStrictEqual(saved, [roomId]);
     assert.strictEqual(ctx.roomData[roomId], undefined);
 });
+
+test('user joining while the final save is in flight keeps the room in memory', async (t) => {
+    t.mock.method(console, 'log', () => {});
+    const alice = connect('alice-socket');
+    const roomId = await createRoom(alice);
+
+    let releaseSave;
+    ctx.persistence.saveRoomState = () => new Promise(r => { releaseSave = r; });
+    const leaving = alice.trigger('disconnecting');
+
+    const bob = connect('bob-socket');
+    await bob.trigger('join-room', { roomId, userName: 'Bob' });
+    releaseSave();
+    await leaving;
+
+    assert.ok(ctx.roomData[roomId]);
+    assert.ok(ctx.roomData[roomId].users['bob-socket']);
+});

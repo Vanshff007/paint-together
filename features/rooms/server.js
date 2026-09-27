@@ -189,8 +189,11 @@ function register(socket, ctx, session) {
             if (newCount <= 0 && roomData[roomId]) {
                 // persist the final canvasState before dropping the in-memory copy
                 await persistence.saveRoomState(roomId);
-                delete roomData[roomId];
-                console.log(`🗑️ Room ${roomId} cleaned up (empty)`);
+                // someone may have joined while the save was in flight; keep the room then
+                if (roomData[roomId] && Object.keys(roomData[roomId].users).length === 0) {
+                    delete roomData[roomId];
+                    console.log(`🗑️ Room ${roomId} cleaned up (empty)`);
+                }
             }
         }
     });

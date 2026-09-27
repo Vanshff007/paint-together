@@ -84,7 +84,7 @@ function renderMembersList() {
                 e.stopPropagation();
                 pendingKickId   = socketId;
                 pendingKickName = info.name;
-                kickModalText.textContent = `Remove "${info.name}" from the room? They will not be able to rejoin.`;
+                kickModalText.textContent = `Remove "${info.name}" from the room?`;
                 kickModal.classList.add('show');
             });
             li.appendChild(kickBtn);
