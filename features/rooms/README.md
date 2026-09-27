@@ -23,7 +23,26 @@ host role, host hand-over, and kicking users.
   - Else replies `room-joined`, broadcasts `user-count-update`, `users-update`,
     `user-joined`, and sends `existing-users` to the joiner.
 - `kick-user { roomId, targetSocketId }`: only the host, never themselves.
-  The target gets `kicked` and is disconnected after 500 ms.
+  The target's `clientId` is added to `roomData[roomId].banned`, then the
+  target gets `kicked` and is disconnected after 500 ms.
+- `join-room` from a banned `clientId` gets `join-banned` and is not added.
+
+## Kick ban
+
+The client makes a random ID once (`crypto.randomUUID()`), stores it in
+`localStorage` as `clientId`, and sends it with `create-room` and
+`join-room`. The server keeps it on `socket.data` only, never in
+`users`, so other users never see it.
+
+Limits (deliberate, no user accounts):
+
+- A private window, another browser, or clearing site data gives a new ID,
+  so a determined user can still rejoin.
+- Bans are in memory. They are lost when the room empties or the server
+  restarts.
+- Tabs of the same browser share one ID. If the host kicks a tab from their
+  own browser, no ban is added, so the host never locks themselves out.
+- Clients that send no `clientId` are kicked but not banned.
 - `disconnecting`: removes the user, hands host to the first remaining user,
   and when the room becomes empty saves it and deletes it from memory.
 
@@ -48,6 +67,8 @@ Uses globals from `public/core.js` (`socket`, `currentRoomId`, `myName`,
 
 Automated (`npm test`): room ID format, create (host, name trimming, default
 name), join (existing, bare string, unknown, restored from DB), kick rules,
+kick ban (same browser blocked, others allowed, no ban without `clientId`,
+no self-ban for the host's browser, `clientId` validation),
 host hand-over, save and cleanup on last leave.
 
 Manual test cases (two browser windows):
@@ -59,9 +80,11 @@ Manual test cases (two browser windows):
 5. Copy Link: button shows "✅ Copied!" and the clipboard has the link.
 6. Members dropdown lists both users; only the host sees ✕ buttons.
 7. Host kicks B: B returns to landing with a toast; A's count drops to 1.
-   B can join a room again without reloading.
-8. Host closes the tab: B becomes host (toast "You are now the host!").
-9. Exit: returns to landing, canvas and chat are empty.
+   B can join other rooms without reloading.
+8. B tries the same room code again: error "You were removed from room ...
+   and can't rejoin.". In a private window B can join (known limit).
+9. Host closes the tab: B becomes host (toast "You are now the host!").
+10. Exit: returns to landing, canvas and chat are empty.
 
 ## Known issues
 

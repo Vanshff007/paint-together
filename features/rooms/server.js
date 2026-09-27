@@ -7,6 +7,11 @@ function getRoomUserCount(io, roomId) {
     return room ? room.size : 0;
 }
 
+// browser id from localStorage, used only for kick bans
+function parseClientId(data) {
+    return (data && typeof data.clientId === 'string') ? data.clientId.substring(0, 64) : null;
+}
+
 function randomUserColor() {
     const colors = [
         '#ef4444', '#f97316', '#eab308', '#22c55e',
@@ -24,6 +29,7 @@ function register(socket, ctx, session) {
         const roomId = generateRoomId();
         const uName  = (data && data.userName) ? data.userName.trim().substring(0, 20) : session.currentName;
         session.currentName = uName;
+        socket.data.clientId = parseClientId(data);
 
         socket.join(roomId);
 
@@ -53,6 +59,7 @@ function register(socket, ctx, session) {
         const roomId = (typeof data === 'string') ? data : data.roomId;
         const uName  = (data && data.userName) ? data.userName.trim().substring(0, 20) : session.currentName;
         session.currentName = uName;
+        socket.data.clientId = parseClientId(data);
 
         // roomData not in memory (fresh server or room was emptied) - try MongoDB before giving up
         if (!roomData[roomId]) {
@@ -74,6 +81,12 @@ function register(socket, ctx, session) {
         const roomExists = io.sockets.adapter.rooms.has(roomId);
         if (!roomExists && !roomData[roomId]) {
             socket.emit('room-not-found', roomId);
+            return;
+        }
+
+        const banned = roomData[roomId] && roomData[roomId].banned;
+        if (banned && socket.data.clientId && banned.includes(socket.data.clientId)) {
+            socket.emit('join-banned', roomId);
             return;
         }
 
@@ -125,6 +138,13 @@ function register(socket, ctx, session) {
 
         const targetSocket = io.sockets.sockets.get(targetSocketId);
         if (!targetSocket) return;
+
+        // ponytail: in-memory ban by browser id; lost when the room empties or the server restarts,
+        // and bypassed by clearing localStorage. Real bans need user accounts.
+        // same browser as the host (two tabs): skip, or the host would ban themselves
+        if (targetSocket.data.clientId && targetSocket.data.clientId !== socket.data.clientId) {
+            (roomData[roomId].banned ||= []).push(targetSocket.data.clientId);
+        }
 
         targetSocket.emit('kicked');
         console.log(`✕ ${targetSocketId} kicked from room ${roomId} by host`);

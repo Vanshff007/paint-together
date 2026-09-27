@@ -121,6 +121,70 @@ test('kick-user: only the host can kick, and not themselves', async (t) => {
     assert.strictEqual(bob.disconnected, true);
 });
 
+test('kicked browser cannot rejoin the same room, others can', async (t) => {
+    t.mock.timers.enable({ apis: ['setTimeout'] });
+    t.mock.method(console, 'log', () => {});
+    const alice = connect('alice-socket');
+    const roomId = await createRoom(alice);
+    const bob = connect('bob-socket');
+    await bob.trigger('join-room', { roomId, userName: 'Bob', clientId: 'bob-browser' });
+
+    alice.trigger('kick-user', { roomId, targetSocketId: 'bob-socket' });
+    assert.deepStrictEqual(ctx.roomData[roomId].banned, ['bob-browser']);
+
+    // same browser reconnects with a new socket and a new name
+    const bob2 = connect('bob-socket-2');
+    await bob2.trigger('join-room', { roomId, userName: 'NotBob', clientId: 'bob-browser' });
+    assert.strictEqual(last(bob2.emitted, 'join-banned').data, roomId);
+    assert.strictEqual(last(bob2.emitted, 'room-joined'), undefined);
+    assert.strictEqual(ctx.roomData[roomId].users['bob-socket-2'], undefined);
+
+    const carol = connect('carol-socket');
+    await carol.trigger('join-room', { roomId, userName: 'Carol', clientId: 'carol-browser' });
+    assert.ok(last(carol.emitted, 'room-joined'));
+});
+
+test('kicking a client without clientId does not ban anyone', async (t) => {
+    t.mock.timers.enable({ apis: ['setTimeout'] });
+    t.mock.method(console, 'log', () => {});
+    const alice = connect('alice-socket');
+    const roomId = await createRoom(alice);
+    const bob = connect('bob-socket');
+    await bob.trigger('join-room', { roomId, userName: 'Bob' });
+
+    alice.trigger('kick-user', { roomId, targetSocketId: 'bob-socket' });
+    assert.strictEqual(ctx.roomData[roomId].banned, undefined);
+
+    const bob2 = connect('bob-socket-2');
+    await bob2.trigger('join-room', { roomId, userName: 'Bob' });
+    assert.ok(last(bob2.emitted, 'room-joined'));
+});
+
+test('host is never banned when kicking a tab from the same browser', async (t) => {
+    t.mock.timers.enable({ apis: ['setTimeout'] });
+    t.mock.method(console, 'log', () => {});
+    const alice = connect('alice-socket');
+    await alice.trigger('create-room', { userName: 'Alice', clientId: 'shared-browser' });
+    const roomId = last(alice.emitted, 'room-created').data.roomId;
+    const tab2 = connect('tab2-socket');
+    await tab2.trigger('join-room', { roomId, userName: 'Tab2', clientId: 'shared-browser' });
+
+    alice.trigger('kick-user', { roomId, targetSocketId: 'tab2-socket' });
+    assert.ok(last(tab2.emitted, 'kicked'));
+    assert.strictEqual(ctx.roomData[roomId].banned, undefined);
+});
+
+test('join-room ignores a non-string clientId and truncates long ones', async () => {
+    const alice = connect('alice-socket');
+    const roomId = await createRoom(alice);
+    const bob = connect('bob-socket');
+    await bob.trigger('join-room', { roomId, userName: 'Bob', clientId: { evil: true } });
+    assert.strictEqual(bob.data.clientId, null);
+    const carol = connect('carol-socket');
+    await carol.trigger('join-room', { roomId, userName: 'Carol', clientId: 'x'.repeat(100) });
+    assert.strictEqual(carol.data.clientId.length, 64);
+});
+
 test('disconnecting host hands host role to the next user', async () => {
     const alice = connect('alice-socket');
     const roomId = await createRoom(alice);

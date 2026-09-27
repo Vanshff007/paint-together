@@ -16,7 +16,8 @@ Last updated: 2026-09-28.
 - Clear canvas (synced), download as PNG.
 - Live remote cursors with user name and color.
 - Live chat with unread indicator.
-- Members list, host role, host hand-over, host can kick users.
+- Members list, host role, host hand-over, host can kick users. Kicked
+  browsers cannot rejoin the same room (per-browser ID, in memory).
 - Copy room link, exit room.
 - MongoDB persistence (**in progress**, commit "Auto save feature started
   building"):
@@ -49,6 +50,9 @@ Last updated: 2026-09-28.
 - Socket.io CORS allows all origins.
 - Room IDs are random and are not checked for collisions.
 - Single instance only (in-memory state).
+- Kick bans use a `localStorage` ID: a private window or clearing site data
+  gets around them, and they are lost when the room empties or the server
+  restarts.
 - A stray tracked file `et --hard HEAD~1` exists in the repo root.
 - Browser code has no automated tests (manual test cases are in each
   feature README).

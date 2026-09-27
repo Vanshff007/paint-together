@@ -84,7 +84,7 @@ function renderMembersList() {
                 e.stopPropagation();
                 pendingKickId   = socketId;
                 pendingKickName = info.name;
-                kickModalText.textContent = `Remove "${info.name}" from the room?`;
+                kickModalText.textContent = `Remove "${info.name}" from the room? They will not be able to rejoin.`;
                 kickModal.classList.add('show');
             });
             li.appendChild(kickBtn);
@@ -115,6 +115,18 @@ kickModal.addEventListener('click', (e) => {
 
 // LANDING LOGIC
 
+// Stable per-browser id so a kicked user can't rejoin the same room (see README)
+function getClientId() {
+    let id = null;
+    try { id = localStorage.getItem('clientId'); } catch (e) {}
+    if (!id) {
+        id = crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2) + Date.now().toString(36);
+        try { localStorage.setItem('clientId', id); } catch (e) {}
+    }
+    return id;
+}
+const clientId = getClientId();
+
 function getLandingName() {
     const name = usernameInput.value.trim();
     if (!name) {
@@ -136,7 +148,7 @@ landingCreateBtn.addEventListener('click', () => {
     if (!name) return;
     myName = name;
     console.log('📡 Emitting create-room with name:', name);
-    socket.emit('create-room', { userName: name });
+    socket.emit('create-room', { userName: name, clientId });
 });
 
 landingJoinBtn.addEventListener('click', () => {
@@ -149,7 +161,7 @@ landingJoinBtn.addEventListener('click', () => {
         return;
     }
     myName = name;
-    socket.emit('join-room', { roomId: code, userName: name });
+    socket.emit('join-room', { roomId: code, userName: name, clientId });
 });
 
 roomCodeInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') landingJoinBtn.click(); });
@@ -251,6 +263,11 @@ socket.on('room-joined', (data) => {
         showToast(`🚪 Joined room ${data.roomId}`);
         if (data.canvasState) loadCanvasState(data.canvasState);
     }, 700);
+});
+
+socket.on('join-banned', (roomId) => {
+    showLandingError(`You were removed from room "${roomId}" and can't rejoin.`);
+    window.history.pushState({}, '', '/');
 });
 
 socket.on('room-not-found', (roomId) => {

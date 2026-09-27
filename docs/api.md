@@ -22,6 +22,8 @@ screen. The client reads it. The server ignores it.
 - Coordinates: `nx`, `ny` are normalized to `0..1` of canvas width/height.
   `ns` is brush size divided by canvas width.
 - Canvas state: PNG data URL string (`canvas.toDataURL('image/png')`) or `null`.
+- `clientId`: random per-browser ID from `localStorage`, used only for kick
+  bans. It is kept on `socket.data.clientId` and never sent to other clients.
 - Some events send a bare `roomId` string as payload, not an object. Keep this
   shape when you change them, or update both sides together.
 
@@ -29,8 +31,8 @@ screen. The client reads it. The server ignores it.
 
 | Event | Payload | Server behavior |
 |-------|---------|-----------------|
-| `create-room` | `{ userName }` | Generates room ID, joins socket, creates `roomData` and a `Room` document. Replies `room-created`. |
-| `join-room` | `{ roomId, userName }` or `roomId` string | Restores room from MongoDB if not in memory. Replies `room-not-found`, or `room-joined` + broadcasts `user-count-update`, `users-update`, `user-joined`, and sends `existing-users`. |
+| `create-room` | `{ userName, clientId? }` | Generates room ID, joins socket, creates `roomData` and a `Room` document. Replies `room-created`. |
+| `join-room` | `{ roomId, userName, clientId? }` or `roomId` string | Restores room from MongoDB if not in memory. Replies `room-not-found`, `join-banned` (browser was kicked from this room), or `room-joined` + broadcasts `user-count-update`, `users-update`, `user-joined`, and sends `existing-users`. |
 | `draw` | `{ roomId, nx, ny, color, ns, tool, isStart? }` | Relays `draw` to others in room with `socketId` added. `tool` is `'brush'` or `'eraser'`. |
 | `draw-shape` | `{ roomId, ... }` | Relays `draw-shape` to others. **The current client does not send or handle this event.** |
 | `save-undo-snapshot` | `{ roomId, state }` | Stores `pendingSnapshot`, clears `redoStack`. |
@@ -43,7 +45,7 @@ screen. The client reads it. The server ignores it.
 | `cursor-move` | `{ roomId, nx, ny }` | Relays `cursor-move` with server-side `socketId`, `color`, `name`. |
 | `cursor-leave` | `roomId` | Relays `cursor-hide` (`socketId`) to others. |
 | `chat-message` | `{ roomId, author, text }` | Relays `{ author, text }` to others. Sender renders its own message locally. |
-| `kick-user` | `{ roomId, targetSocketId }` | Only if sender is host and target is not sender: emits `kicked` to target, disconnects it after 500 ms. |
+| `kick-user` | `{ roomId, targetSocketId }` | Only if sender is host and target is not sender: bans the target's `clientId` from the room (unless it equals the host's), emits `kicked` to target, disconnects it after 500 ms. |
 
 ## Server → client events
 
@@ -52,6 +54,7 @@ screen. The client reads it. The server ignores it.
 | `room-created` | `{ roomId, userCount, userColor, userName, isHost: true }` | Creator |
 | `room-joined` | `{ roomId, userCount, userColor, userName, canvasState, hasUndo, hasRedo, isHost, hostId }` | Joiner |
 | `room-not-found` | `roomId` | Joiner |
+| `join-banned` | `roomId` | Joiner whose browser was kicked from the room |
 | `existing-users` | `{ [socketId]: { name, color } }` (excludes joiner) | Joiner |
 | `user-joined` | `{ socketId, name, color }` | Others in room |
 | `user-left` | `socketId` | Others in room |
@@ -76,6 +79,7 @@ What the server checks now:
 - Room-scoped handlers return early if `roomId` is missing or (for history
   events) the room is not in `roomData`.
 - `kick-user` checks that the sender is host.
+- `clientId` must be a string. It is cut to 64 characters, otherwise treated as missing.
 - User names are truncated to 20 characters.
 
 What the server does **not** check (keep in mind when you change handlers):

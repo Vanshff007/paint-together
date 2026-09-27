@@ -131,6 +131,8 @@ Drawing, cursor, and mousemove events **never** write to MongoDB.
 
 - The room creator is host. When the host disconnects, the first remaining user
   in `roomData[roomId].users` becomes host (`host-changed`).
+- A kick also bans the target's browser (`clientId`) from that room. The ban
+  list is `roomData[roomId].banned`, in memory only.
 - Only the host can send `kick-user`. The server checks `hostId` and then
   disconnects the target socket after 500 ms.
 

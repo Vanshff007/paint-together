@@ -16,6 +16,7 @@ function createFakeSocket(io, id) {
     const socket = {
         id,
         rooms: new Set([id]),
+        data: {},
         handlers: {},
         emitted: [],    // socket.emit(...)          -> { event, data }
         broadcasts: [], // socket.to(room).emit(...) -> { room, event, data }
