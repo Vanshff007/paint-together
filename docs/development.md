@@ -2,7 +2,7 @@
 
 ## Requirements
 
-- Node.js 18 or later (Mongoose 9 needs a recent Node.js).
+- Node.js 20 or later (`engines` in `package.json`; the tests use `node:test` mock timers).
 - npm.
 - A MongoDB database: local `mongod` or a MongoDB Atlas cluster.
 
@@ -14,11 +14,10 @@ cd paint-together
 npm install
 ```
 
-Create `.env` in the project root:
+Copy `.env.example` to `.env` and set `MONGO_URI`:
 
-```env
-MONGO_URI=mongodb://127.0.0.1:27017/paint-together
-PORT=3000
+```bash
+cp .env.example .env
 ```
 
 ## Commands
@@ -65,6 +64,5 @@ no test dependencies.
 
 - The server logs connections, room create/join, kicks, cleanup, and MongoDB
   errors to the console.
-- The client logs socket events to the browser console.
 - `❌ MongoDB Connection Error` at start means `MONGO_URI` is wrong or the
   database cannot be reached. The process exits.

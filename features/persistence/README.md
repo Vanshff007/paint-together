@@ -7,6 +7,7 @@ empties or the server restarts.
 
 | File | Runs in | Purpose |
 |------|---------|---------|
+| `db.js` | Node | `connectDB()`: connects Mongoose with `MONGO_URI`, exits the process on failure. |
 | `Room.js` | Node | Mongoose `Room` model (see `docs/database.md`). |
 | `server.js` | Node | `createPersistence(roomData, RoomModel)` and `AUTOSAVE_INTERVAL_MS`. |
 | `persistence.test.js` | Node | Automated tests with a fake model (no MongoDB needed). |

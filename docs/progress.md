@@ -36,7 +36,6 @@ Last updated: 2026-09-28.
 
 - Shapes tool. The server relays `draw-shape`, but the client does not use it.
   An earlier "shapes feature" commit exists in history.
-- Add `.env.example` with `MONGO_URI` and `PORT`.
 
 ## Known limitations
 

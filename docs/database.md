@@ -6,7 +6,7 @@ persistence of room canvases. Live state is in memory (see
 
 ## Connection
 
-`db.js` exports `connectDB()`:
+`features/persistence/db.js` exports `connectDB()`:
 
 - Connects with `mongoose.connect(process.env.MONGO_URI)`.
 - On failure, it logs the error and calls `process.exit(1)`.

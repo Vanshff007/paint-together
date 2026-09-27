@@ -15,8 +15,8 @@ the server restarts.
  │ public/core.js       │              │                              │
  │ features/*/client.js │  Socket.io   │ io.on('connection')          │   Mongoose
  │  theme, drawing,     │ ◀──────────▶ │  features/*/server.js        │ ◀──────────▶ rooms
- │  history, cursors,   │   (WS)       │  register(socket, ctx, ...)  │  (db.js,
- │  chat, rooms         │              │  roomData + 30 s autosave    │  features/persistence/Room.js)
+ │  history, cursors,   │   (WS)       │  register(socket, ctx, ...)  │  (features/
+ │  chat, rooms         │              │  roomData + 30 s autosave    │   persistence/)
  └──────────────────────┘              └──────────────────────────────┘
 ```
 
@@ -25,7 +25,6 @@ the server restarts.
 | File | Role |
 |------|------|
 | `server.js` | Startup only: Express, HTTP server, Socket.io, static routes, creates `roomData` and persistence, registers each feature on every connection. |
-| `db.js` | `connectDB()`: connects Mongoose with `MONGO_URI`. Exits the process on failure. |
 | `features/<name>/` | One folder per feature: `server.js` and/or `client.js`, `README.md`, tests. |
 | `features/fake-socket.js` | Fake `io` / `socket` objects for the feature tests. |
 | `public/index.html` | Landing screen (name, create/join) and app screen (toolbar, canvas, chat, modals). Loads the scripts in order. |
@@ -41,7 +40,7 @@ the server restarts.
 | `history` | yes | yes | Shared undo/redo. |
 | `cursors` | yes | yes | Live remote cursors. |
 | `chat` | yes | yes | Room chat. |
-| `persistence` | yes | no | `Room` model, save/load, autosave. |
+| `persistence` | yes | no | MongoDB connection (`db.js`), `Room` model, save/load, autosave. |
 | `theme` | no | yes | Dark mode, splash animation. |
 
 Each feature `README.md` documents its events, behavior, and test cases.
