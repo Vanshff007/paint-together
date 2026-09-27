@@ -68,9 +68,3 @@ no test dependencies.
 - The client logs socket events to the browser console.
 - `❌ MongoDB Connection Error` at start means `MONGO_URI` is wrong or the
   database cannot be reached. The process exits.
-
-## Repository housekeeping
-
-- A file named `et --hard HEAD~1` is tracked in Git. It is the output of a
-  mistyped `git log` command and is not used by the app. Remove it in a
-  separate commit when convenient.

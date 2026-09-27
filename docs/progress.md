@@ -53,6 +53,5 @@ Last updated: 2026-09-28.
 - Kick bans use a `localStorage` ID: a private window or clearing site data
   gets around them, and they are lost when the room empties or the server
   restarts.
-- A stray tracked file `et --hard HEAD~1` exists in the repo root.
 - Browser code has no automated tests (manual test cases are in each
   feature README).
