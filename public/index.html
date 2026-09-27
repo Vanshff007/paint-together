@@ -152,6 +152,13 @@
     </div>
 
     <script src="/socket.io/socket.io.js"></script>
-    <script src="script.js"></script>
+    <!-- Load order matters: core.js defines shared globals used by every feature -->
+    <script src="core.js"></script>
+    <script src="/features/theme/client.js"></script>
+    <script src="/features/drawing/client.js"></script>
+    <script src="/features/history/client.js"></script>
+    <script src="/features/cursors/client.js"></script>
+    <script src="/features/chat/client.js"></script>
+    <script src="/features/rooms/client.js"></script>
 </body>
 </html>
