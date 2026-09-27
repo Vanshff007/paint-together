@@ -215,7 +215,8 @@ socket.on('connect', () => {
 });
 
 socket.on('disconnect', (reason) => {
-    if (wasKicked) { wasKicked = false; return; }
+    // server-side kick disconnect never auto-reconnects; reconnect so the user can join again
+    if (wasKicked) { wasKicked = false; socket.connect(); return; }
     if (reason === 'io client disconnect') return;
     showToast('⚠️ Disconnected. Reconnecting...');
 });

@@ -59,11 +59,10 @@ Manual test cases (two browser windows):
 5. Copy Link: button shows "✅ Copied!" and the clipboard has the link.
 6. Members dropdown lists both users; only the host sees ✕ buttons.
 7. Host kicks B: B returns to landing with a toast; A's count drops to 1.
+   B can join a room again without reloading.
 8. Host closes the tab: B becomes host (toast "You are now the host!").
 9. Exit: returns to landing, canvas and chat are empty.
 
 ## Known issues
 
-- A kicked user's socket is not reconnected, so they must reload the page
-  before they can join a room again.
 - Room IDs are not checked for collisions.
