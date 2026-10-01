@@ -160,7 +160,7 @@ body {
 
 /* Title bar */
 .landing-card::before {
-    content: '⬛ Paint Together  —  v1.1.0';
+    content: '⬛ Paint Together  —  v1.1.1';
     display: block;
     background: var(--border);
     color: var(--white);
@@ -191,7 +191,7 @@ body {
     text-align: center;
     color: var(--ink-light);
     font-family: var(--font-pixel);
-    font-size: 6.5px;
+    font-size: 7px;
     letter-spacing: 2px;
     text-transform: uppercase;
     margin-bottom: 26px;
@@ -230,7 +230,7 @@ body {
     margin-bottom: 14px;
 }
 .form-divider::before, .form-divider::after { content: ''; flex: 1; height: 2px; background: var(--border-light); }
-.form-divider span { font-family: var(--font-pixel); font-size: 6px; text-transform: uppercase; letter-spacing: 1px; color: var(--ink-light); white-space: nowrap; }
+.form-divider span { font-family: var(--font-pixel); font-size: 7px; text-transform: uppercase; letter-spacing: 1px; color: var(--ink-light); white-space: nowrap; }
 
 .btn-create {
     width: 100%; padding: 12px 16px;
@@ -256,7 +256,7 @@ body {
     content: ''; flex: 1; height: 2px;
     background: repeating-linear-gradient(90deg, var(--border-light) 0, var(--border-light) 4px, transparent 4px, transparent 8px);
 }
-.or-sep span { font-family: var(--font-pixel); font-size: 6px; text-transform: uppercase; letter-spacing: 1px; color: var(--ink-light); white-space: nowrap; }
+.or-sep span { font-family: var(--font-pixel); font-size: 7px; text-transform: uppercase; letter-spacing: 1px; color: var(--ink-light); white-space: nowrap; }
 
 .join-row { display: flex; gap: 8px; margin-bottom: 12px; }
 
@@ -271,7 +271,7 @@ body {
     padding: 8px 14px;
     background: var(--paper-dark); color: var(--ink);
     border: 2px solid var(--border);
-    font-family: var(--font-pixel); font-size: 7px;
+    font-family: var(--font-pixel); font-size: 8px;
     cursor: pointer; white-space: nowrap;
     box-shadow: var(--shadow-btn);
     text-transform: uppercase; letter-spacing: 0.5px;
@@ -351,7 +351,7 @@ body {
 .copy-btn {
     padding: 5px 12px; background: var(--paper); color: var(--ink);
     border: 2px solid var(--border); cursor: pointer;
-    font-family: var(--font-pixel); font-size: 7px;
+    font-family: var(--font-pixel); font-size: 8px;
     box-shadow: var(--shadow-btn); text-transform: uppercase; letter-spacing: 0.5px;
     transition: all 0.05s;
 }
@@ -371,7 +371,7 @@ body {
 .exit-room-btn {
     padding: 5px 12px; background: var(--paper); color: var(--ink);
     border: 2px solid var(--border); cursor: pointer;
-    font-family: var(--font-pixel); font-size: 7px;
+    font-family: var(--font-pixel); font-size: 8px;
     box-shadow: var(--shadow-btn); text-transform: uppercase; letter-spacing: 0.5px;
     transition: all 0.05s;
 }
@@ -401,7 +401,7 @@ body {
     box-shadow: 0 3px 0 var(--shadow);
     display: flex; align-items: center;
     justify-content: flex-start;
-    gap: 8px; flex-wrap: nowrap;
+    gap: 8px; row-gap: 6px; flex-wrap: wrap;
     width: calc(100% - 1.5rem);
     user-select: none;
     background-image: repeating-linear-gradient(45deg, transparent, transparent 3px, rgba(var(--grid-rgb),0.05) 3px, rgba(var(--grid-rgb),0.05) 6px);
@@ -461,7 +461,7 @@ label { font-family: var(--font-pixel); font-size: 7px; color: var(--ink-mid); t
     background: var(--paper); color: var(--ink);
     border: 2px solid var(--border);
     cursor: pointer;
-    font-family: var(--font-pixel); font-size: 7px;
+    font-family: var(--font-pixel); font-size: 8px;
     box-shadow: var(--shadow-btn);
     white-space: nowrap; text-transform: uppercase; letter-spacing: 0.5px;
     line-height: 1.6; transition: all 0.05s;
@@ -496,7 +496,7 @@ label { font-family: var(--font-pixel); font-size: 7px; color: var(--ink-mid); t
     padding: 6px 10px;
     background: var(--paper); color: var(--ink);
     border: 2px solid var(--border); cursor: pointer;
-    font-family: var(--font-pixel); font-size: 7px;
+    font-family: var(--font-pixel); font-size: 8px;
     box-shadow: var(--shadow-btn);
     white-space: nowrap; text-transform: uppercase; letter-spacing: 0.5px;
     line-height: 1.6; transition: all 0.05s;
@@ -634,7 +634,7 @@ canvas#canvas:active { box-shadow: 2px 2px 0 var(--border); }
 
 .chat-send-btn {
     padding: 6px 12px; background: var(--ink); color: var(--paper);
-    border: 2px solid var(--ink); font-family: var(--font-pixel); font-size: 7px;
+    border: 2px solid var(--ink); font-family: var(--font-pixel); font-size: 8px;
     cursor: pointer; box-shadow: var(--shadow-btn);
     text-transform: uppercase; letter-spacing: 0.5px; transition: all 0.05s;
 }
@@ -693,7 +693,7 @@ canvas#canvas:active { box-shadow: 2px 2px 0 var(--border); }
 
 .picker-btn {
     padding: 7px 20px; border: 2px solid var(--border);
-    cursor: pointer; font-family: var(--font-pixel); font-size: 7px;
+    cursor: pointer; font-family: var(--font-pixel); font-size: 8px;
     box-shadow: var(--shadow-btn); text-transform: uppercase; letter-spacing: 0.5px;
     transition: all 0.05s;
 }
@@ -713,7 +713,7 @@ canvas#canvas:active { box-shadow: 2px 2px 0 var(--border); }
     display: flex; align-items: center; gap: 5px;
     padding: 5px 12px; background: var(--paper); color: var(--ink);
     border: 2px solid var(--border); cursor: pointer;
-    font-family: var(--font-pixel); font-size: 7px;
+    font-family: var(--font-pixel); font-size: 8px;
     box-shadow: var(--shadow-btn); text-transform: uppercase; letter-spacing: 0.5px;
     transition: all 0.05s; white-space: nowrap;
 }
