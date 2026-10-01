@@ -8,9 +8,10 @@ animated bubble background on the landing screen.
 | File | Runs in | Purpose |
 |------|---------|---------|
 | `client.js` | Browser | `applyTheme()`, toggle buttons, splash canvas animation (`animateSplash()`). |
+| `theme.test.js` | Node | Checks that the version in the landing title bar (`public/style.css`) matches `package.json`. |
 
-There is no server code, so there is no automated test file. Test with the
-manual cases below.
+There is no server code. Test the browser behavior with the manual cases
+below.
 
 ## Behavior
 

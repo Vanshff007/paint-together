@@ -104,6 +104,25 @@ and appropriate tests are present.
 
 ---
 
+## Versioning
+
+The version shown on the front page (landing card title bar) must be
+updated with every change that is committed.
+
+- Use `MAJOR.MINOR.PATCH`:
+  - `feat:` changes bump MINOR (1.1.0 → 1.2.0).
+  - `fix:`, `docs:`, `refactor:`, `test:`, `chore:` changes bump PATCH
+    (1.1.0 → 1.1.1).
+  - Breaking changes bump MAJOR, only with the owner's approval.
+- Bump `package.json` and `package-lock.json` with
+  `npm version <patch|minor|major> --no-git-tag-version`.
+- Update the same version in `public/style.css` (`.landing-card::before`
+  `content`).
+- Include the bump in the same commit or pull request as the change.
+- `features/theme/theme.test.js` fails if the two versions do not match.
+
+---
+
 ## Git Safety
 
 Do not:

@@ -9,7 +9,10 @@ Read `CLAUDE.md` first. This file adds the coding conventions and workflow.
 3. Make the smallest change that solves the task.
 4. Run the tests and the manual multiplayer check (`docs/development.md`).
 5. Update the related `docs/` files in the same change.
-6. Commit and open a pull request to `main`.
+6. Bump the version (see "Versioning" in `CLAUDE.md`): `npm version
+   <patch|minor> --no-git-tag-version`, and the same version in
+   `public/style.css` (`.landing-card::before`).
+7. Commit and open a pull request to `main`.
 
 Ask the project owner before architectural, structural, or destructive changes.
 Explain what changes, why, affected files, approach, and risks.
