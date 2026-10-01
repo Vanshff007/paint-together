@@ -9,6 +9,8 @@ Last updated: 2026-09-28.
 - Room system: create room (6-char code), join by code or `?room=` link,
   room-not-found error.
 - Landing screen with user name, animated splash, and dark mode toggle.
+  The theme follows the system setting until the user picks one.
+- Responsive layout for phones (portrait and landscape) and tablets.
 - Drawing: brush, eraser, color palette plus custom color, brush size 1–50.
 - Mouse and touch input. Normalized coordinates for different screen sizes.
 - Per-user remote layers, so simultaneous strokes do not merge.
