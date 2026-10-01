@@ -27,13 +27,17 @@ Hosting platforms (for example Render) set `PORT`. Locally it is `3000`.
 
 ```js
 app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.static(path.join(__dirname, 'features', 'seo', 'static')));
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 app.get('/features/:name([a-z]+)/client.js', ...); // only client.js, from features/
 ```
 
 - Everything in `public/` is public. Never put secrets or server code there.
-- `features/` is **not** static. Only `features/<name>/client.js` is served,
-  through the route above. Server code, tests, and READMEs return 404.
+- `features/seo/static/` is also served at the site root: `/robots.txt`,
+  `/llms.txt`, `/sitemap.xml`, `/og-image.png`, icons, and the manifest. See
+  `features/seo/README.md`.
+- The rest of `features/` is **not** static. Only `features/<name>/client.js`
+  is served, through the route above. Server code, tests, and READMEs return 404.
 - Paths in HTML are relative (`style.css`, `core.js`) or root-absolute
   (`/socket.io/socket.io.js`, `/features/<name>/client.js`).
 - No caching headers, compression, or build step are configured.
