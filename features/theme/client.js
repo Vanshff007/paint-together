@@ -2,28 +2,42 @@
 
 // DARK MODE
 const html = document.documentElement;
-let isDark = false; // Always start light (the default beige/cream look)
-localStorage.removeItem('theme'); // Clear any stale dark preference
+// A saved toggle choice wins; otherwise follow the system/browser setting.
+const systemDark = window.matchMedia('(prefers-color-scheme: dark)');
+const savedTheme = localStorage.getItem('theme');
+let isDark = savedTheme ? savedTheme === 'dark' : systemDark.matches;
 
 function applyTheme(dark) {
     html.setAttribute('data-theme', dark ? 'dark' : 'light');
     document.querySelectorAll('.dark-toggle, .dark-toggle-app').forEach(btn => {
         btn.textContent = dark ? '☀️' : '🌙';
     });
-    localStorage.setItem('theme', dark ? 'dark' : 'light');
+}
+
+function toggleTheme() {
+    isDark = !isDark;
+    applyTheme(isDark);
+    localStorage.setItem('theme', isDark ? 'dark' : 'light');
 }
 
 applyTheme(isDark);
 
+// Follow live system changes until the user picks a theme with the toggle.
+systemDark.addEventListener('change', e => {
+    if (localStorage.getItem('theme')) return;
+    isDark = e.matches;
+    applyTheme(isDark);
+});
+
 const darkToggleBtn = document.getElementById('darkToggleBtn');
 if (darkToggleBtn) {
-    darkToggleBtn.addEventListener('click', () => { isDark = !isDark; applyTheme(isDark); });
+    darkToggleBtn.addEventListener('click', toggleTheme);
 }
 
 function initAppDarkMode() {
     const darkToggleBtnApp = document.getElementById('darkToggleBtnApp');
     if (darkToggleBtnApp) {
-        darkToggleBtnApp.addEventListener('click', () => { isDark = !isDark; applyTheme(isDark); });
+        darkToggleBtnApp.addEventListener('click', toggleTheme);
     }
 }
 
