@@ -11,21 +11,10 @@ multiple users to join a shared room and draw together in real time.
 
 The `docs/` directory contains detailed documentation about the project.
 
-All of these files are imported below, so they load automatically at the
-start of every session. Use them as full project context before starting
-any task.
+These files are not loaded automatically. Read only the ones the task
+needs, using the list below.
 
-@docs/architecture.md
-@docs/api.md
-@docs/database.md
-@docs/serving.md
-@docs/development.md
-@docs/deployment.md
-@docs/contributing.md
-@docs/progress.md
-
-When making changes, re-read the documentation relevant to the task, in
-case it changed during the session:
+When making changes, read the documentation relevant to the task:
 
 - `docs/architecture.md` — Read before making architectural, backend,
   frontend, or real-time system changes.
