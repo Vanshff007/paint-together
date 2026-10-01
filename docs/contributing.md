@@ -1,6 +1,6 @@
 # Contributing
 
-Read `CLAUDE.md` first. This file adds the coding conventions and workflow.
+This file describes the coding conventions and workflow.
 
 ## Workflow
 
@@ -9,9 +9,7 @@ Read `CLAUDE.md` first. This file adds the coding conventions and workflow.
 3. Make the smallest change that solves the task.
 4. Run the tests and the manual multiplayer check (`docs/development.md`).
 5. Update the related `docs/` files in the same change.
-6. Bump the version (see "Versioning" in `CLAUDE.md`): `npm version
-   <patch|minor> --no-git-tag-version`, and the same version in
-   `public/style.css` (`.landing-card::before`).
+6. Bump the version (see "Versioning" below).
 7. Commit and open a pull request to `main`.
 
 Ask the project owner before architectural, structural, or destructive changes.
@@ -24,6 +22,23 @@ Explain what changes, why, affected files, approach, and risks.
 - One logical change per commit.
 - Never force push, rewrite shared history, or commit `.env` or
   `node_modules/`.
+
+## Versioning
+
+The version shown on the front page (landing card title bar) must be
+updated with every change that is committed.
+
+- Use `MAJOR.MINOR.PATCH`:
+  - `feat:` changes bump MINOR (1.1.0 → 1.2.0).
+  - `fix:`, `docs:`, `refactor:`, `test:`, `chore:` changes bump PATCH
+    (1.1.0 → 1.1.1).
+  - Breaking changes bump MAJOR, only with the owner's approval.
+- Bump `package.json` and `package-lock.json` with
+  `npm version <patch|minor|major> --no-git-tag-version`.
+- Update the same version in `public/style.css` (`.landing-card::before`
+  `content`).
+- Include the bump in the same commit or pull request as the change.
+- `features/theme/theme.test.js` fails if the two versions do not match.
 
 ## Code style
 
@@ -51,7 +66,7 @@ Match the existing code:
 
 ## Feature folders
 
-Per `CLAUDE.md`, every feature has its own folder with code, a detailed
+Every feature has its own folder with code, a detailed
 `README.md`, and tests. Layout:
 
 ```
