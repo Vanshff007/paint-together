@@ -42,6 +42,7 @@ the server restarts.
 | `chat` | yes | yes | Room chat. |
 | `persistence` | yes | no | MongoDB connection (`db.js`), `Room` model, save/load, autosave. |
 | `theme` | no | yes | Dark mode, splash animation. |
+| `seo` | static files | no | `robots.txt`, `llms.txt`, `sitemap.xml`, Open Graph image, icons, manifest (served at the site root). |
 
 Each feature `README.md` documents its events, behavior, and test cases.
 

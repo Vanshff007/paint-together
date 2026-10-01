@@ -9,6 +9,7 @@ events on the default namespace (`/`).
 |--------|------|----------|
 | GET | `/` | `public/index.html` |
 | GET | `/<file>` | Static file from `public/` (`express.static`) |
+| GET | `/robots.txt`, `/llms.txt`, `/sitemap.xml`, `/og-image.png`, `/favicon.svg`, `/apple-touch-icon.png`, `/site.webmanifest` | Static files from `features/seo/static/` |
 | GET | `/features/<name>/client.js` | Browser script of a feature. Only `client.js` files are served; other files in `features/` return 404. |
 | GET | `/socket.io/*` | Socket.io client library and transport (handled by Socket.io) |
 

@@ -1,0 +1,7 @@
+User-agent: *
+Allow: /
+# Room links are private and change all the time: do not index them.
+Disallow: /*?room=
+Disallow: /socket.io/
+
+Sitemap: https://paint-together-hchq.onrender.com/sitemap.xml

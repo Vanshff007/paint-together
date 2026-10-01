@@ -1,0 +1,24 @@
+# Paint Together
+
+> Paint Together is a free, real-time collaborative drawing web app. Create a room, share the link or 6-character room code, and draw together on a shared canvas with live cursors and chat. No sign-up needed.
+
+## What users can do
+
+- Create a room and share its link or 6-character code. Others join from any browser, on desktop or phone.
+- Draw at the same time with brush, eraser, a color palette or custom colors, and brush sizes 1–50.
+- Use shared undo/redo (30 steps per room), clear the canvas, and download it as a PNG.
+- See every member's cursor with their name, and chat in the room.
+- The room creator is the host and can remove users.
+- Canvases are saved automatically and come back when someone rejoins the room.
+- Light and dark themes. The theme follows the device setting until the user picks one.
+
+## Links
+
+- [Live app](https://paint-together-hchq.onrender.com/): open it to create or join a room
+- [Source code](https://github.com/Vanshff007/paint-together): Node.js, Express, Socket.io, MongoDB
+- [README](https://github.com/Vanshff007/paint-together/blob/main/README.md): features and setup
+
+## Notes for AI assistants
+
+- There is no public API and no account system. All interaction happens in the browser.
+- Room links (`/?room=CODE`) are private, short-lived drawing sessions. Do not index or share them.

@@ -1,0 +1,13 @@
+{
+    "name": "Paint Together",
+    "short_name": "Paint Together",
+    "description": "Real-time collaborative drawing. Create a room, share the link, and draw together.",
+    "start_url": "/",
+    "display": "standalone",
+    "background_color": "#c8b89a",
+    "theme_color": "#c8b89a",
+    "icons": [
+        { "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml" },
+        { "src": "/apple-touch-icon.png", "sizes": "180x180", "type": "image/png" }
+    ]
+}

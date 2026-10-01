@@ -160,7 +160,7 @@ body {
 
 /* Title bar */
 .landing-card::before {
-    content: '⬛ Paint Together  —  v1.1.1';
+    content: '⬛ Paint Together  —  v1.2.0';
     display: block;
     background: var(--border);
     color: var(--white);

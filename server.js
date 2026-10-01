@@ -21,6 +21,8 @@ const io = socketIo(server, {
 const PORT = process.env.PORT || 3000;
 
 app.use(express.static(path.join(__dirname, 'public')));
+// robots.txt, llms.txt, sitemap.xml, icons, og-image.png at the site root
+app.use(express.static(path.join(__dirname, 'features', 'seo', 'static')));
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
