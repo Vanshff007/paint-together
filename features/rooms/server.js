@@ -1,3 +1,5 @@
+const { parsePassword, hashPassword, checkPassword, clientIp, createLimiter } = require('../passwords/server');
+
 function generateRoomId() {
     return Math.random().toString(36).substring(2, 8).toUpperCase();
 }
@@ -34,12 +36,16 @@ function randomUserColor() {
 // session = per-socket state shared with other features: { userColor, currentName }
 function register(socket, ctx, session) {
     const { io, roomData, persistence } = ctx;
+    // one wrong-password limiter per server (ctx), so tests get a fresh one
+    const limiter = (ctx.passwordLimiter ||= createLimiter());
 
     // Create a room
     socket.on('create-room', async (data) => {
         const uName  = parseName(data, session.currentName);
         session.currentName = uName;
         socket.data.clientId = parseClientId(data);
+        const password = parsePassword(data);
+        const passwordHash = password ? await hashPassword(password) : null;
 
         // skip IDs used by a live room or a saved one
         let roomId = generateRoomId();
@@ -53,12 +59,13 @@ function register(socket, ctx, session) {
             redoStack: [],
             pendingSnapshot: null,
             hostId: socket.id,
-            users: {}
+            users: {},
+            passwordHash
         };
 
         roomData[roomId].users[socket.id] = { name: uName, color: session.userColor };
 
-        await persistence.ensureRoomDoc(roomId, socket.id, uName);
+        await persistence.ensureRoomDoc(roomId, socket.id, uName, passwordHash);
 
         const userCount = getRoomUserCount(io, roomId);
         socket.emit('room-created', {
@@ -86,9 +93,10 @@ function register(socket, ctx, session) {
                     undoStack: [],
                     redoStack: [],
                     pendingSnapshot: null,
-                    // old hostId belonged to a socket that's long gone; joining user becomes host
-                    hostId: socket.id,
-                    users: {}
+                    // old hostId belonged to a socket that's long gone; the first user who gets in becomes host
+                    hostId: null,
+                    users: {},
+                    passwordHash: dbRoom.passwordHash || null
                 };
                 console.log(`♻️ Room ${roomId} restored from MongoDB`);
             }
@@ -106,6 +114,29 @@ function register(socket, ctx, session) {
             return;
         }
 
+        // password-protected room: check the password, with a wrong-guess limit per IP
+        const passwordHash = roomData[roomId] && roomData[roomId].passwordHash;
+        if (passwordHash) {
+            const ip = clientIp(socket);
+            const wait = limiter.waitFor(ip);
+            if (wait) {
+                socket.emit('join-password', { roomId, reason: 'wait', retryIn: Math.ceil(wait / 1000) });
+                return;
+            }
+            const password = parsePassword(data);
+            if (!(await checkPassword(password, passwordHash))) {
+                if (password) limiter.fail(ip);
+                socket.emit('join-password', { roomId, reason: password ? 'wrong' : 'required' });
+                return;
+            }
+            limiter.reset(ip);
+            // the room may have emptied and left memory while the hash was checked
+            if (!roomData[roomId]) {
+                socket.emit('room-not-found', roomId);
+                return;
+            }
+        }
+
         socket.join(roomId);
 
         if (!roomData[roomId]) {
@@ -115,6 +146,8 @@ function register(socket, ctx, session) {
             };
         }
 
+        // restored room (no host yet), or a host that is gone: this user becomes host
+        if (!roomData[roomId].users[roomData[roomId].hostId]) roomData[roomId].hostId = socket.id;
         roomData[roomId].users[socket.id] = { name: uName, color: session.userColor };
 
         const userCount = getRoomUserCount(io, roomId);

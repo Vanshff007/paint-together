@@ -310,3 +310,109 @@ test('two joins restoring the same saved room at once keep the first restore', a
     assert.deepStrictEqual(Object.keys(room.users).sort(), ['bob-socket', 'carol-socket']);
     assert.strictEqual(last(carol.emitted, 'room-joined').data.isHost, false);
 });
+
+// PASSWORDS
+
+async function createLockedRoom(password = 'hunter2') {
+    const alice = connect('alice-socket');
+    await alice.trigger('create-room', { userName: 'Alice', password });
+    return last(alice.emitted, 'room-created').data.roomId;
+}
+
+test('a room with a password needs it to join', async (t) => {
+    t.mock.method(console, 'log', () => {});
+    const roomId = await createLockedRoom();
+    assert.match(ctx.roomData[roomId].passwordHash, /^[0-9a-f]+:[0-9a-f]+$/);
+
+    const bob = connect('bob-socket');
+    await bob.trigger('join-room', { roomId, userName: 'Bob' });
+    assert.deepStrictEqual(last(bob.emitted, 'join-password').data, { roomId, reason: 'required' });
+    await bob.trigger('join-room', roomId); // bare string: no password either
+    await bob.trigger('join-room', { roomId, userName: 'Bob', password: 'wrong' });
+    assert.deepStrictEqual(last(bob.emitted, 'join-password').data, { roomId, reason: 'wrong' });
+    assert.strictEqual(last(bob.emitted, 'room-joined'), undefined);
+    assert.strictEqual(bob.rooms.has(roomId), false);
+    assert.strictEqual(ctx.roomData[roomId].users['bob-socket'], undefined);
+
+    await bob.trigger('join-room', { roomId, userName: 'Bob', password: 'hunter2' });
+    assert.ok(last(bob.emitted, 'room-joined'));
+    assert.strictEqual(bob.rooms.has(roomId), true);
+});
+
+test('the password and its hash are never sent to any client', async (t) => {
+    t.mock.method(console, 'log', () => {});
+    const roomId = await createLockedRoom('hunter2');
+    const bob = connect('bob-socket');
+    await bob.trigger('join-room', { roomId, userName: 'Bob', password: 'hunter2' });
+    const hash = ctx.roomData[roomId].passwordHash;
+    const everything = JSON.stringify([io.emitted, ...[...io.sockets.sockets.values()].map(s => [s.emitted, s.broadcasts])]);
+    assert.strictEqual(everything.includes('hunter2'), false);
+    assert.strictEqual(everything.includes(hash.split(':')[1]), false);
+});
+
+test('rooms without a password ignore a sent password', async () => {
+    const alice = connect('alice-socket');
+    const roomId = await createRoom(alice);
+    assert.strictEqual(ctx.roomData[roomId].passwordHash, null);
+    const bob = connect('bob-socket');
+    await bob.trigger('join-room', { roomId, userName: 'Bob', password: 'whatever' });
+    assert.ok(last(bob.emitted, 'room-joined'));
+});
+
+test('5 wrong passwords lock that IP for 30 s, even from new sockets', async (t) => {
+    t.mock.method(console, 'log', () => {});
+    t.mock.timers.enable({ apis: ['Date'] });
+    const roomId = await createLockedRoom();
+    for (let i = 0; i < 5; i++) {
+        const s = connect(`guess-${i}`);
+        await s.trigger('join-room', { roomId, userName: 'Mallory', password: `guess${i}` });
+    }
+    const late = connect('late-socket');
+    await late.trigger('join-room', { roomId, userName: 'Mallory', password: 'hunter2' });
+    assert.deepStrictEqual(last(late.emitted, 'join-password').data, { roomId, reason: 'wait', retryIn: 30 });
+    assert.strictEqual(last(late.emitted, 'room-joined'), undefined);
+
+    t.mock.timers.tick(30 * 1000);
+    await late.trigger('join-room', { roomId, userName: 'Mallory', password: 'hunter2' });
+    assert.ok(last(late.emitted, 'room-joined'));
+});
+
+test('a missing password does not count as a wrong guess', async (t) => {
+    t.mock.method(console, 'log', () => {});
+    const roomId = await createLockedRoom();
+    const bob = connect('bob-socket');
+    for (let i = 0; i < 10; i++) await bob.trigger('join-room', { roomId, userName: 'Bob' });
+    await bob.trigger('join-room', { roomId, userName: 'Bob', password: 'hunter2' });
+    assert.ok(last(bob.emitted, 'room-joined'));
+});
+
+test('a restored room keeps its password, and only someone who gets in becomes host', async (t) => {
+    t.mock.method(console, 'log', () => {});
+    const roomId = await createLockedRoom();
+    const hash = ctx.roomData[roomId].passwordHash;
+    db[roomId] = { roomId, canvasState: 'data:image/png;base64,AAA', passwordHash: hash };
+    delete ctx.roomData[roomId];
+
+    const mallory = connect('mallory-socket');
+    await mallory.trigger('join-room', { roomId, userName: 'Mallory', password: 'nope' });
+    assert.strictEqual(last(mallory.emitted, 'join-password').data.reason, 'wrong');
+    assert.strictEqual(ctx.roomData[roomId].passwordHash, hash);
+    assert.notStrictEqual(ctx.roomData[roomId].hostId, 'mallory-socket');
+
+    const bob = connect('bob-socket');
+    await bob.trigger('join-room', { roomId, userName: 'Bob', password: 'hunter2' });
+    const joined = last(bob.emitted, 'room-joined').data;
+    assert.strictEqual(joined.isHost, true);
+    assert.strictEqual(joined.canvasState, 'data:image/png;base64,AAA');
+});
+
+test('a room that leaves memory during the password check is reported as not found', async (t) => {
+    t.mock.method(console, 'log', () => {});
+    const roomId = await createLockedRoom();
+    const bob = connect('bob-socket');
+    const joining = bob.trigger('join-room', { roomId, userName: 'Bob', password: 'hunter2' });
+    delete ctx.roomData[roomId]; // last user left while scrypt ran
+    await joining;
+    assert.strictEqual(last(bob.emitted, 'room-not-found').data, roomId);
+    assert.strictEqual(bob.rooms.has(roomId), false);
+});

@@ -6,6 +6,7 @@ const roomCodeInput    = document.getElementById('roomCodeInput');
 const landingCreateBtn = document.getElementById('landingCreateBtn');
 const landingJoinBtn   = document.getElementById('landingJoinBtn');
 const landingError     = document.getElementById('landingError');
+const roomPasswordInput = document.getElementById('roomPasswordInput');
 
 const roomInfo         = document.getElementById('roomInfo');
 const roomIdDisplay    = document.getElementById('roomId');
@@ -137,16 +138,24 @@ function getLandingName() {
     return name;
 }
 
+// an older message's timer must not clear a newer message
+let landingErrorTimer = null;
 function showLandingError(msg) {
     landingError.textContent = msg;
-    setTimeout(() => { landingError.textContent = ''; }, 3000);
+    clearTimeout(landingErrorTimer);
+    landingErrorTimer = setTimeout(() => { landingError.textContent = ''; }, 3000);
 }
+
+// Password sent with the last create/join; kept in memory (never stored) for reconnects
+let pendingPassword = '';
+let roomPassword    = '';
 
 landingCreateBtn.addEventListener('click', () => {
     const name = getLandingName();
     if (!name) return;
     myName = name;
-    socket.emit('create-room', { userName: name, clientId });
+    pendingPassword = roomPasswordInput.value;
+    socket.emit('create-room', { userName: name, clientId, password: pendingPassword });
 });
 
 landingJoinBtn.addEventListener('click', () => {
@@ -159,17 +168,24 @@ landingJoinBtn.addEventListener('click', () => {
         return;
     }
     myName = name;
-    socket.emit('join-room', { roomId: code, userName: name, clientId });
+    pendingPassword = roomPasswordInput.value;
+    socket.emit('join-room', { roomId: code, userName: name, clientId, password: pendingPassword });
 });
 
 roomCodeInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') landingJoinBtn.click(); });
-usernameInput.addEventListener('keydown', (e) => {
+[usernameInput, roomPasswordInput].forEach(input => input.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') {
         const code = roomCodeInput.value.trim();
         if (code) landingJoinBtn.click();
         else landingCreateBtn.click();
     }
-});
+}));
+
+// the password worked: keep it for reconnects and clear the field
+function acceptPassword() {
+    roomPassword = pendingPassword;
+    roomPasswordInput.value = '';
+}
 
 const urlParams   = new URLSearchParams(window.location.search);
 const roomFromUrl = urlParams.get('room');
@@ -227,7 +243,7 @@ socket.on('connect', () => {
     if (currentRoomId) {
         rejoining = true;
         Object.keys(remoteCursors).forEach(id => removeCursor(id));
-        socket.emit('join-room', { roomId: currentRoomId, userName: myName, clientId });
+        socket.emit('join-room', { roomId: currentRoomId, userName: myName, clientId, password: roomPassword });
     }
 });
 
@@ -248,7 +264,9 @@ socket.on('room-created', (data) => {
     updateRoomUI(data.roomId, data.userCount);
     updateUrl(data.roomId);
     showApp();
-    setTimeout(() => showToast('🎉 Room created! Share the link.'), 700);
+    const locked = Boolean(pendingPassword);
+    acceptPassword();
+    setTimeout(() => showToast(locked ? '🔒 Room created! Share the link, and the password separately.' : '🎉 Room created! Share the link.'), 700);
 });
 
 socket.on('room-joined', (data) => {
@@ -262,6 +280,7 @@ socket.on('room-joined', (data) => {
     updateRoomUI(data.roomId, data.userCount);
     updateUndoRedoButtons();
     requestChatHistory();
+    if (!rejoining) acceptPassword();
     if (rejoining) {
         rejoining = false;
         // the server copy wins over anything drawn while offline
@@ -285,6 +304,19 @@ socket.on('join-banned', (roomId) => {
     if (rejoining) returnToLanding();
     showLandingError(`You were removed from room "${roomId}" and can't rejoin.`);
     window.history.pushState({}, '', '/');
+});
+
+socket.on('join-password', (data) => {
+    if (!data) return;
+    if (rejoining) returnToLanding();
+    roomCodeInput.value = data.roomId;
+    const messages = {
+        required: '🔒 This room needs a password.',
+        wrong:    'Wrong password. Try again.',
+        wait:     `Too many wrong passwords. Wait ${data.retryIn} s.`
+    };
+    showLandingError(messages[data.reason] || messages.required);
+    roomPasswordInput.focus();
 });
 
 socket.on('room-not-found', (roomId) => {

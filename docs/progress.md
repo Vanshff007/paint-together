@@ -42,6 +42,9 @@ Last updated: 2026-10-15.
   and part of the shared undo/redo (`features/tools/`).
 - Keyboard shortcuts: Ctrl/Cmd+Z, Ctrl/Cmd+Y, Ctrl/Cmd+Shift+Z, and B, E, L,
   R, O, F for the tools; ignored while typing (`features/shortcuts/`).
+- Optional room passwords: salted scrypt hash in memory and MongoDB, 5 wrong
+  guesses per IP then a 30 s wait, kept in the tab's memory for reconnects
+  (`features/passwords/`).
 - Canvas state is sent as lossless WebP when the browser supports it (10-70%
   smaller than PNG), else PNG.
 - Production deploy on Render.
@@ -57,10 +60,12 @@ Last updated: 2026-10-15.
 
 ## Planned / ideas
 
-- Room passwords or private rooms. Today anyone with the 6-char code can join.
+- (none right now)
 
 ## Known limitations
 
+- A forgotten room password cannot be reset. Once everyone leaves, the room
+  cannot be opened until MongoDB deletes it (30 days after the last save).
 - Canvas state is a full-canvas data URL. Socket.io's default 1 MB message
   limit can disconnect a client with a very large or detailed canvas. Lossless
   WebP makes this rarer, but a dense canvas is only about 10% smaller than

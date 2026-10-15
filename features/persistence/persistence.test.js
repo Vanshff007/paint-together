@@ -35,6 +35,7 @@ test('saveRoomState upserts canvas, host and user names only', async () => {
     assert.strictEqual(update.$set.hostId, 's1');
     assert.deepStrictEqual(update.$set.users, ['Alice', 'Bob']);
     assert.strictEqual(update.$set.undoStack, undefined, 'history is never persisted');
+    assert.strictEqual(update.$set.passwordHash, null);
     assert.deepStrictEqual(options, { upsert: true });
 });
 
@@ -53,7 +54,7 @@ test('saveRoomState logs and does not throw when MongoDB fails', async (t) => {
 test('ensureRoomDoc creates a document only when missing', async () => {
     const missing = fakeModel();
     await createPersistence({}, missing).ensureRoomDoc('ROOM01', 's1', 'Alice');
-    assert.deepStrictEqual(missing.calls[1], ['create', { roomId: 'ROOM01', canvasState: null, hostId: 's1', users: ['Alice'] }]);
+    assert.deepStrictEqual(missing.calls[1], ['create', { roomId: 'ROOM01', canvasState: null, hostId: 's1', users: ['Alice'], passwordHash: null }]);
 
     const present = fakeModel({ existing: { roomId: 'ROOM01' } });
     await createPersistence({}, present).ensureRoomDoc('ROOM01', 's1', 'Alice');
@@ -145,4 +146,15 @@ test('canvas survives a server restart', async (t) => {
     const joined = last(bob.emitted, 'room-joined').data;
     assert.strictEqual(joined.canvasState, 'data:image/png;base64,DRAWN');
     assert.strictEqual(joined.isHost, true);
+});
+
+test('the password hash is saved with the room and on creation', async () => {
+    const model = fakeModel();
+    const p = createPersistence({ ROOM01: room({ passwordHash: 'salt:hash' }) }, model);
+    await p.saveRoomState('ROOM01');
+    assert.strictEqual(model.calls[0][2].$set.passwordHash, 'salt:hash');
+
+    const fresh = fakeModel();
+    await createPersistence({}, fresh).ensureRoomDoc('ROOM02', 's1', 'Alice', 'salt:hash');
+    assert.strictEqual(fresh.calls[1][1].passwordHash, 'salt:hash');
 });

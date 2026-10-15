@@ -19,6 +19,7 @@ function createPersistence(roomData, RoomModel = Room) {
                     $set: {
                         canvasState: room.canvasState,
                         hostId: room.hostId,
+                        passwordHash: room.passwordHash || null,
                         users: Object.values(room.users).map(u => u.name),
                         updatedAt: new Date(),
                         lastSavedAt: new Date()
@@ -34,7 +35,7 @@ function createPersistence(roomData, RoomModel = Room) {
     }
 
     // create the MongoDB document for this room if it doesn't exist yet
-    async function ensureRoomDoc(roomId, hostId, userName) {
+    async function ensureRoomDoc(roomId, hostId, userName, passwordHash = null) {
         try {
             const existing = await RoomModel.findOne({ roomId });
             if (!existing) {
@@ -42,7 +43,8 @@ function createPersistence(roomData, RoomModel = Room) {
                     roomId,
                     canvasState: null,
                     hostId,
-                    users: [userName]
+                    users: [userName],
+                    passwordHash
                 });
             }
         } catch (err) {

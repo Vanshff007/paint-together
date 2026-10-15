@@ -43,6 +43,7 @@ the server restarts.
 | `cursors` | yes | yes | Live remote cursors. |
 | `chat` | yes | yes | Room chat. |
 | `origin` | yes | no | Socket.io `allowRequest`: only pages from this host may connect. |
+| `passwords` | yes (helpers for rooms) | no | Room password hashing, checking, wrong-guess limit. |
 | `persistence` | yes | no | MongoDB connection (`db.js`), `Room` model, save/load, autosave. |
 | `theme` | no | yes | Dark mode, splash animation. |
 | `seo` | static files | no | `robots.txt`, `llms.txt`, `sitemap.xml`, Open Graph image, icons, manifest (served at the site root). |
@@ -79,7 +80,8 @@ roomData[roomId] = {
   undoStack,        // array of canvas data URLs, max MAX_HISTORY (30)
   redoStack,        // array of canvas data URLs
   pendingSnapshot,  // canvas before the stroke in progress
-  hostId,           // socket.id of the current host
+  hostId,           // socket.id of the current host (null for a restored room until someone gets in)
+  passwordHash,     // scrypt 'salt:hash' for a password-protected room, or null
   users,            // { [socketId]: { name, color } }
   dirty,            // true when the canvas changed since the last MongoDB save
   chat              // last 50 { author, text } messages, created on the first message
@@ -127,7 +129,8 @@ full canvas image to every client in the room.
   `roomData` whose canvas changed (`dirty`). A failed save keeps it dirty.
 - Last user leaves (`disconnecting`, count reaches 0): saves the room, then
   deletes it from `roomData`.
-- `join-room` for a room not in memory: loads it from MongoDB. The joining user
+- `join-room` for a room not in memory: loads it from MongoDB, with its
+  password hash. The first user who gets in (right password, not banned)
   becomes host, because the stored `hostId` belongs to a dead socket. If two
   users join at the same time, the first restore wins.
 - MongoDB deletes rooms not saved for 30 days (TTL index).
