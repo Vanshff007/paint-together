@@ -11,10 +11,11 @@ chat, and see each other's cursors live on a shared canvas.
 
 - 🧑‍🤝‍🧑 **Real-time collaboration**: several users draw at the same time, with no crossed strokes
 - 🏠 **Rooms**: create a room or join one with a 6-character code or a shared link
-- 🎨 **Drawing tools**: brush, eraser, color palette, custom colors, brush size 1–50
+- 🎨 **Drawing tools**: brush, eraser, line, rectangle, ellipse, fill bucket, color palette, custom colors, size 1–50
+- ⌨️ **Keyboard shortcuts**: Ctrl/Cmd+Z, Ctrl/Cmd+Y, and B, E, L, R, O, F for the tools
 - ↩️ **Shared undo / redo**: history is kept per room (30 steps)
 - 🖱️ **Live cursors**: see where everyone is pointing
-- 💬 **Live chat** with unread indicator
+- 💬 **Live chat** with unread indicator; new joiners see the last 50 messages
 - 👑 **Host controls**: the host can remove users, and removed users cannot rejoin
 - 💾 **Autosave**: canvases are saved to MongoDB and come back after a restart
 - 📥 **Download** the canvas as PNG
@@ -40,10 +41,14 @@ paint-together/
 │   ├── rooms/             # create/join/exit, members, host, kick
 │   ├── drawing/           # canvas, tools, colors, live strokes
 │   ├── history/           # shared undo/redo
+│   ├── tools/             # line, rectangle, ellipse, fill bucket
+│   ├── shortcuts/         # keyboard shortcuts
 │   ├── cursors/           # live remote cursors
 │   ├── chat/              # room chat
 │   ├── persistence/       # MongoDB connection, Room model, autosave
 │   ├── theme/             # dark mode, landing animation
+│   ├── origin/            # only pages from this host may open a socket
+│   ├── seo/               # robots.txt, sitemap, Open Graph image, icons
 │   └── fake-socket.js     # test helper
 ├── public/                # static files: index.html, style.css, core.js
 ├── docs/                  # project documentation
