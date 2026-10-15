@@ -10,6 +10,7 @@ beforeEach(() => {
     room = { canvasState: null, undoStack: [], redoStack: [], pendingSnapshot: null, hostId: 's1', users: {} };
     ctx = { io, roomData: { ROOM01: room } };
     socket = createFakeSocket(io, 's1');
+    socket.join('ROOM01');
     history.register(socket, ctx);
 });
 
@@ -79,4 +80,39 @@ test('events for unknown rooms or without roomId are ignored', () => {
     socket.trigger('undo', undefined);
     assert.strictEqual(io.emitted.length, 0);
     assert.strictEqual(ctx.roomData.GONE00, undefined);
+});
+
+test('stroke-complete, undo and redo mark the room dirty for autosave', () => {
+    stroke('EMPTY', 'A');
+    assert.strictEqual(room.dirty, true);
+    for (const event of ['undo', 'redo']) {
+        room.dirty = false;
+        socket.trigger(event, 'ROOM01');
+        assert.strictEqual(room.dirty, true, event);
+    }
+});
+
+test('events for a room the socket has not joined are ignored', () => {
+    const other = { canvasState: 'X', undoStack: ['W'], redoStack: [], pendingSnapshot: null, hostId: 's2', users: {} };
+    ctx.roomData.OTHER1 = other;
+    socket.trigger('save-undo-snapshot', { roomId: 'OTHER1', state: 'A' });
+    socket.trigger('stroke-complete', { roomId: 'OTHER1', state: 'B' });
+    socket.trigger('undo', 'OTHER1');
+    assert.strictEqual(other.canvasState, 'X');
+    assert.deepStrictEqual(other.undoStack, ['W']);
+    assert.strictEqual(io.emitted.length, 0);
+});
+
+test('malformed payloads are ignored and do not throw', () => {
+    for (const bad of [null, undefined, 5, 'ROOM01', { roomId: ['ROOM01'] }]) {
+        socket.trigger('save-undo-snapshot', bad);
+        socket.trigger('stroke-complete', bad);
+    }
+    for (const bad of [null, undefined, 5, {}]) {
+        socket.trigger('discard-undo-snapshot', bad);
+        socket.trigger('undo', bad);
+        socket.trigger('redo', bad);
+    }
+    assert.strictEqual(io.emitted.length, 0);
+    assert.strictEqual(room.canvasState, null);
 });

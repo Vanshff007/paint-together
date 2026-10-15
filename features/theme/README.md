@@ -23,7 +23,8 @@ below.
 - The toggle (`toggleTheme()`) saves the choice to `localStorage`, so it wins
   over the system setting on later visits.
 - `darkToggleBtn` (landing) and `darkToggleBtnApp` (app header, wired by
-  `initAppDarkMode()` from `showApp()`) switch `html[data-theme]` between
+  `initAppDarkMode()` from `showApp()`, with `onclick` so joining again does
+  not add a second listener) switch `html[data-theme]` between
   `light` and `dark`. Colors come from CSS variables in `public/style.css`.
 - The splash animation draws 14 moving, pulsing radial gradients. It stops
   when the landing screen is hidden. The rooms feature restarts it on exit

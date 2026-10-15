@@ -41,7 +41,9 @@ Uses `socket`, `currentRoomId`, `canvas`, `ctx` from `public/core.js`, and
 ## Tests
 
 Automated (`npm test`): draw relay with `socketId`, missing `roomId`,
-`draw-shape` relay, `mouseup` relay, clear resets state, clear on unknown room.
+`draw-shape` relay, `mouseup` relay, clear resets state and marks the room
+dirty, clear on unknown room, sender not in the room ignored, malformed
+payloads ignored.
 
 Manual test cases (two browser windows in one room):
 

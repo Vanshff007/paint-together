@@ -14,6 +14,7 @@ beforeEach(() => {
         }
     };
     socket = createFakeSocket(io, 's1');
+    socket.join('ROOM01');
     drawing.register(socket, ctx);
 });
 
@@ -46,11 +47,35 @@ test('clear resets canvas and history and tells the whole room', () => {
     assert.strictEqual(room.canvasState, null);
     assert.deepStrictEqual(room.undoStack, []);
     assert.deepStrictEqual(room.redoStack, []);
+    assert.strictEqual(room.dirty, true);
     assert.ok(last(socket.broadcasts, 'clear'));
     assert.deepStrictEqual(last(io.emitted, 'history-update').data, { hasUndo: false, hasRedo: false });
 });
 
 test('clear on a room not in memory still relays and does not throw', () => {
+    socket.join('GONE00');
     socket.trigger('clear', 'GONE00');
     assert.strictEqual(last(socket.broadcasts, 'clear').room, 'GONE00');
+});
+
+test('events for a room the socket has not joined are ignored', () => {
+    socket.trigger('draw', { roomId: 'OTHER1', nx: 0, ny: 0 });
+    socket.trigger('draw-shape', { roomId: 'OTHER1' });
+    socket.trigger('mouseup', 'OTHER1');
+    socket.trigger('clear', 'OTHER1');
+    assert.strictEqual(socket.broadcasts.length, 0);
+    assert.strictEqual(io.emitted.length, 0);
+});
+
+test('malformed payloads are ignored and do not throw', () => {
+    for (const bad of [null, undefined, 5, 'ROOM01', { roomId: 5 }]) {
+        socket.trigger('draw', bad);
+        socket.trigger('draw-shape', bad);
+    }
+    for (const bad of [null, undefined, 5, { roomId: 'ROOM01' }]) {
+        socket.trigger('mouseup', bad);
+        socket.trigger('clear', bad);
+    }
+    assert.strictEqual(socket.broadcasts.length, 0);
+    assert.strictEqual(ctx.roomData.ROOM01.canvasState, 'png');
 });

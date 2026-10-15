@@ -25,7 +25,7 @@ Collection: `rooms` (Mongoose default for model `Room`).
 | `hostId` | String | `null` | Socket ID of the host at last save. Not valid after restart. |
 | `users` | [String] | `[]` | Display names at last save. Snapshot only. |
 | `createdAt` | Date | `Date.now` | Set on insert. |
-| `updatedAt` | Date | `Date.now` | Set on every save. |
+| `updatedAt` | Date | `Date.now` | Set on every save. TTL index: the document is deleted 30 days after the last save. |
 | `lastSavedAt` | Date | `Date.now` | Set on every save. |
 
 Socket objects and undo/redo stacks are never stored.
@@ -34,10 +34,11 @@ Socket objects and undo/redo stacks are never stored.
 
 | Where | Operation |
 |---------------------|-----------|
+| `create-room` (rooms) via `loadRoom` | `Room.findOne({ roomId })` to skip an ID that is already saved. |
 | `create-room` (rooms) via `ensureRoomDoc` | `Room.findOne({ roomId })`, then `Room.create(...)` if missing. |
 | `join-room` (rooms, room not in memory) via `loadRoom` | `Room.findOne({ roomId })` to restore `canvasState`. |
 | `saveRoomState(roomId)` | `Room.findOneAndUpdate({ roomId }, { $set, $setOnInsert }, { upsert: true })`. |
-| Autosave (`startAutosave`, 30 s) | `saveRoomState` for every room in `roomData`. |
+| Autosave (`startAutosave`, 30 s) | `saveRoomState` for every room in `roomData` that changed since its last save (`dirty`). |
 | Last user leaves (rooms) | `await saveRoomState(roomId)`, then remove from memory unless someone joined during the save. |
 
 All of these live in `features/persistence/server.js`. Other features call
@@ -58,6 +59,10 @@ crash the server or affect connected users.
 
 - MongoDB documents are limited to 16 MB. `canvasState` is a base64 PNG, so a
   very large or very detailed canvas can come near that limit.
-- There is no TTL or cleanup. Room documents stay forever. If storage becomes a
-  problem, add a TTL index on `updatedAt`.
-- Autosave writes every active room every 30 s, also rooms that did not change.
+- Rooms not saved for 30 days are deleted by MongoDB (TTL index on
+  `updatedAt`, `expires: '30d'` in `Room.js`). MongoDB removes expired
+  documents in a background task about every 60 s, so deletion is not exact.
+  Mongoose creates the index when the app starts.
+- Autosave only writes rooms with `dirty: true`. Drawing, clear, undo, and
+  redo set it. Member and host changes do not, so the stored `users` and
+  `hostId` can lag until the next canvas change or the last user leaving.

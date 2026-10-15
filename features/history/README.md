@@ -37,7 +37,8 @@ History is never saved to MongoDB and is lost when the room empties.
 ## Tests
 
 Automated (`npm test`): stroke push, undo, redo, redo cleared by new stroke,
-discard, 30-step cap, empty-stack no-op, unknown room ignored.
+discard, 30-step cap, empty-stack no-op, unknown room ignored, room marked
+dirty, sender not in the room ignored, malformed payloads ignored.
 
 Manual test cases (two browser windows in one room):
 
