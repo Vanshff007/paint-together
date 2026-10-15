@@ -40,6 +40,7 @@ the server restarts.
 | `history` | yes | yes | Shared undo/redo. |
 | `tools` | no (uses `draw-shape` relay) | yes | Line, rectangle, ellipse, fill bucket. |
 | `shortcuts` | no | yes | Keyboard shortcuts for undo/redo and tools. |
+| `zoom` | no | yes | Two-finger pinch-zoom and pan on touch screens. |
 | `cursors` | yes | yes | Live remote cursors. |
 | `chat` | yes | yes | Room chat. |
 | `ratelimit` | yes | no | Socket.io middleware: drops events over a per-socket or per-IP rate. Registered first. |
@@ -101,8 +102,8 @@ is never persisted and is lost when a room empties or the server restarts.
    current canvas, then a `draw` event with `isStart: true`.
 2. During the stroke, the client sends `draw` events (throttled to one per
    `EMIT_THROTTLE` = 30 ms). Coordinates and brush size are **normalized**
-   (0–1, relative to canvas width/height). Each client can have a different
-   canvas resolution.
+   (0–1, relative to canvas width/height). Every client's canvas is
+   1280×800 pixels; CSS scales it to fit the screen.
 3. The server relays `draw` to the other sockets in the room and adds
    `socketId`.
 4. Each receiver draws the remote stroke on a per-user offscreen canvas

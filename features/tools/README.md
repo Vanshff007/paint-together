@@ -82,9 +82,6 @@ Manual test cases (two browser windows in one room):
 
 ## Known issues
 
-- Windows can have different canvas sizes. A fill is recomputed on each
-  screen, so its edge pixels can differ slightly between users. A rejoin
-  loads the server copy, which comes from the user who filled.
 - A remote shape that arrives while you are in the middle of a brush stroke
   redraws the canvas from the committed image, so the part of your stroke
   drawn so far disappears. Remote brush strokes finishing (`mouseup`) already

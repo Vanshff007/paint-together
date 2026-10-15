@@ -181,3 +181,108 @@ test('a chat flood is cut by the rate limit; history survives in the saved room'
     assert.strictEqual(await carol.locator('#chatMessages .chat-message').count(), received);
     await closeUsers(carol);
 });
+
+// count of pure red pixels, and a checksum of the whole canvas
+function canvasSummary(page) {
+    return page.evaluate(() => {
+        const d = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+        let red = 0, sum = 0;
+        for (let i = 0; i < d.length; i += 4) {
+            if (d[i] === 255 && d[i + 1] === 0 && d[i + 2] === 0 && d[i + 3] === 255) red++;
+            sum = (sum * 31 + d[i] + d[i + 1] * 3 + d[i + 2] * 7 + d[i + 3] * 11) % 1000000007;
+        }
+        return { width: canvas.width, height: canvas.height, red, sum };
+    });
+}
+
+test('fixed canvas: same pixels on a phone and a desktop, resizing keeps them', async () => {
+    const alice = await openUser();
+    const phone = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
+    const bob = await phone.newPage();
+    bob.errors = [];
+    bob.on('pageerror', (err) => bob.errors.push(err));
+    await bob.goto(baseUrl);
+
+    const roomId = await createRoom(alice, 'Alice');
+    await joinRoom(bob, 'Bob', roomId);
+    await bob.waitForFunction(() => currentRoomId);
+
+    await alice.keyboard.press('r');
+    await drag(alice, [0.25, 0.25], [0.75, 0.75]);
+    await alice.keyboard.press('f');
+    await alice.locator('.color-swatch[data-color="#FF0000"]').click();
+    const box = await alice.locator('#canvas').boundingBox();
+    await alice.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+    await waitForPixel(bob, 0.5, 0.5, 'd[0] === 255 && d[1] === 0 && d[2] === 0');
+
+    const a = await canvasSummary(alice);
+    const b = await canvasSummary(bob);
+    assert.deepStrictEqual([a.width, a.height], [1280, 800]);
+    assert.deepStrictEqual([b.width, b.height], [1280, 800]);
+    assert.ok(a.red > 100000, `red area ${a.red}`);
+    assert.ok(Math.abs(a.red - b.red) <= a.red * 0.001, `red pixels: desktop ${a.red}, phone ${b.red}`);
+
+    // resizing the window does not change a single pixel
+    await alice.setViewportSize({ width: 700, height: 600 });
+    await alice.waitForTimeout(300);
+    assert.deepStrictEqual(await canvasSummary(alice), a);
+
+    // a click lands on the canvas pixel under the pointer (border and scaling included)
+    const box2 = await alice.locator('#canvas').boundingBox();
+    const pos = await alice.evaluate(([x, y]) => toCanvasPos(x, y), [box2.x + 3, box2.y + 3]);
+    assert.ok(Math.abs(pos.x) < 0.01 && Math.abs(pos.y) < 0.01, `top-left inside the border maps to 0,0: ${JSON.stringify(pos)}`);
+
+    await closeUsers(alice, bob);
+});
+
+test('phone: one finger draws, two fingers pinch-zoom without drawing, drawing while zoomed hits the right spot', async () => {
+    const context = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
+    const page = await context.newPage();
+    page.errors = [];
+    page.on('pageerror', (err) => page.errors.push(err));
+    await page.goto(baseUrl);
+    await createRoom(page, 'Phone');
+    await page.waitForTimeout(500);
+
+    // real touch events through the DevTools protocol (several fingers at once)
+    const cdp = await context.newCDPSession(page);
+    const touch = (type, points) => cdp.send('Input.dispatchTouchEvent', {
+        type, touchPoints: points.map(([x, y], id) => ({ x, y, id }))
+    });
+    const box = await page.locator('#canvas').boundingBox();
+    const at = (fx, fy) => [box.x + box.width * fx, box.y + box.height * fy];
+    const inkCount = () => page.evaluate(() => {
+        const d = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+        let n = 0;
+        for (let i = 3; i < d.length; i += 4) if (d[i] > 0) n++;
+        return n;
+    });
+
+    // one finger: a stroke
+    await touch('touchStart', [at(0.2, 0.2)]);
+    for (let i = 1; i <= 8; i++) await touch('touchMove', [at(0.2 + i * 0.05, 0.2)]);
+    await touch('touchEnd', []);
+    const afterStroke = await inkCount();
+    assert.ok(afterStroke > 0, 'one finger draws');
+
+    // two fingers spread apart around the middle: zoom, and nothing is drawn
+    await touch('touchStart', [at(0.45, 0.5)]);
+    await touch('touchStart', [at(0.45, 0.5), at(0.55, 0.5)]);
+    for (let i = 1; i <= 8; i++) await touch('touchMove', [at(0.45 - i * 0.03, 0.5), at(0.55 + i * 0.03, 0.5)]);
+    await touch('touchEnd', [at(0.55 + 0.24, 0.5)]);
+    await touch('touchEnd', []);
+    const scale = await page.evaluate(() => canvasFrame.getBoundingClientRect().width / canvasFrame.offsetWidth);
+    assert.ok(scale > 2, `zoomed in (${scale.toFixed(2)}x)`);
+    assert.strictEqual(await inkCount(), afterStroke, 'the pinch drew nothing');
+
+    // zoomed in: a tap-and-drag draws exactly under the finger
+    const target = [box.x + box.width * 0.5, box.y + box.height * 0.5]; // screen point (now zoomed)
+    const expected = await page.evaluate(([x, y]) => toCanvasPos(x, y), target);
+    await touch('touchStart', [target]);
+    await touch('touchMove', [[target[0] + 4, target[1]]]);
+    await touch('touchEnd', []);
+    const hit = await page.evaluate(([x, y]) => ctx.getImageData(Math.round(x), Math.round(y), 1, 1).data[3], [expected.x + 1, expected.y]);
+    assert.ok(hit > 0, `ink at canvas ${Math.round(expected.x)},${Math.round(expected.y)}`);
+
+    await closeUsers(page);
+});

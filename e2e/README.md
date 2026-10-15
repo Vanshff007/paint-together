@@ -25,6 +25,8 @@ npm run test:e2e
 | two users: join, draw, chat and undo stay in sync | Create and join through the landing form, a real mouse stroke appears on the other canvas, a chat message arrives, Undo from the other user clears the stroke on both. |
 | a password room needs the password | "needs a password", "Wrong password", then the right password joins. |
 | shapes and fill reach the other user | R shortcut, rectangle drag, F shortcut, red fill inside; the other user sees red inside and nothing outside. |
+| fixed canvas: same pixels on a phone and a desktop, resizing keeps them | Both canvases are 1280×800; a rectangle and fill give the same red area on a 390 px phone and a desktop; resizing the window changes no pixel; `toCanvasPos` maps the corner inside the border to 0,0. |
+| phone: one finger draws, two fingers pinch-zoom without drawing, ... | Real multi-touch through the DevTools protocol: one finger draws; a two-finger spread zooms over 2x and draws nothing; a stroke while zoomed lands on the canvas pixel under the finger. |
 | a chat flood is cut by the rate limit; history survives in the saved room | 50 chat messages at once reach the other user as 8 (the burst). Everyone leaves, the room is saved and leaves memory; a new joiner gets the same chat history back from the saved room. |
 
 Each user is a separate browser context (own `localStorage`, so its own
