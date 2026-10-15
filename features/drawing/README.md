@@ -31,7 +31,8 @@ other users.
   This stops two users' simultaneous strokes from joining into one line.
 - The eraser paints white and shows a dashed circle preview.
 - `loadCanvasState(dataUrl)` draws a saved PNG onto the canvas. History and
-  rooms use it.
+  rooms use it. It ignores anything that is not a `data:image/png;base64,`
+  string, so a URL never loads (no IP leak, no tainted canvas).
 - A `ResizeObserver` keeps the canvas resolution equal to its display size
   and scales the current image.
 

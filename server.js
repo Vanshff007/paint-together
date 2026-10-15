@@ -11,12 +11,12 @@ const drawing = require('./features/drawing/server');
 const history = require('./features/history/server');
 const cursors = require('./features/cursors/server');
 const chat = require('./features/chat/server');
+const { allowRequest } = require('./features/origin/server');
 
 const app = express();
 const server = http.createServer(app);
-const io = socketIo(server, {
-    cors: { origin: '*', methods: ['GET', 'POST'] }
-});
+// only pages from this host may connect (see features/origin/README.md)
+const io = socketIo(server, { allowRequest });
 
 const PORT = process.env.PORT || 3000;
 

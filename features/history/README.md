@@ -21,6 +21,10 @@ State lives in `roomData[roomId]`: `undoStack`, `redoStack`,
 2. `stroke-complete { roomId, state }` at stroke end: pushes
    `pendingSnapshot` onto `undoStack` (max 30, oldest dropped), sets
    `canvasState`, sends `history-update` to the room.
+
+`state` must be a PNG data URL (`isPngDataUrl`), or `null` for a snapshot.
+Anything else (a URL, another image type, a non-string) is ignored. See
+"Validation and trust" in `docs/api.md`.
 3. `discard-undo-snapshot roomId`: a tap with no movement drops the snapshot.
 4. `undo` / `redo roomId`: moves `canvasState` between the stacks and sends
    `canvas-restore { state, hasUndo, hasRedo }` to the whole room.
@@ -37,7 +41,8 @@ History is never saved to MongoDB and is lost when the room empties.
 ## Tests
 
 Automated (`npm test`): stroke push, undo, redo, redo cleared by new stroke,
-discard, 30-step cap, empty-stack no-op, unknown room ignored, room marked
+discard, 30-step cap, empty-stack no-op, unknown room ignored, URL and
+non-PNG states rejected, `isPngDataUrl`, room marked
 dirty, sender not in the room ignored, malformed payloads ignored.
 
 Manual test cases (two browser windows in one room):

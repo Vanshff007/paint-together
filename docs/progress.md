@@ -32,6 +32,11 @@ Last updated: 2026-10-15.
   never collide.
 - Reconnect: after a Socket.io reconnect the client joins its room again and
   loads the server's canvas.
+- Canvas state must be a PNG data URL, on the server and in the client, so a
+  member cannot make others load a URL or break the room's canvas.
+- Chat author is the sender's server-side name (no spoofing). Chat text is
+  capped at 200 characters on the server.
+- Socket.io accepts only pages from the same host (`features/origin/`).
 - Production deploy on Render.
 - SEO and link previews: `robots.txt`, `llms.txt`, `sitemap.xml`, Open Graph
   image, icons, and web app manifest (`features/seo/`).
@@ -45,8 +50,16 @@ Last updated: 2026-10-15.
 
 ## Planned / ideas
 
-- Shapes tool. The server relays `draw-shape`, but the client does not use it.
-  An earlier "shapes feature" commit exists in history.
+- Chat history: keep the last 50 messages per room in memory and send them on
+  join.
+- Shapes tool (line, rectangle, circle). The server relays `draw-shape`, but
+  the client does not use it. An earlier "shapes feature" commit exists in
+  history.
+- Fill bucket: flood fill on the canvas pixels.
+- Room passwords or private rooms. Today anyone with the 6-char code can join.
+- Smaller canvas payloads: WebP instead of PNG (about 3x smaller), to stay
+  under the 1 MB Socket.io limit.
+- Keyboard shortcuts: Ctrl+Z / Ctrl+Y, B for brush, E for eraser.
 
 ## Known limitations
 
@@ -54,8 +67,6 @@ Last updated: 2026-10-15.
   can disconnect a client with a very large or detailed canvas.
 - Undo/redo history is lost on restart or when a room empties.
 - Chat history is not stored. New joiners do not see earlier messages.
-- Chat `author` comes from the client and is not checked.
-- Socket.io CORS allows all origins.
 - Single instance only (in-memory state).
 - Kick bans use a `localStorage` ID: a private window or clearing site data
   gets around them, and they are lost when the room empties or the server

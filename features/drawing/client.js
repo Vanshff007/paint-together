@@ -247,6 +247,8 @@ downloadBtn.addEventListener('click', () => {
 });
 
 function loadCanvasState(base64) {
+    // never load a URL: it would leak the viewer's IP and taint the canvas
+    if (typeof base64 !== 'string' || !base64.startsWith('data:image/png;base64,')) return;
     const img = new Image();
     img.onload = () => {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
