@@ -43,7 +43,8 @@ WebSockets work on Render web services with no extra settings.
 1. Add the domain in Render (Settings, Custom Domains).
 2. Add the DNS record that Render shows (CNAME, or A/ALIAS for apex).
 3. Render issues the TLS certificate automatically.
-4. Optional: set the Socket.io `cors.origin` in `server.js` to the new domain.
+4. Nothing to change in the code: the Socket.io origin check compares the
+   page's origin with the request host, so it accepts the new domain.
 
 ## Rollback
 

@@ -45,12 +45,14 @@ app.get('/features/:name([a-z]+)/client.js', ...); // only client.js, from featu
 ## Socket.io
 
 ```js
-const io = socketIo(server, { cors: { origin: '*', methods: ['GET', 'POST'] } });
+const io = socketIo(server, { allowRequest });
 ```
 
 - Same origin and port as the page. The client connects with `io()` and no URL.
-- CORS allows every origin. The app does not need this because the page and
-  socket are same-origin. You can restrict it to the production domain.
+- No CORS headers are sent, and `allowRequest` (`features/origin/`) rejects
+  any browser whose `Origin` host differs from the request's `Host`. This
+  also covers WebSocket connections, which CORS does not. It works on any
+  domain (localhost, Render, a custom domain) with no configuration.
 - Default `maxHttpBufferSize` (1 MB) applies to every message. Canvas events
   (`save-undo-snapshot`, `stroke-complete`) send full PNG data URLs. A message
   larger than 1 MB closes the connection.

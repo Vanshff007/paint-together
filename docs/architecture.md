@@ -40,6 +40,7 @@ the server restarts.
 | `history` | yes | yes | Shared undo/redo. |
 | `cursors` | yes | yes | Live remote cursors. |
 | `chat` | yes | yes | Room chat. |
+| `origin` | yes | no | Socket.io `allowRequest`: only pages from this host may connect. |
 | `persistence` | yes | no | MongoDB connection (`db.js`), `Room` model, save/load, autosave. |
 | `theme` | no | yes | Dark mode, splash animation. |
 | `seo` | static files | no | `robots.txt`, `llms.txt`, `sitemap.xml`, Open Graph image, icons, manifest (served at the site root). |
