@@ -26,7 +26,9 @@ const roomSchema = new mongoose.Schema({
     },
     updatedAt: {
         type: Date,
-        default: Date.now
+        default: Date.now,
+        // TTL index: MongoDB deletes rooms not saved for 30 days
+        expires: '30d'
     },
     lastSavedAt: {
         type: Date,

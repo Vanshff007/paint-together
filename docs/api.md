@@ -18,7 +18,8 @@ screen. The client reads it. The server ignores it.
 
 ## Conventions
 
-- Room IDs: 6 uppercase alphanumeric characters (`generateRoomId()`).
+- Room IDs: 6 uppercase alphanumeric characters (`generateRoomId()`), unique
+  among live rooms and rooms saved in MongoDB.
 - User names: trimmed and truncated to 20 characters on the server.
 - Coordinates: `nx`, `ny` are normalized to `0..1` of canvas width/height.
   `ns` is brush size divided by canvas width.
@@ -32,7 +33,7 @@ screen. The client reads it. The server ignores it.
 
 | Event | Payload | Server behavior |
 |-------|---------|-----------------|
-| `create-room` | `{ userName, clientId? }` | Generates room ID, joins socket, creates `roomData` and a `Room` document. Replies `room-created`. |
+| `create-room` | `{ userName, clientId? }` | Generates a room ID not used by a live or saved room, joins socket, creates `roomData` and a `Room` document. Replies `room-created`. |
 | `join-room` | `{ roomId, userName, clientId? }` or `roomId` string | Restores room from MongoDB if not in memory. Replies `room-not-found`, `join-banned` (browser was kicked from this room), or `room-joined` + broadcasts `user-count-update`, `users-update`, `user-joined`, and sends `existing-users`. |
 | `draw` | `{ roomId, nx, ny, color, ns, tool, isStart? }` | Relays `draw` to others in room with `socketId` added. `tool` is `'brush'` or `'eraser'`. |
 | `draw-shape` | `{ roomId, ... }` | Relays `draw-shape` to others. **The current client does not send or handle this event.** |
@@ -77,21 +78,29 @@ screen. The client reads it. The server ignores it.
 
 What the server checks now:
 
-- Room-scoped handlers return early if `roomId` is missing or (for history
-  events) the room is not in `roomData`.
+- Every handler ignores a malformed payload (`null`, wrong type, missing
+  fields) instead of throwing.
+- Room-scoped handlers return early unless the sender has joined `roomId`
+  (`inRoom(socket, roomId)` from `features/rooms/server.js`). History events
+  also need the room in `roomData`.
+- `server.js` wraps every handler: an error that still gets through is logged
+  with the event name and never stops the server.
 - `kick-user` checks that the sender is host.
 - `clientId` must be a string. It is cut to 64 characters, otherwise treated as missing.
-- User names are truncated to 20 characters.
+- User names must be strings. They are trimmed and truncated to 20
+  characters. A missing, empty, or non-string name uses the default name.
 
 What the server does **not** check (keep in mind when you change handlers):
 
-- It does not check that the sender is a member of the `roomId` it sends.
 - `chat-message` `author` and `text` come from the client unchanged. The
   client limits input to 200 characters (`maxlength`) and renders with
   `textContent`. Keep rendering with `textContent`, never `innerHTML`.
 - `state` payloads are not checked for size or format.
 
 ## Rules for changing the protocol
+
+- Start every room-scoped handler with an `inRoom(socket, roomId)` check, and
+  never read a field of a payload before checking that the payload exists.
 
 - Change the emitter and the listener in the same change (the feature's
   `server.js` and the `client.js` that uses the event).

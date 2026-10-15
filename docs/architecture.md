@@ -77,7 +77,8 @@ roomData[roomId] = {
   redoStack,        // array of PNG data URLs
   pendingSnapshot,  // canvas before the stroke in progress
   hostId,           // socket.id of the current host
-  users             // { [socketId]: { name, color } }
+  users,            // { [socketId]: { name, color } }
+  dirty             // true when the canvas changed since the last MongoDB save
 }
 ```
 
@@ -118,12 +119,14 @@ full canvas image to every client in the room.
 ## Persistence flow
 
 - `create-room`: creates a `Room` document if none exists.
-- Every 30 s (`AUTOSAVE_INTERVAL_MS`): `saveRoomState()` upserts every active
-  room in `roomData`.
+- Every 30 s (`AUTOSAVE_INTERVAL_MS`): `saveRoomState()` upserts each room in
+  `roomData` whose canvas changed (`dirty`). A failed save keeps it dirty.
 - Last user leaves (`disconnecting`, count reaches 0): saves the room, then
   deletes it from `roomData`.
 - `join-room` for a room not in memory: loads it from MongoDB. The joining user
-  becomes host, because the stored `hostId` belongs to a dead socket.
+  becomes host, because the stored `hostId` belongs to a dead socket. If two
+  users join at the same time, the first restore wins.
+- MongoDB deletes rooms not saved for 30 days (TTL index).
 
 Drawing, cursor, and mousemove events **never** write to MongoDB.
 
@@ -144,4 +147,4 @@ Drawing, cursor, and mousemove events **never** write to MongoDB.
 - Canvas state is a full PNG data URL. Large canvases give large payloads. See
   "Known limitations" in `docs/progress.md`.
 - The server trusts most client input. See `docs/api.md` for which fields it
-  validates.
+  validates. Room-scoped events are accepted only from sockets in that room.

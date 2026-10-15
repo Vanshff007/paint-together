@@ -8,6 +8,7 @@ let io, socket, session;
 beforeEach(() => {
     io = createFakeIo();
     socket = createFakeSocket(io, 's1');
+    socket.join('ROOM01');
     session = { userColor: '#ec4899', currentName: 'Alice' };
     cursors.register(socket, { io, roomData: {} }, session);
 });
@@ -35,4 +36,18 @@ test('cursor-move without roomId is ignored', () => {
 test('cursor-leave hides the cursor for others', () => {
     socket.trigger('cursor-leave', 'ROOM01');
     assert.deepStrictEqual(last(socket.broadcasts, 'cursor-hide'), { room: 'ROOM01', event: 'cursor-hide', data: 's1' });
+});
+
+test('cursor events for a room the socket has not joined are ignored', () => {
+    socket.trigger('cursor-move', { roomId: 'OTHER1', nx: 0, ny: 0 });
+    socket.trigger('cursor-leave', 'OTHER1');
+    assert.strictEqual(socket.broadcasts.length, 0);
+});
+
+test('malformed cursor payloads are ignored and do not throw', () => {
+    for (const bad of [null, undefined, 5, { roomId: 5 }]) {
+        socket.trigger('cursor-move', bad);
+        socket.trigger('cursor-leave', bad);
+    }
+    assert.strictEqual(socket.broadcasts.length, 0);
 });

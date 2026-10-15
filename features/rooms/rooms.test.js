@@ -227,3 +227,86 @@ test('user joining while the final save is in flight keeps the room in memory', 
     assert.ok(ctx.roomData[roomId]);
     assert.ok(ctx.roomData[roomId].users['bob-socket']);
 });
+
+test('inRoom is true only for a joined string roomId', () => {
+    const socket = createFakeSocket(io, 's1');
+    socket.join('ROOM01');
+    assert.strictEqual(rooms.inRoom(socket, 'ROOM01'), true);
+    assert.strictEqual(rooms.inRoom(socket, 'OTHER1'), false);
+    for (const bad of [null, undefined, 5, ['ROOM01'], { roomId: 'ROOM01' }]) {
+        assert.strictEqual(rooms.inRoom(socket, bad), false);
+    }
+});
+
+test('create-room and join-room survive malformed payloads', async (t) => {
+    t.mock.method(console, 'log', () => {});
+    const alice = connect('alice-socket');
+    for (const bad of [null, undefined, 5, { userName: 5 }, { userName: { x: 1 } }, { userName: '   ' }]) {
+        await alice.trigger('create-room', bad);
+        assert.strictEqual(last(alice.emitted, 'room-created').data.userName, 'User_alic');
+    }
+
+    const bob = connect('bob-socket');
+    for (const bad of [null, undefined, 5, {}, { roomId: 5 }, { roomId: ['X'] }]) {
+        await bob.trigger('join-room', bad);
+    }
+    assert.strictEqual(bob.emitted.length, 0);
+    assert.strictEqual(bob.rooms.size, 1);
+});
+
+test('join-room with a non-string userName uses the default name', async () => {
+    const alice = connect('alice-socket');
+    const roomId = await createRoom(alice);
+    const bob = connect('bob-socket');
+    await bob.trigger('join-room', { roomId, userName: 12345 });
+    assert.strictEqual(last(bob.emitted, 'room-joined').data.userName, 'User_bob-');
+});
+
+test('kick-user survives malformed payloads and needs room membership', async (t) => {
+    t.mock.method(console, 'log', () => {});
+    const alice = connect('alice-socket');
+    const roomId = await createRoom(alice);
+    for (const bad of [null, undefined, 5, {}]) alice.trigger('kick-user', bad);
+
+    const bob = connect('bob-socket');
+    await bob.trigger('join-room', { roomId, userName: 'Bob' });
+    alice.rooms.delete(roomId); // host record says alice, but her socket left the room
+    alice.trigger('kick-user', { roomId, targetSocketId: 'bob-socket' });
+    assert.strictEqual(last(bob.emitted, 'kicked'), undefined);
+});
+
+// Math.random value whose base-36 digits start with `id` (what generateRoomId reads)
+function randomFor(id) {
+    return (parseInt(id, 36) + 0.5) / Math.pow(36, 6);
+}
+
+test('create-room never reuses a live or saved room ID', async (t) => {
+    t.mock.method(console, 'log', () => {});
+    ctx.roomData.LIVE01 = { canvasState: 'live', undoStack: [], redoStack: [], pendingSnapshot: null, hostId: 'x', users: {} };
+    db.SAVED1 = { roomId: 'SAVED1', canvasState: 'saved' };
+    const values = ['LIVE01', 'SAVED1', 'FRESH1'].map(randomFor);
+    let i = 0;
+    t.mock.method(Math, 'random', () => (i < values.length ? values[i++] : 0));
+
+    const alice = connect('alice-socket');
+    await alice.trigger('create-room', { userName: 'Alice' });
+
+    assert.strictEqual(last(alice.emitted, 'room-created').data.roomId, 'FRESH1');
+    assert.strictEqual(ctx.roomData.LIVE01.canvasState, 'live');
+    assert.strictEqual(db.SAVED1.canvasState, 'saved');
+});
+
+test('two joins restoring the same saved room at once keep the first restore', async () => {
+    db.SAVED1 = { roomId: 'SAVED1', canvasState: 'saved', hostId: 'dead' };
+    const bob = connect('bob-socket');
+    const carol = connect('carol-socket');
+    await Promise.all([
+        bob.trigger('join-room', { roomId: 'SAVED1', userName: 'Bob' }),
+        carol.trigger('join-room', { roomId: 'SAVED1', userName: 'Carol' })
+    ]);
+
+    const room = ctx.roomData.SAVED1;
+    assert.strictEqual(room.hostId, 'bob-socket');
+    assert.deepStrictEqual(Object.keys(room.users).sort(), ['bob-socket', 'carol-socket']);
+    assert.strictEqual(last(carol.emitted, 'room-joined').data.isHost, false);
+});
