@@ -1,7 +1,7 @@
 // Shortcuts feature: keyboard shortcuts for undo/redo and the drawing tools.
 // shortcutFor() also loads in Node for tests (see shortcuts.test.js).
 
-const TOOL_KEYS = { b: 'brushBtn', e: 'eraserBtn', l: 'lineBtn', r: 'rectBtn', o: 'circleBtn', f: 'fillBtn' };
+const TOOL_KEYS = { b: 'brushBtn', e: 'eraserBtn', l: 'lineBtn', r: 'rectBtn', o: 'circleBtn', f: 'fillBtn', t: 'textBtn', i: 'imageBtn' };
 
 // KeyboardEvent-like { key, ctrlKey, metaKey, shiftKey, altKey } -> id of the button to click, or null.
 // Ctrl on Windows/Linux and Cmd on macOS both work for undo/redo.

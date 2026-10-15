@@ -41,10 +41,10 @@ Last updated: 2026-10-15.
   capped at 200 characters on the server.
 - Socket.io accepts only pages from the same host (`features/origin/`).
 - Chat history: joiners get the room's last 50 messages.
-- Tools: line, rectangle, ellipse and fill bucket, synced through `draw-shape`
+- Tools: line, rectangle, ellipse, fill bucket, text and insert image, synced through `draw-shape`
   and part of the shared undo/redo (`features/tools/`).
 - Keyboard shortcuts: Ctrl/Cmd+Z, Ctrl/Cmd+Y, Ctrl/Cmd+Shift+Z, and B, E, L,
-  R, O, F for the tools; ignored while typing (`features/shortcuts/`).
+  R, O, F, T, I for the tools; ignored while typing (`features/shortcuts/`).
 - Rate limits per socket (draw, chat, cursors, canvas saves) and per IP
   (create-room, join-room); excess events are dropped (`features/ratelimit/`).
 - Chat history is saved to MongoDB with the room and restored with it.

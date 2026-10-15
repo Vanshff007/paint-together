@@ -23,6 +23,8 @@ There is no server code.
 | R | Rectangle |
 | O | Ellipse (circle tool) |
 | F | Fill |
+| T | Text |
+| I | Insert image (opens the file picker) |
 
 Letters work in upper or lower case. Any key with Alt, and letter keys with
 Ctrl or Cmd (Ctrl+F, Cmd+R, ...), are left to the browser.

@@ -286,3 +286,62 @@ test('phone: one finger draws, two fingers pinch-zoom without drawing, drawing w
 
     await closeUsers(page);
 });
+
+// pixels with any ink inside a box given as fractions of the canvas
+function inkIn(page, x1, y1, x2, y2) {
+    return page.evaluate(([a, b, c, d]) => {
+        const x = Math.floor(canvas.width * a), y = Math.floor(canvas.height * b);
+        const data = ctx.getImageData(x, y, Math.floor(canvas.width * c) - x, Math.floor(canvas.height * d) - y).data;
+        let n = 0;
+        for (let i = 3; i < data.length; i += 4) if (data[i] > 0) n++;
+        return n;
+    }, [x1, y1, x2, y2]);
+}
+
+test('text and an inserted image reach the other user', async () => {
+    const alice = await openUser();
+    const bob = await openUser();
+    const roomId = await createRoom(alice, 'Alice');
+    await joinRoom(bob, 'Bob', roomId);
+    await bob.waitForFunction(() => currentRoomId);
+
+    // text: T, click near the top-left, type, Enter
+    await alice.keyboard.press('t');
+    const box = await alice.locator('#canvas').boundingBox();
+    await alice.mouse.click(box.x + box.width * 0.05, box.y + box.height * 0.05);
+    await alice.waitForSelector('.canvas-text-input');
+    await alice.keyboard.type('Hello');
+    await alice.keyboard.press('Enter');
+    assert.strictEqual(await alice.locator('.canvas-text-input').count(), 0, 'text box closed');
+    await bob.waitForFunction(() => {
+        const d = ctx.getImageData(0, 0, Math.floor(canvas.width * 0.3), Math.floor(canvas.height * 0.2)).data;
+        for (let i = 3; i < d.length; i += 4) if (d[i] > 0) return true;
+        return false;
+    });
+    assert.ok(await inkIn(bob, 0.05, 0.05, 0.3, 0.2) > 50, 'Bob sees the text');
+
+    // image: a 400x200 blue PNG, picked through the hidden file input
+    const png = await alice.evaluate(() => {
+        const c = document.createElement('canvas');
+        c.width = 400; c.height = 200;
+        const x = c.getContext('2d');
+        x.fillStyle = '#0000ff';
+        x.fillRect(0, 0, 400, 200);
+        return c.toDataURL('image/png').split(',')[1];
+    });
+    await alice.setInputFiles('#imageInput', { name: 'blue.png', mimeType: 'image/png', buffer: Buffer.from(png, 'base64') });
+    await waitForPixel(bob, 0.5, 0.5, 'd[2] > 200 && d[0] < 40 && d[1] < 40');
+    // centered, native size (fits): 400/1280 wide, so 0.3 across is outside it
+    assert.strictEqual((await pixel(bob, 0.3, 0.5))[3], 0, 'outside the image stays empty');
+
+    // Escape cancels a text box without drawing
+    const before = await inkIn(alice, 0.6, 0.85, 0.99, 0.99);
+    await alice.keyboard.press('t');
+    await alice.mouse.click(box.x + box.width * 0.7, box.y + box.height * 0.9);
+    await alice.waitForSelector('.canvas-text-input');
+    await alice.keyboard.type('nope');
+    await alice.keyboard.press('Escape');
+    assert.strictEqual(await inkIn(alice, 0.6, 0.85, 0.99, 0.99), before);
+
+    await closeUsers(alice, bob);
+});
