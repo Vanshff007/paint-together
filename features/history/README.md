@@ -8,7 +8,7 @@ user can undo the last stroke of any user. Outside a room it is local.
 | File | Runs in | Purpose |
 |------|---------|---------|
 | `server.js` | Node | Per-room undo/redo stacks. Exports `MAX_HISTORY` (30). |
-| `client.js` | Browser | Undo/Redo buttons, Ctrl+Z / Ctrl+Y / Ctrl+Shift+Z, local stacks, button state. |
+| `client.js` | Browser | Undo/Redo buttons, local stacks, button state. Keyboard shortcuts are in `features/shortcuts/`. |
 | `history.test.js` | Node | Automated tests (`npm test`). |
 
 ## Server behavior
@@ -50,6 +50,6 @@ Manual test cases (two browser windows in one room):
 1. Draw two strokes in A. Undo in B: A's last stroke disappears in both.
 2. Redo in A: the stroke comes back in both.
 3. Undo, then draw a new stroke: Redo becomes disabled.
-4. Ctrl+Z / Ctrl+Y work like the buttons.
+4. Ctrl+Z / Ctrl+Y work like the buttons (see `features/shortcuts/`).
 5. Draw 35 strokes: only 30 undos are possible.
 6. Tap the canvas without moving: Undo state does not change.

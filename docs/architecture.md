@@ -39,6 +39,7 @@ the server restarts.
 | `drawing` | yes | yes | Canvas input, tools, colors, remote stroke layers, clear, download. |
 | `history` | yes | yes | Shared undo/redo. |
 | `tools` | no (uses `draw-shape` relay) | yes | Line, rectangle, ellipse, fill bucket. |
+| `shortcuts` | no | yes | Keyboard shortcuts for undo/redo and tools. |
 | `cursors` | yes | yes | Live remote cursors. |
 | `chat` | yes | yes | Room chat. |
 | `origin` | yes | no | Socket.io `allowRequest`: only pages from this host may connect. |

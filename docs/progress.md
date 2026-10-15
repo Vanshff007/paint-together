@@ -40,6 +40,8 @@ Last updated: 2026-10-15.
 - Chat history: joiners get the room's last 50 messages.
 - Tools: line, rectangle, ellipse and fill bucket, synced through `draw-shape`
   and part of the shared undo/redo (`features/tools/`).
+- Keyboard shortcuts: Ctrl/Cmd+Z, Ctrl/Cmd+Y, Ctrl/Cmd+Shift+Z, and B, E, L,
+  R, O, F for the tools; ignored while typing (`features/shortcuts/`).
 - Production deploy on Render.
 - SEO and link previews: `robots.txt`, `llms.txt`, `sitemap.xml`, Open Graph
   image, icons, and web app manifest (`features/seo/`).
@@ -56,7 +58,6 @@ Last updated: 2026-10-15.
 - Room passwords or private rooms. Today anyone with the 6-char code can join.
 - Smaller canvas payloads: WebP instead of PNG (about 3x smaller), to stay
   under the 1 MB Socket.io limit.
-- Keyboard shortcuts: Ctrl+Z / Ctrl+Y, B for brush, E for eraser.
 
 ## Known limitations
 
