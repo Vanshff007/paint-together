@@ -1,22 +1,26 @@
+const { inRoom } = require('../rooms/server');
+
 const MAX_HISTORY = 30;
 
 function register(socket, ctx) {
     const { io, roomData } = ctx;
 
     // Canvas before a stroke starts; becomes an undo step on stroke-complete
-    socket.on('save-undo-snapshot', ({ roomId, state }) => {
-        if (!roomId || !roomData[roomId]) return;
+    socket.on('save-undo-snapshot', (data) => {
+        const { roomId, state } = data || {};
+        if (!inRoom(socket, roomId) || !roomData[roomId]) return;
         roomData[roomId].pendingSnapshot = state;
         roomData[roomId].redoStack = [];
     });
 
     socket.on('discard-undo-snapshot', (roomId) => {
-        if (!roomId || !roomData[roomId]) return;
+        if (!inRoom(socket, roomId) || !roomData[roomId]) return;
         roomData[roomId].pendingSnapshot = null;
     });
 
-    socket.on('stroke-complete', ({ roomId, state }) => {
-        if (!roomId || !roomData[roomId]) return;
+    socket.on('stroke-complete', (data) => {
+        const { roomId, state } = data || {};
+        if (!inRoom(socket, roomId) || !roomData[roomId]) return;
         const room = roomData[roomId];
         if (room.pendingSnapshot !== null && room.pendingSnapshot !== undefined) {
             room.undoStack.push(room.pendingSnapshot);
@@ -24,6 +28,7 @@ function register(socket, ctx) {
             room.pendingSnapshot = null;
         }
         room.canvasState = state;
+        room.dirty = true;
         io.to(roomId).emit('history-update', {
             hasUndo: room.undoStack.length > 0,
             hasRedo: room.redoStack.length > 0
@@ -32,12 +37,13 @@ function register(socket, ctx) {
 
     // Undo
     socket.on('undo', (roomId) => {
-        if (!roomId || !roomData[roomId]) return;
+        if (!inRoom(socket, roomId) || !roomData[roomId]) return;
         const room = roomData[roomId];
         if (room.undoStack.length === 0) return;
         if (room.canvasState) room.redoStack.push(room.canvasState);
         const previousState = room.undoStack.pop();
         room.canvasState = previousState;
+        room.dirty = true;
         io.to(roomId).emit('canvas-restore', {
             state: previousState,
             hasUndo: room.undoStack.length > 0,
@@ -47,12 +53,13 @@ function register(socket, ctx) {
 
     // Redo
     socket.on('redo', (roomId) => {
-        if (!roomId || !roomData[roomId]) return;
+        if (!inRoom(socket, roomId) || !roomData[roomId]) return;
         const room = roomData[roomId];
         if (room.redoStack.length === 0) return;
         if (room.canvasState) room.undoStack.push(room.canvasState);
         const nextState = room.redoStack.pop();
         room.canvasState = nextState;
+        room.dirty = true;
         io.to(roomId).emit('canvas-restore', {
             state: nextState,
             hasUndo: room.undoStack.length > 0,

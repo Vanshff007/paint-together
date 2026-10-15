@@ -10,6 +10,8 @@ function createPersistence(roomData, RoomModel = Room) {
     async function saveRoomState(roomId) {
         const room = roomData[roomId];
         if (!room) return;
+        // cleared before the write, so a change during the write is saved next time
+        room.dirty = false;
         try {
             await RoomModel.findOneAndUpdate(
                 { roomId },
@@ -27,6 +29,7 @@ function createPersistence(roomData, RoomModel = Room) {
             );
         } catch (err) {
             console.error(`❌ Failed to save room ${roomId} to MongoDB:`, err);
+            room.dirty = true;
         }
     }
 
@@ -57,11 +60,11 @@ function createPersistence(roomData, RoomModel = Room) {
         }
     }
 
-    //  Autosave: every 30s, persist only the latest canvasState per active room
+    //  Autosave: every 30s, persist the latest canvasState of rooms that changed
     function startAutosave() {
         return setInterval(() => {
             Object.keys(roomData).forEach(roomId => {
-                saveRoomState(roomId);
+                if (roomData[roomId].dirty) saveRoomState(roomId);
             });
         }, AUTOSAVE_INTERVAL_MS);
     }

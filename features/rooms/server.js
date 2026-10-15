@@ -7,6 +7,17 @@ function getRoomUserCount(io, roomId) {
     return room ? room.size : 0;
 }
 
+// true only for a string roomId this socket has joined; guards every room-scoped event
+function inRoom(socket, roomId) {
+    return typeof roomId === 'string' && socket.rooms.has(roomId);
+}
+
+// trimmed name, max 20 chars; fallback when missing, empty, or not a string
+function parseName(data, fallback) {
+    const name = (data && typeof data.userName === 'string') ? data.userName.trim().substring(0, 20) : '';
+    return name || fallback;
+}
+
 // browser id from localStorage, used only for kick bans
 function parseClientId(data) {
     return (data && typeof data.clientId === 'string') ? data.clientId.substring(0, 64) : null;
@@ -26,10 +37,13 @@ function register(socket, ctx, session) {
 
     // Create a room
     socket.on('create-room', async (data) => {
-        const roomId = generateRoomId();
-        const uName  = (data && data.userName) ? data.userName.trim().substring(0, 20) : session.currentName;
+        const uName  = parseName(data, session.currentName);
         session.currentName = uName;
         socket.data.clientId = parseClientId(data);
+
+        // skip IDs used by a live room or a saved one
+        let roomId = generateRoomId();
+        while (roomData[roomId] || await persistence.loadRoom(roomId)) roomId = generateRoomId();
 
         socket.join(roomId);
 
@@ -56,15 +70,17 @@ function register(socket, ctx, session) {
 
     // Join a room
     socket.on('join-room', async (data) => {
-        const roomId = (typeof data === 'string') ? data : data.roomId;
-        const uName  = (data && data.userName) ? data.userName.trim().substring(0, 20) : session.currentName;
+        const roomId = (typeof data === 'string') ? data : (data && data.roomId);
+        if (typeof roomId !== 'string') return;
+        const uName  = parseName(data, session.currentName);
         session.currentName = uName;
         socket.data.clientId = parseClientId(data);
 
         // roomData not in memory (fresh server or room was emptied) - try MongoDB before giving up
         if (!roomData[roomId]) {
             const dbRoom = await persistence.loadRoom(roomId);
-            if (dbRoom) {
+            // another joiner may have restored it while we waited; keep theirs
+            if (dbRoom && !roomData[roomId]) {
                 roomData[roomId] = {
                     canvasState: dbRoom.canvasState || null,
                     undoStack: [],
@@ -131,8 +147,9 @@ function register(socket, ctx, session) {
     });
 
     // Host removes a user
-    socket.on('kick-user', ({ roomId, targetSocketId }) => {
-        if (!roomId || !roomData[roomId]) return;
+    socket.on('kick-user', (data) => {
+        const { roomId, targetSocketId } = data || {};
+        if (!inRoom(socket, roomId) || !roomData[roomId]) return;
         if (roomData[roomId].hostId !== socket.id) return;
         if (targetSocketId === socket.id) return;
 
@@ -203,4 +220,4 @@ function register(socket, ctx, session) {
     });
 }
 
-module.exports = { register, generateRoomId, getRoomUserCount, randomUserColor };
+module.exports = { register, inRoom, generateRoomId, getRoomUserCount, randomUserColor };

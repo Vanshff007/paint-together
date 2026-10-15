@@ -50,6 +50,17 @@ io.on('connection', (socket) => {
         currentName: `User_${socket.id.substring(0, 4)}`
     };
 
+    // safety net: a handler error is logged, never crashes the whole server
+    const on = socket.on.bind(socket);
+    socket.on = (event, handler) => on(event, (...args) => {
+        const logError = (err) => console.error(`❌ Error in '${event}' handler:`, err);
+        try {
+            Promise.resolve(handler(...args)).catch(logError);
+        } catch (err) {
+            logError(err);
+        }
+    });
+
     features.forEach(feature => feature.register(socket, ctx, session));
 });
 

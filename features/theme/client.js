@@ -37,7 +37,7 @@ if (darkToggleBtn) {
 function initAppDarkMode() {
     const darkToggleBtnApp = document.getElementById('darkToggleBtnApp');
     if (darkToggleBtnApp) {
-        darkToggleBtnApp.addEventListener('click', toggleTheme);
+        darkToggleBtnApp.onclick = toggleTheme; // not addEventListener: showApp runs on every join
     }
 }
 

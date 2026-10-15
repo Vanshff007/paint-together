@@ -29,7 +29,8 @@ Text chat for the users in a room.
 ## Tests
 
 Automated (`npm test`): relay with only `author`/`text`, no echo to sender,
-missing `roomId` ignored.
+missing `roomId` ignored, sender not in the room ignored, malformed payloads
+ignored.
 
 Manual test cases (two browser windows in one room):
 

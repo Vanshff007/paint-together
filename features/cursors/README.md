@@ -30,7 +30,8 @@ with their name.
 ## Tests
 
 Automated (`npm test`): relay with server-side color/name, latest session
-name used, missing `roomId` ignored, `cursor-leave` to `cursor-hide`.
+name used, missing `roomId` ignored, `cursor-leave` to `cursor-hide`, sender
+not in the room ignored, malformed payloads ignored.
 
 Manual test cases (two browser windows in one room):
 

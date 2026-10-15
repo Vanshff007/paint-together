@@ -68,15 +68,81 @@ test('loadRoom returns the document, or null on error', async (t) => {
     assert.strictEqual(await createPersistence({}, fakeModel({ fail: true })).loadRoom('ROOM01'), null);
 });
 
-test('autosave saves every active room each interval', (t) => {
+test('autosave saves only changed rooms, once per change', async (t) => {
     t.mock.timers.enable({ apis: ['setInterval'] });
     const model = fakeModel();
-    const roomData = { ROOM01: room(), ROOM02: room() };
+    const roomData = { ROOM01: room({ dirty: true }), ROOM02: room(), ROOM03: room({ dirty: true }) };
     const timer = createPersistence(roomData, model).startAutosave();
 
     t.mock.timers.tick(AUTOSAVE_INTERVAL_MS - 1);
     assert.strictEqual(model.calls.length, 0);
     t.mock.timers.tick(1);
-    assert.deepStrictEqual(model.calls.map(c => c[1].roomId), ['ROOM01', 'ROOM02']);
+    assert.deepStrictEqual(model.calls.map(c => c[1].roomId), ['ROOM01', 'ROOM03']);
+    assert.strictEqual(roomData.ROOM01.dirty, false);
+
+    await Promise.resolve();
+    t.mock.timers.tick(AUTOSAVE_INTERVAL_MS);
+    assert.strictEqual(model.calls.length, 2, 'unchanged rooms are not written again');
     clearInterval(timer);
+});
+
+test('a failed save keeps the room dirty so autosave retries', async (t) => {
+    t.mock.method(console, 'error', () => {});
+    const roomData = { ROOM01: room({ dirty: true }) };
+    await createPersistence(roomData, fakeModel({ fail: true })).saveRoomState('ROOM01');
+    assert.strictEqual(roomData.ROOM01.dirty, true);
+});
+
+test('Room documents expire 30 days after their last save (TTL index)', () => {
+    const Room = require('./Room');
+    const ttl = Room.schema.indexes().find(([fields]) => fields.updatedAt);
+    assert.ok(ttl, 'TTL index on updatedAt');
+    assert.strictEqual(ttl[1].expireAfterSeconds, 30 * 24 * 60 * 60);
+});
+
+// Restart test: real features wired together, a stored "database" that survives,
+// and a fresh roomData standing in for the new server process.
+test('canvas survives a server restart', async (t) => {
+    t.mock.method(console, 'log', () => {});
+    const { createFakeIo, createFakeSocket, last } = require('../fake-socket');
+    const rooms = require('../rooms/server');
+    const history = require('../history/server');
+
+    const docs = {};
+    const model = {
+        async findOne({ roomId }) { return docs[roomId] || null; },
+        async create(doc) { docs[doc.roomId] = { ...doc }; },
+        async findOneAndUpdate({ roomId }, update) { docs[roomId] = { ...docs[roomId], roomId, ...update.$set }; }
+    };
+
+    function boot() {
+        const io = createFakeIo();
+        const roomData = {};
+        const ctx = { io, roomData, persistence: createPersistence(roomData, model) };
+        return id => {
+            const socket = createFakeSocket(io, id);
+            const session = { userColor: '#000', currentName: id };
+            rooms.register(socket, ctx, session);
+            history.register(socket, ctx);
+            return socket;
+        };
+    }
+
+    // first server: draw one stroke, then everyone leaves
+    let connect = boot();
+    const alice = connect('alice');
+    await alice.trigger('create-room', { userName: 'Alice' });
+    const roomId = last(alice.emitted, 'room-created').data.roomId;
+    alice.trigger('save-undo-snapshot', { roomId, state: null });
+    alice.trigger('stroke-complete', { roomId, state: 'data:image/png;base64,DRAWN' });
+    await alice.trigger('disconnecting');
+    assert.strictEqual(docs[roomId].canvasState, 'data:image/png;base64,DRAWN');
+
+    // second server: empty memory, same database
+    connect = boot();
+    const bob = connect('bob');
+    await bob.trigger('join-room', { roomId, userName: 'Bob' });
+    const joined = last(bob.emitted, 'room-joined').data;
+    assert.strictEqual(joined.canvasState, 'data:image/png;base64,DRAWN');
+    assert.strictEqual(joined.isHost, true);
 });

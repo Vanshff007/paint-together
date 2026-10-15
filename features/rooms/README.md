@@ -13,12 +13,14 @@ host role, host hand-over, and kicking users.
 
 ## Server behavior
 
-- `create-room { userName }`: generates a 6-char ID, creates `roomData[roomId]`
+- `create-room { userName }`: generates a 6-char ID that no live room and no
+  saved room uses, creates `roomData[roomId]`
   with the creator as host, asks persistence to create the MongoDB document,
   and replies `room-created`.
 - `join-room { roomId, userName }` (or a bare `roomId` string):
   - If the room is not in memory, tries `persistence.loadRoom()`. A restored
-    room makes the joiner host, because the stored host socket is gone.
+    room makes the joiner host, because the stored host socket is gone. If two
+    users restore the same room at once, the first restore wins.
   - Unknown room: replies `room-not-found`.
   - Else replies `room-joined`, broadcasts `user-count-update`, `users-update`,
     `user-joined`, and sends `existing-users` to the joiner.
@@ -26,6 +28,10 @@ host role, host hand-over, and kicking users.
   The target's `clientId` is added to `roomData[roomId].banned`, then the
   target gets `kicked` and is disconnected after 500 ms.
 - `join-room` from a banned `clientId` gets `join-banned` and is not added.
+- Malformed payloads (`null`, non-string `roomId` or `userName`) are ignored.
+  A non-string or empty name uses the default name.
+- `inRoom(socket, roomId)` is exported for every feature: true only when
+  `roomId` is a string and the socket has joined it. `kick-user` uses it too.
 
 ## Kick ban
 
@@ -56,7 +62,14 @@ object (`{ userColor, currentName }`) is shared with the cursors feature.
   `public/core.js`) and push `/?room=<ID>` to the URL.
 - `existing-users` fills the members list and creates cursors for other users.
 - Exit and kick both reset the canvas, history, chat, members and cursors,
-  then return to the landing screen.
+  then return to the landing screen (kick uses `returnToLanding()`).
+- Reconnect: a Socket.io reconnect gives a new socket that is not in the room.
+  On `connect`, if `currentRoomId` is set, the client sends `join-room` again
+  (`rejoining = true`). On `room-joined` it stays on the app screen, replaces
+  the canvas with the server copy (anything drawn while offline is dropped),
+  and shows "🔄 Reconnected". If the room is gone (`room-not-found`, for
+  example after a server restart with no saved copy) or the browser is banned
+  (`join-banned`), it returns to the landing screen with the error.
 
 Uses globals from `public/core.js` (`socket`, `currentRoomId`, `myName`,
 `amIHost`, ...) and functions from other features (`removeCursor`,
@@ -69,7 +82,9 @@ Automated (`npm test`): room ID format, create (host, name trimming, default
 name), join (existing, bare string, unknown, restored from DB), kick rules,
 kick ban (same browser blocked, others allowed, no ban without `clientId`,
 no self-ban for the host's browser, `clientId` validation),
-host hand-over, save and cleanup on last leave.
+host hand-over, save and cleanup on last leave, `inRoom`, malformed
+payloads (create, join, kick), kick needs membership, no room ID reuse
+(live or saved), two joins restoring the same room at once.
 
 Manual test cases (two browser windows):
 
@@ -85,7 +100,14 @@ Manual test cases (two browser windows):
    and can't rejoin.". In a private window B can join (known limit).
 9. Host closes the tab: B becomes host (toast "You are now the host!").
 10. Exit: returns to landing, canvas and chat are empty.
+11. Reconnect: A and B in a room. In A's devtools run `socket.io.engine.close()`.
+    A shows "🔄 Reconnected", stays in the room, and chat and drawing still
+    work both ways.
+12. Offline changes: run `socket.disconnect()` in A, draw in B, then
+    `socket.connect()` in A: A's canvas shows B's drawing.
+13. Server restart with no saved room: both windows return to landing with
+    "Room ... not found".
 
 ## Known issues
 
-- Room IDs are not checked for collisions.
+- Strokes drawn while disconnected are lost on reconnect.

@@ -21,10 +21,10 @@ use the object that `createPersistence()` returns, through `ctx.persistence`.
 
 | Function | Behavior |
 |----------|----------|
-| `saveRoomState(roomId)` | Upserts `canvasState`, `hostId`, user names, `updatedAt`, `lastSavedAt`. No-op if the room is not in memory. |
+| `saveRoomState(roomId)` | Upserts `canvasState`, `hostId`, user names, `updatedAt`, `lastSavedAt`. Clears the room's `dirty` flag, and sets it again if the save fails. No-op if the room is not in memory. |
 | `ensureRoomDoc(roomId, hostId, userName)` | Creates the document only if it does not exist. |
 | `loadRoom(roomId)` | Returns the stored document, or `null` if missing or on error. |
-| `startAutosave()` | Every 30 s, calls `saveRoomState` for every room in `roomData`. Returns the interval handle. |
+| `startAutosave()` | Every 30 s, calls `saveRoomState` for each room in `roomData` with `dirty: true`. Returns the interval handle. |
 
 All functions catch and log database errors. A failed save never crashes the
 server.
@@ -32,7 +32,10 @@ server.
 ## When data is written
 
 - Room created (rooms feature): `ensureRoomDoc`.
-- Every 30 s: `startAutosave` (started in `server.js`).
+- Every 30 s: `startAutosave` (started in `server.js`), only for rooms whose
+  canvas changed (`stroke-complete`, `clear`, `undo`, `redo` set `dirty`).
+- Room documents expire 30 days after the last save (TTL index on
+  `updatedAt` in `Room.js`).
 - Last user leaves (rooms feature): `saveRoomState`, then the room leaves memory.
 - Never from `draw`, `cursor-move`, or other high-frequency events.
 
@@ -40,11 +43,14 @@ server.
 
 Automated (`npm test`): upsert fields (history never saved), unknown room
 no-op, error logged not thrown, create-only-if-missing, `loadRoom` null on
-error, autosave timing with mocked timers.
+error, autosave only of changed rooms with mocked timers, failed save stays
+dirty, TTL index on `updatedAt`, and a restart test (save on last leave, fresh
+memory, join restores the canvas).
 
 Manual test cases (needs a real `MONGO_URI`):
 
-1. Create a room, draw, wait 30 s: the document's `canvasState` is set.
+1. Create a room, draw, wait 30 s: the document's `canvasState` is set. Wait
+   30 s more without drawing: `lastSavedAt` does not change.
 2. Close all tabs: the room is saved and removed from memory.
 3. Restart the server, join the same code: the drawing comes back and you are host.
 4. Stop MongoDB while the app runs: errors are logged, drawing still works.
