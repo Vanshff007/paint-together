@@ -33,7 +33,7 @@ server.
 
 - Room created (rooms feature): `ensureRoomDoc`.
 - Every 30 s: `startAutosave` (started in `server.js`), only for rooms whose
-  canvas changed (`stroke-complete`, `clear`, `undo`, `redo` set `dirty`).
+  canvas changed (`op`, `canvas-state`, `clear` set `dirty`).
 - Room documents expire 30 days after the last save (TTL index on
   `updatedAt` in `Room.js`).
 - Last user leaves (rooms feature): `saveRoomState`, then the room leaves memory.

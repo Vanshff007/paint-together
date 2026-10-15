@@ -282,7 +282,7 @@ function randomFor(id) {
 
 test('create-room never reuses a live or saved room ID', async (t) => {
     t.mock.method(console, 'log', () => {});
-    ctx.roomData.LIVE01 = { canvasState: 'live', undoStack: [], redoStack: [], pendingSnapshot: null, hostId: 'x', users: {} };
+    ctx.roomData.LIVE01 = { canvasState: 'live', hostId: 'x', users: {} };
     db.SAVED1 = { roomId: 'SAVED1', canvasState: 'saved' };
     const values = ['LIVE01', 'SAVED1', 'FRESH1'].map(randomFor);
     let i = 0;

@@ -22,12 +22,14 @@ npm run test:e2e
 
 | Test | Checks |
 |------|--------|
-| two users: join, draw, chat and undo stay in sync | Create and join through the landing form, a real mouse stroke appears on the other canvas, a chat message arrives, Undo from the other user clears the stroke on both. |
+| two users: join, draw, chat and undo stay in sync | Create and join through the landing form, a real mouse stroke appears on the other canvas, a chat message arrives, the other user has nothing to undo, and the drawer's Undo clears the stroke on both. |
 | a password room needs the password | "needs a password", "Wrong password", then the right password joins. |
 | shapes and fill reach the other user | R shortcut, rectangle drag, F shortcut, red fill inside; the other user sees red inside and nothing outside. |
 | fixed canvas: same pixels on a phone and a desktop, resizing keeps them | Both canvases are 1280×800; a rectangle and fill give the same red area on a 390 px phone and a desktop; resizing the window changes no pixel; `toCanvasPos` maps the corner inside the border to 0,0. |
 | phone: one finger draws, two fingers pinch-zoom without drawing, ... | Real multi-touch through the DevTools protocol: one finger draws; a two-finger spread zooms over 2x and draws nothing; a stroke while zoomed lands on the canvas pixel under the finger. |
 | text and an inserted image reach the other user | T, click, type, Enter: the other user sees the text. A 400×200 blue PNG through the file input appears centered for the other user, with nothing outside it. Escape closes a text box without drawing. |
+| per-user undo: each user undoes only their own changes; joiners and reconnects agree | Alice draws, Bob draws, Alice draws again. Bob's Undo removes only his line. Alice undoes twice, both redo. A new joiner sees the same picture and has nothing to undo. Bob reconnects and can still undo his change. |
+| over 200 changes, the oldest are flattened into the base and the picture stays right | 205 changes at the rate limit; the server asks the sender to flatten 100, the base is set, the other user's history shrinks to match, and after an Undo everyone's redraw still shows the old strokes (from the base) and hides the undone one. About 40 s. |
 | a chat flood is cut by the rate limit; history survives in the saved room | 50 chat messages at once reach the other user as 8 (the burst). Everyone leaves, the room is saved and leaves memory; a new joiner gets the same chat history back from the saved room. |
 
 Each user is a separate browser context (own `localStorage`, so its own

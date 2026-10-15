@@ -1,6 +1,6 @@
 const { test } = require('node:test');
 const assert = require('node:assert');
-const { floodFill, hexToRgba, isValidShape, drawShape, drawText, fitImage, FILL_TOLERANCE } = require('./client');
+const { floodFill, hexToRgba, isValidShape, drawShape, drawText, fitImage, isValidOp, cleanOp, drawOp, FILL_TOLERANCE, MAX_STROKE_POINTS } = require('./client');
 
 // w x h image of one RGBA color, plus helpers to read/write pixels
 function image(w, h, rgba = [0, 0, 0, 0]) {
@@ -159,4 +159,74 @@ test('fitImage keeps the shape and only shrinks', () => {
     assert.deepStrictEqual(fitImage(3000, 1000, 768, 480), { w: 768, h: 256 });
     assert.deepStrictEqual(fitImage(100, 50, 768, 480), { w: 100, h: 50 }, 'small images keep their size');
     assert.deepStrictEqual(fitImage(10000, 1, 768, 480), { w: 768, h: 1 }, 'never 0 px');
+});
+
+// fake 2D context: records calls, keeps property values
+function recorder() {
+    const calls = [];
+    const fake = new Proxy({}, {
+        get: (t, k) => (k in t ? t[k] : (...args) => { calls.push([k, ...args]); return k === 'getImageData' ? t.__image : undefined; }),
+        set: (t, k, v) => { t[k] = v; return true; }
+    });
+    return { fake, calls };
+}
+
+const strokeOp = { type: 'stroke', points: [[0.1, 0.2], [0.3, 0.4], [0.5, 0.6]], color: '#00ff00', ns: 0.01, tool: 'brush' };
+
+test('isValidOp: strokes and shapes', () => {
+    assert.strictEqual(isValidOp(strokeOp), true);
+    assert.strictEqual(isValidOp({ ...strokeOp, tool: 'eraser' }), true);
+    assert.strictEqual(isValidOp({ type: 'shape', shape: 'fill', nx1: 0.5, ny1: 0.5, color: '#000000' }), true);
+    const tooLong = Array.from({ length: MAX_STROKE_POINTS + 1 }, () => [0.5, 0.5]);
+    for (const bad of [
+        null, 5, {}, { type: 'stroke' }, { ...strokeOp, points: [] }, { ...strokeOp, points: tooLong },
+        { ...strokeOp, points: [[0.1]] }, { ...strokeOp, points: [[0.1, 1.1]] }, { ...strokeOp, points: 'x' },
+        { ...strokeOp, tool: 'fill' }, { ...strokeOp, ns: 0 }, { ...strokeOp, color: '#fff' },
+        { type: 'shape', shape: 'rect' }, { type: 'image' }
+    ]) assert.strictEqual(isValidOp(bad), false, JSON.stringify(bad));
+});
+
+test('cleanOp keeps only known fields', () => {
+    assert.deepStrictEqual(cleanOp({ ...strokeOp, id: 9, author: 'x', by: 'y', extra: 1 }), strokeOp);
+});
+
+test('drawOp: a stroke is drawn segment by segment in canvas pixels', () => {
+    const { fake, calls } = recorder();
+    drawOp(fake, strokeOp, 1000, 500);
+    assert.deepStrictEqual(calls.filter(c => c[0] === 'moveTo')[0], ['moveTo', 100, 100]);
+    assert.deepStrictEqual(calls.filter(c => c[0] === 'lineTo').map(c => c.slice(1)), [[300, 200], [500, 300]]);
+    assert.strictEqual(calls.filter(c => c[0] === 'stroke').length, 2);
+    assert.strictEqual(fake.lineWidth, 10);
+    assert.strictEqual(fake.strokeStyle, '#00ff00');
+    const eraser = recorder();
+    drawOp(eraser.fake, { ...strokeOp, tool: 'eraser' }, 1000, 500);
+    assert.strictEqual(eraser.fake.strokeStyle, '#ffffff');
+});
+
+test('drawOp: shapes, text and images in canvas pixels', () => {
+    const shape = recorder();
+    drawOp(shape.fake, { type: 'shape', shape: 'rect', nx1: 0.1, ny1: 0.2, nx2: 0.5, ny2: 0.6, color: '#000000', ns: 0.01 }, 1000, 500);
+    assert.deepStrictEqual(shape.calls.find(c => c[0] === 'rect'), ['rect', 100, 100, 400, 200]);
+
+    const text = recorder();
+    drawOp(text.fake, { type: 'shape', shape: 'text', nx1: 0.1, ny1: 0.2, text: 'Hi', color: '#000000', ns: 0.03 }, 1000, 500);
+    assert.deepStrictEqual(text.calls.find(c => c[0] === 'fillText'), ['fillText', 'Hi', 100, 100]);
+    assert.strictEqual(text.fake.font, 'bold 30px sans-serif');
+
+    const image = recorder();
+    const op = { type: 'shape', shape: 'image', nx1: 0.1, ny1: 0.2, nx2: 0.5, ny2: 0.6, src: 'data:image/png;base64,AA' };
+    drawOp(image.fake, op, 1000, 500, 'IMG');
+    assert.deepStrictEqual(image.calls.find(c => c[0] === 'drawImage'), ['drawImage', 'IMG', 100, 100, 400, 200]);
+    const missing = recorder();
+    drawOp(missing.fake, op, 1000, 500, null);
+    assert.strictEqual(missing.calls.some(c => c[0] === 'drawImage'), false, 'a picture that failed to load is skipped');
+});
+
+test('drawOp: fill works on the context pixels', () => {
+    const { fake, calls } = recorder();
+    const data = new Uint8ClampedArray(4 * 4 * 4);
+    fake.__image = { data, width: 4, height: 4 };
+    drawOp(fake, { type: 'shape', shape: 'fill', nx1: 0, ny1: 0, color: '#ff0000' }, 4, 4);
+    assert.deepStrictEqual(Array.from(data.slice(0, 4)), [255, 0, 0, 255]);
+    assert.ok(calls.some(c => c[0] === 'putImageData'));
 });

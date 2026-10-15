@@ -27,8 +27,9 @@ is logged with `console.warn`.
 | `draw` | 400 | 250 | per socket |
 | `cursor-move` | 100 | 60 | per socket |
 | `chat-message` | 8 | 1 | per socket |
-| `save-undo-snapshot`, `stroke-complete` | 10 | 4 | per socket |
-| `draw-shape` | 20 | 10 | per socket |
+| `op` | 20 | 10 | per socket |
+| `canvas-state` | 10 | 4 | per socket |
+| `compact` | 5 | 1 | per socket |
 | anything else | 60 | 30 | per socket |
 
 Per-IP limits use `clientIp()` from `features/passwords/` (last

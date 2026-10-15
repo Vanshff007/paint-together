@@ -10,10 +10,6 @@ function register(socket, ctx) {
         }
     });
 
-    socket.on('draw-shape', (data) => {
-        if (data && inRoom(socket, data.roomId)) socket.to(data.roomId).emit('draw-shape', data);
-    });
-
     // Stroke finished; socketId tells receivers which user's layer to commit
     socket.on('mouseup', (roomId) => {
         if (inRoom(socket, roomId)) socket.to(roomId).emit('mouseup', { socketId: socket.id });
@@ -25,8 +21,7 @@ function register(socket, ctx) {
             socket.to(roomId).emit('clear');
             if (roomData[roomId]) {
                 roomData[roomId].canvasState = null;
-                roomData[roomId].undoStack   = [];
-                roomData[roomId].redoStack   = [];
+                delete roomData[roomId].history; // recreated empty (features/history)
                 roomData[roomId].dirty       = true;
             }
             io.to(roomId).emit('history-update', { hasUndo: false, hasRedo: false });

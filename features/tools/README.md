@@ -6,11 +6,13 @@ Line, rectangle and ellipse shapes, a fill bucket, text, and inserted images.
 
 | File | Runs in | Purpose |
 |------|---------|---------|
-| `client.js` | Browser (pure functions also load in Node) | Tool buttons, drag preview, flood fill, sending and drawing `draw-shape`. |
+| `client.js` | Browser (pure functions also load in Node and on the server) | Tool buttons, drag preview, flood fill, text box, image import, sending each change as an `op`; `isValidOp`, `cleanOp` and `drawOp` for the history. |
 | `tools.test.js` | Node | Automated tests for the pure functions (`npm test`). |
 
 There is no server code. The drawing feature's server already relays
-`draw-shape` to the other users in the room.
+the changes: each finished shape, fill, text or image is sent as one `op`
+(`features/history/server.js` stores and broadcasts it, and requires this
+file for `isValidOp` and `cleanOp`).
 
 ## How it hooks into drawing
 
@@ -47,12 +49,12 @@ There is no server code. The drawing feature's server already relays
   the file picker. The picture is read in the browser only, shrunk (never
   enlarged) to fit 60% of the canvas width and height (`IMAGE_MAX_SHARE`,
   `fitImage`), and placed in the center. Transparent parts become white. It is
-  sent to the room as a JPEG data URL (quality 0.85) inside `draw-shape`, so a
+  sent to the room as a JPEG data URL (quality 0.85) inside its `op`, so a
   768×480 photo is about 50 to 150 KB, well under the 1 MB message limit.
 - **Undo:** every shape, fill, text or image is one undo step. In a room the client sends
-  `save-undo-snapshot`, then `draw-shape`, then `stroke-complete` (the same
-  order as a brush stroke). Offline it uses the local undo stack.
-- **Remote:** a received `draw-shape` is checked with `isValidShape` (known
+  one `op { type: 'shape', ... }` with the full canvas (like a brush
+  stroke), and each user can undo only their own changes. Offline it uses the local undo stack.
+- **Remote:** a received `op` is checked with `isValidOp` / `isValidShape` (known
   shape, coordinates in `0..1`, `#rrggbb` color, size in `(0, 1]`; text 1 to
   100 characters; image `src` only an inline `data:image/png|jpeg|webp;base64`
   URL with a box of positive size) and drawn onto the committed image, below
@@ -65,7 +67,10 @@ There is no server code. The drawing feature's server already relays
 |----------|---------|
 | `floodFill(image, x, y, rgba, tolerance)` | Fills `{ data, width, height }` in place. Returns the number of filled pixels. |
 | `hexToRgba(hex)` | `'#rrggbb'` to `[r, g, b, 255]`. |
-| `isValidShape(data)` | Checks a `draw-shape` payload before drawing it. |
+| `isValidShape(data)` | Checks a shape payload before drawing it. |
+| `isValidOp(op)` | Checks a history change: a stroke (points, color, size, tool) or a shape. |
+| `cleanOp(op)` | Only the known fields of an op. |
+| `drawOp(ctx, op, W, H, image)` | Draws one change on a W×H canvas (strokes segment by segment, like live drawing). |
 | `drawShape(ctx, shape, x1, y1, x2, y2, color, size)` | Strokes a line, rectangle or ellipse. |
 | `drawText(ctx, text, x, y, color, fontPx)` | Bold sans-serif text with its top-left corner at `x, y`. |
 | `fitImage(w, h, maxW, maxH)` | Size that keeps the shape, only shrinks, and is never 0. |

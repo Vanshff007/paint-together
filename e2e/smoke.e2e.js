@@ -113,8 +113,9 @@ test('two users: join, draw, chat and undo stay in sync', async () => {
     await alice.press('#chatInput', 'Enter');
     await bob.waitForSelector('#chatMessages .chat-message-text:text("hello bob")', { state: 'attached' }); // popup closed: hidden but there
 
-    // Bob undoes it; both canvases are empty there again
-    await bob.click('#undoBtn');
+    // undo is per user: Bob has nothing to undo, Alice's Undo removes her stroke for both
+    assert.strictEqual(await bob.locator('#undoBtn').isDisabled(), true, 'Bob has no undo');
+    await alice.click('#undoBtn');
     await waitForPixel(alice, 0.5, 0.5, 'd[3] === 0');
     await waitForPixel(bob, 0.5, 0.5, 'd[3] === 0');
 
@@ -343,5 +344,102 @@ test('text and an inserted image reach the other user', async () => {
     await alice.keyboard.press('Escape');
     assert.strictEqual(await inkIn(alice, 0.6, 0.85, 0.99, 0.99), before);
 
+    await closeUsers(alice, bob);
+});
+
+test('per-user undo: each user undoes only their own changes; joiners and reconnects agree', async () => {
+    const alice = await openUser();
+    const bob = await openUser();
+    const roomId = await createRoom(alice, 'Alice');
+    await joinRoom(bob, 'Bob', roomId);
+    await bob.waitForFunction(() => currentRoomId);
+
+    await drag(alice, [0.1, 0.3], [0.9, 0.3]);  // Alice: line at 30%
+    await waitForPixel(bob, 0.5, 0.3, 'd[3] > 0');
+    await drag(bob, [0.1, 0.7], [0.9, 0.7]);    // Bob: line at 70%
+    await waitForPixel(alice, 0.5, 0.7, 'd[3] > 0');
+    await alice.keyboard.press('r');
+    await drag(alice, [0.4, 0.45], [0.6, 0.55]); // Alice: a rectangle, her newest change
+    await bob.waitForFunction(() => roomHistory.ops.length === 3);
+
+    // Bob's undo takes back his line only, even though Alice drew after him
+    await bob.click('#undoBtn');
+    for (const page of [alice, bob]) {
+        await waitForPixel(page, 0.5, 0.7, 'd[3] === 0');
+        assert.ok((await pixel(page, 0.5, 0.3))[3] > 0, 'Alice\'s line stays');
+        assert.ok((await pixel(page, 0.4, 0.5))[3] > 0, 'Alice\'s rectangle stays');
+    }
+
+    // Alice undoes twice: her rectangle, then her line. Bob's line stays gone.
+    await alice.click('#undoBtn');
+    await waitForPixel(bob, 0.4, 0.5, 'd[3] === 0');
+    await alice.click('#undoBtn');
+    await waitForPixel(bob, 0.5, 0.3, 'd[3] === 0');
+    assert.strictEqual(await alice.locator('#undoBtn').isDisabled(), true);
+
+    // Alice redoes her line; Bob redoes his
+    await alice.click('#redoBtn');
+    await waitForPixel(bob, 0.5, 0.3, 'd[3] > 0');
+    await bob.click('#redoBtn');
+    await waitForPixel(alice, 0.5, 0.7, 'd[3] > 0');
+
+    // a new joiner sees the same picture: both lines, no rectangle
+    const carol = await openUser();
+    await joinRoom(carol, 'Carol', roomId);
+    await carol.waitForFunction(() => roomHistory.ops.length === 3);
+    await waitForPixel(carol, 0.5, 0.3, 'd[3] > 0');
+    await waitForPixel(carol, 0.5, 0.7, 'd[3] > 0');
+    assert.strictEqual((await pixel(carol, 0.4, 0.5))[3], 0, 'undone rectangle is not drawn');
+    assert.strictEqual(await carol.locator('#undoBtn').isDisabled(), true, 'Carol has nothing to undo');
+
+    // Bob reconnects: his undo still works (it follows his browser)
+    await bob.evaluate(() => socket.io.engine.close());
+    await bob.waitForFunction(() => document.getElementById('toast').textContent.includes('Reconnected'));
+    await bob.waitForFunction(() => !document.getElementById('undoBtn').disabled);
+    await bob.click('#undoBtn');
+    await waitForPixel(carol, 0.5, 0.7, 'd[3] === 0');
+
+    // the saved canvas matches (autosave and joiners use it)
+    await alice.waitForTimeout(300);
+    const saved = app.roomData[roomId].canvasState;
+    assert.match(saved, /^data:image\/(png|webp);base64,/);
+
+    await closeUsers(alice, bob, carol);
+});
+
+test('over 200 changes, the oldest are flattened into the base and the picture stays right', async () => {
+    const alice = await openUser();
+    const bob = await openUser();
+    const roomId = await createRoom(alice, 'Alice');
+    await joinRoom(bob, 'Bob', roomId);
+    await bob.waitForFunction(() => currentRoomId);
+
+    // 205 thin horizontal strokes, one per change, at y = i / 250 (sent at the rate limit)
+    const COUNT = 205;
+    await alice.evaluate(async (count) => {
+        for (let i = 1; i <= count; i++) {
+            const y = i / 250;
+            const op = { type: 'stroke', points: [[0.1, y], [0.9, y]], color: '#000000', ns: 0.003, tool: 'brush' };
+            drawOnCommitted(c => drawOp(c, op, canvas.width, canvas.height));
+            socket.emit('op', { roomId: currentRoomId, op, state: canvasState() });
+            if (i > 15) await new Promise(r => setTimeout(r, 105)); // stay under 10 per second
+        }
+    }, COUNT);
+
+    // the server asked Alice to flatten; her answer set a new base
+    const deadline = Date.now() + 10000;
+    while (!app.roomData[roomId].history.baseState && Date.now() < deadline) await new Promise(r => setTimeout(r, 100));
+    const h = app.roomData[roomId].history;
+    assert.ok(h.baseState, 'base image set by the flatten');
+    assert.strictEqual(h.ops.length, COUNT - 100);
+    await bob.waitForFunction((n) => roomHistory.ops.length === n && roomHistory.base, COUNT - 100);
+
+    // Alice undoes her newest stroke: everyone redraws from base + remaining changes
+    await alice.click('#undoBtn');
+    const yOf = (i) => (Math.floor(800 * i / 250) + 0.5) / 800;
+    await waitForPixel(bob, 0.5, yOf(COUNT), 'd[3] === 0');
+    for (const i of [3, 50, 100, 150, 204]) {
+        assert.ok((await pixel(bob, 0.5, yOf(i)))[3] > 0, `stroke ${i} still drawn after the rebuild`);
+    }
     await closeUsers(alice, bob);
 });

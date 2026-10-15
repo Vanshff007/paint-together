@@ -49,8 +49,8 @@ Match the existing code:
 - 4-space indentation, semicolons, single quotes in JS.
 - `const` by default, `let` when reassigned, never `var`.
 - `camelCase` for variables and functions. `UPPER_SNAKE_CASE` for constants
-  (`MAX_HISTORY`, `AUTOSAVE_INTERVAL_MS`, `EMIT_THROTTLE`).
-- Socket event names use `kebab-case` (`join-room`, `stroke-complete`).
+  (`MAX_OPS`, `AUTOSAVE_INTERVAL_MS`, `EMIT_THROTTLE`).
+- Socket event names use `kebab-case` (`join-room`, `history-sync`).
 - Short section comments like `// UNDO/REDO STATE` split large files.
 - Wrap every `await` on the database in `try/catch` and log with context.
 

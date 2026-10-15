@@ -17,7 +17,8 @@ Last updated: 2026-10-15.
   drawing.
 - Two-finger pinch-zoom and pan on touch screens (`features/zoom/`).
 - Per-user remote layers, so simultaneous strokes do not merge.
-- Shared, server-side undo/redo (max 30 steps per room).
+- Per-user undo/redo in rooms: each user undoes only their own changes. The
+  server keeps the last 200 changes; older ones are flattened (not undoable).
 - Clear canvas (synced), download as PNG.
 - Live remote cursors with user name and color.
 - Live chat with unread indicator.
@@ -41,7 +42,7 @@ Last updated: 2026-10-15.
   capped at 200 characters on the server.
 - Socket.io accepts only pages from the same host (`features/origin/`).
 - Chat history: joiners get the room's last 50 messages.
-- Tools: line, rectangle, ellipse, fill bucket, text and insert image, synced through `draw-shape`
+- Tools: line, rectangle, ellipse, fill bucket, text and insert image, synced as history changes (`op`)
   and part of the shared undo/redo (`features/tools/`).
 - Keyboard shortcuts: Ctrl/Cmd+Z, Ctrl/Cmd+Y, Ctrl/Cmd+Shift+Z, and B, E, L,
   R, O, F, T, I for the tools; ignored while typing (`features/shortcuts/`).
