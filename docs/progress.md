@@ -42,6 +42,10 @@ Last updated: 2026-10-15.
   and part of the shared undo/redo (`features/tools/`).
 - Keyboard shortcuts: Ctrl/Cmd+Z, Ctrl/Cmd+Y, Ctrl/Cmd+Shift+Z, and B, E, L,
   R, O, F for the tools; ignored while typing (`features/shortcuts/`).
+- Rate limits per socket (draw, chat, cursors, canvas saves) and per IP
+  (create-room, join-room); excess events are dropped (`features/ratelimit/`).
+- Chat history is saved to MongoDB with the room and restored with it.
+- Browser smoke tests in real Chrome: `npm run test:e2e` (`e2e/`).
 - Optional room passwords: salted scrypt hash in memory and MongoDB, 5 wrong
   guesses per IP then a 30 s wait, kept in the tab's memory for reconnects
   (`features/passwords/`).
@@ -71,11 +75,10 @@ Last updated: 2026-10-15.
   WebP makes this rarer, but a dense canvas is only about 10% smaller than
   PNG, and browsers without lossless WebP still send PNG.
 - Undo/redo history is lost on restart or when a room empties.
-- Chat history (last 50 messages) is in memory only. It is lost on restart
-  or when the room empties.
 - Single instance only (in-memory state).
 - Kick bans use a `localStorage` ID: a private window or clearing site data
   gets around them, and they are lost when the room empties or the server
   restarts.
-- Browser code has no automated tests (manual test cases are in each
-  feature README).
+- Browser tests cover the main flows only (`e2e/`); the rest of the browser
+  code has manual test cases in each feature README. Browser tests run in
+  Chrome only.
