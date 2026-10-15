@@ -55,9 +55,6 @@ function register(socket, ctx, session) {
 
         roomData[roomId] = {
             canvasState: null,
-            undoStack: [],
-            redoStack: [],
-            pendingSnapshot: null,
             hostId: socket.id,
             users: {},
             passwordHash
@@ -90,9 +87,6 @@ function register(socket, ctx, session) {
             if (dbRoom && !roomData[roomId]) {
                 roomData[roomId] = {
                     canvasState: dbRoom.canvasState || null,
-                    undoStack: [],
-                    redoStack: [],
-                    pendingSnapshot: null,
                     // old hostId belonged to a socket that's long gone; the first user who gets in becomes host
                     hostId: null,
                     users: {},
@@ -142,8 +136,7 @@ function register(socket, ctx, session) {
 
         if (!roomData[roomId]) {
             roomData[roomId] = {
-                canvasState: null, undoStack: [], redoStack: [],
-                pendingSnapshot: null, hostId: socket.id, users: {}
+                canvasState: null, hostId: socket.id, users: {}
             };
         }
 
@@ -157,8 +150,6 @@ function register(socket, ctx, session) {
         socket.emit('room-joined', {
             roomId, userCount, userColor: session.userColor, userName: uName,
             canvasState: roomData[roomId].canvasState,
-            hasUndo: roomData[roomId].undoStack.length > 0,
-            hasRedo: roomData[roomId].redoStack.length > 0,
             isHost,
             hostId: roomData[roomId].hostId
         });

@@ -38,7 +38,7 @@ the server restarts.
 | `rooms` | yes | yes | Create/join/exit, landing, members, host, kick, disconnect cleanup. |
 | `drawing` | yes | yes | Canvas input, tools, colors, remote stroke layers, clear, download. |
 | `history` | yes | yes | Shared undo/redo. |
-| `tools` | no (uses `draw-shape` relay) | yes | Line, rectangle, ellipse, fill bucket, text, insert image. |
+| `tools` | no (pure op helpers used by history) | yes | Line, rectangle, ellipse, fill bucket, text, insert image. |
 | `shortcuts` | no | yes | Keyboard shortcuts for undo/redo and tools. |
 | `zoom` | no | yes | Two-finger pinch-zoom and pan on touch screens. |
 | `cursors` | yes | yes | Live remote cursors. |
@@ -79,9 +79,9 @@ All live room state is in memory, in the `roomData` object created in `server.js
 ```js
 roomData[roomId] = {
   canvasState,      // latest full canvas as a PNG or WebP data URL, or null
-  undoStack,        // array of canvas data URLs, max MAX_HISTORY (30)
-  redoStack,        // array of canvas data URLs
-  pendingSnapshot,  // canvas before the stroke in progress
+  history,          // per-user undo (features/history), created on first use:
+                    //   { baseState, ops: [{ id, author, undone, op }], nextId,
+                    //     redo: { [author]: [ids] }, compacting }
   hostId,           // socket.id of the current host (null for a restored room until someone gets in)
   passwordHash,     // scrypt 'salt:hash' for a password-protected room, or null
   users,            // { [socketId]: { name, color } }
@@ -98,8 +98,8 @@ is never persisted and is lost when a room empties or the server restarts.
 
 ## Real-time drawing flow
 
-1. On `mousedown` / `touchstart`, the client sends `save-undo-snapshot` with the
-   current canvas, then a `draw` event with `isStart: true`.
+1. On `mousedown` / `touchstart`, the client sends a `draw` event with
+   `isStart: true` and starts recording the stroke's points.
 2. During the stroke, the client sends `draw` events (throttled to one per
    `EMIT_THROTTLE` = 30 ms). Coordinates and brush size are **normalized**
    (0–1, relative to canvas width/height). Every client's canvas is
@@ -109,20 +109,33 @@ is never persisted and is lost when a room empties or the server restarts.
 4. Each receiver draws the remote stroke on a per-user offscreen canvas
    ("remote layer"). This prevents simultaneous strokes from different users
    from joining into one line.
-5. On `mouseup`, the client sends `mouseup` and `stroke-complete` (full canvas
-   as lossless WebP, or PNG). Receivers merge that user's layer into the committed canvas. The server
-   moves `pendingSnapshot` to `undoStack` and stores the new `canvasState`.
-6. The server sends `history-update` so all clients enable or disable their
-   Undo/Redo buttons.
+5. On `mouseup`, the client sends `mouseup` and `op` (the stroke's points, plus
+   the full canvas as lossless WebP or PNG). Receivers merge that user's layer
+   into the committed canvas. The server adds the op to the room history and
+   stores the new `canvasState`.
+6. The server sends each member its own `history-update`, so each Undo/Redo
+   button reflects that user's own changes.
 
-A tap with no movement sends `discard-undo-snapshot` instead, so no empty
-history entry is made.
+A tap with no movement sends no `op`, so no empty history entry is made.
+Shapes, fills, text and images are sent as one `op` each when finished.
 
 ## Undo / redo
 
-Undo/redo history is **shared per room** and kept on the server. Any user can
-undo the last stroke of any user. The server sends `canvas-restore` with the
-full canvas image to every client in the room.
+Undo/redo is **per user** (per browser, by `clientId`), kept on the server.
+
+- The room history is a base image plus a list of changes ("ops"). Every
+  change is tagged with the browser that made it.
+- Undo hides that browser's last visible change; redo shows it again. Every
+  client then redraws: base + every visible op, in order (`rebuildCanvas` in
+  the history client). The user who undid sends the redrawn canvas back
+  (`canvas-state`) for autosave and joiners.
+- Joiners ask for the history (`history-sync`) and redraw from it.
+- Over 200 ops, the server asks one client to flatten the oldest 100 into a new
+  base image (`compact-request` / `compact`). Those changes can no longer be
+  undone.
+- Clear resets the history. Offline (no room) undo uses local snapshots.
+- History is not saved to MongoDB: a restored room starts from its saved
+  canvas as the base.
 
 ## Persistence flow
 

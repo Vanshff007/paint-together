@@ -8,18 +8,21 @@ other users.
 
 | File | Runs in | Purpose |
 |------|---------|---------|
-| `server.js` | Node | Relays `draw`, `draw-shape`, `mouseup`, and handles `clear`. |
+| `server.js` | Node | Relays `draw`, `mouseup`, and handles `clear`. |
 | `client.js` | Browser | Canvas input, tools, color palette, remote stroke layers, canvas resize, download. |
 | `drawing.test.js` | Node | Automated tests (`npm test`). |
 
 ## Server behavior
 
 - `draw`: relayed to others in the room with `socketId` added.
-- `draw-shape`: relayed unchanged. The tools feature (`features/tools/`) sends
-  and draws it.
 - `mouseup`: relayed as `{ socketId }` so receivers finish the right stroke.
-- `clear`: relayed to others, resets `canvasState`, `undoStack`, `redoStack`,
-  and sends `history-update { hasUndo: false, hasRedo: false }` to the room.
+- `clear`: relayed to others, resets `canvasState` and the room history
+  (deletes `roomData[roomId].history`, recreated empty), and sends
+  `history-update { hasUndo: false, hasRedo: false }` to the room.
+- In a room, a finished stroke is sent as one `op` (its normalized points,
+  color, size, tool) with the full canvas, for per-user undo
+  (`features/history`). Very long strokes keep every second point to stay
+  under 2000.
 
 ## Client behavior
 
@@ -62,7 +65,7 @@ Uses `socket`, `currentRoomId`, `canvas`, `ctx` from `public/core.js`, and
 ## Tests
 
 Automated (`npm test`): draw relay with `socketId`, missing `roomId`,
-`draw-shape` relay, `mouseup` relay, clear resets state and marks the room
+`mouseup` relay, clear resets state and the history and marks the room
 dirty, clear on unknown room, sender not in the room ignored, malformed
 payloads ignored.
 

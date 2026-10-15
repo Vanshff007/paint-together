@@ -255,6 +255,7 @@ socket.on('disconnect', (reason) => {
 });
 
 socket.on('room-created', (data) => {
+    resetRoomHistory();
     currentRoomId  = data.roomId;
     myColor        = data.userColor;
     mySocketId     = socket.id;
@@ -275,11 +276,12 @@ socket.on('room-joined', (data) => {
     mySocketId     = socket.id;
     amIHost        = data.isHost || false;
     currentHostId  = data.hostId;
-    serverHasUndo  = data.hasUndo || false;
-    serverHasRedo  = data.hasRedo || false;
+    serverHasUndo  = false; // history-sync brings the real state
+    serverHasRedo  = false;
     updateRoomUI(data.roomId, data.userCount);
     updateUndoRedoButtons();
     requestChatHistory();
+    requestHistorySync();
     if (!rejoining) acceptPassword();
     if (rejoining) {
         rejoining = false;

@@ -23,9 +23,9 @@ const LIMITS = {
     'draw':               { burst: 400, perSecond: 250 },
     'cursor-move':        { burst: 100, perSecond: 60 },
     'chat-message':       { burst: 8,   perSecond: 1 },
-    'save-undo-snapshot': { burst: 10,  perSecond: 4 },   // full-canvas payloads
-    'stroke-complete':    { burst: 10,  perSecond: 4 },
-    'draw-shape':         { burst: 20,  perSecond: 10 }
+    'op':                 { burst: 20,  perSecond: 10 },  // one per finished change, carries a canvas image
+    'canvas-state':       { burst: 10,  perSecond: 4 },
+    'compact':            { burst: 5,   perSecond: 1 }
 };
 const DEFAULT_LIMIT = { burst: 60, perSecond: 30 };
 

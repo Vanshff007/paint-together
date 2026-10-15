@@ -10,7 +10,7 @@ beforeEach(() => {
     ctx = {
         io,
         roomData: {
-            ROOM01: { canvasState: 'png', undoStack: ['a'], redoStack: ['b'], pendingSnapshot: null, hostId: 's1', users: {} }
+            ROOM01: { canvasState: 'png', history: { ops: ['a'] }, hostId: 's1', users: {} }
         }
     };
     socket = createFakeSocket(io, 's1');
@@ -31,11 +31,6 @@ test('draw without roomId is ignored', () => {
     assert.strictEqual(socket.broadcasts.length, 0);
 });
 
-test('draw-shape is relayed unchanged', () => {
-    socket.trigger('draw-shape', { roomId: 'ROOM01', shape: 'rect' });
-    assert.deepStrictEqual(last(socket.broadcasts, 'draw-shape').data, { roomId: 'ROOM01', shape: 'rect' });
-});
-
 test('mouseup is relayed with the sender socketId', () => {
     socket.trigger('mouseup', 'ROOM01');
     assert.deepStrictEqual(last(socket.broadcasts, 'mouseup').data, { socketId: 's1' });
@@ -45,8 +40,7 @@ test('clear resets canvas and history and tells the whole room', () => {
     socket.trigger('clear', 'ROOM01');
     const room = ctx.roomData.ROOM01;
     assert.strictEqual(room.canvasState, null);
-    assert.deepStrictEqual(room.undoStack, []);
-    assert.deepStrictEqual(room.redoStack, []);
+    assert.strictEqual(room.history, undefined, 'history is recreated empty');
     assert.strictEqual(room.dirty, true);
     assert.ok(last(socket.broadcasts, 'clear'));
     assert.deepStrictEqual(last(io.emitted, 'history-update').data, { hasUndo: false, hasRedo: false });
@@ -60,7 +54,6 @@ test('clear on a room not in memory still relays and does not throw', () => {
 
 test('events for a room the socket has not joined are ignored', () => {
     socket.trigger('draw', { roomId: 'OTHER1', nx: 0, ny: 0 });
-    socket.trigger('draw-shape', { roomId: 'OTHER1' });
     socket.trigger('mouseup', 'OTHER1');
     socket.trigger('clear', 'OTHER1');
     assert.strictEqual(socket.broadcasts.length, 0);
@@ -70,7 +63,6 @@ test('events for a room the socket has not joined are ignored', () => {
 test('malformed payloads are ignored and do not throw', () => {
     for (const bad of [null, undefined, 5, 'ROOM01', { roomId: 5 }]) {
         socket.trigger('draw', bad);
-        socket.trigger('draw-shape', bad);
     }
     for (const bad of [null, undefined, 5, { roomId: 'ROOM01' }]) {
         socket.trigger('mouseup', bad);

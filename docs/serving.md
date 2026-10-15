@@ -62,7 +62,7 @@ const io = socketIo(server, { allowRequest });
   also covers WebSocket connections, which CORS does not. It works on any
   domain (localhost, Render, a custom domain) with no configuration.
 - Default `maxHttpBufferSize` (1 MB) applies to every message. Canvas events
-  (`save-undo-snapshot`, `stroke-complete`) send full-canvas data URLs
+  (`op`, `canvas-state`, `compact`) send full-canvas data URLs
   (lossless WebP where the browser supports it, else PNG). A message
   larger than 1 MB closes the connection.
 

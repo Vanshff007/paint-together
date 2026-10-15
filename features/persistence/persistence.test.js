@@ -17,7 +17,7 @@ function fakeModel({ existing = null, fail = false } = {}) {
 function room(overrides = {}) {
     return {
         canvasState: 'data:image/png;base64,AAA',
-        undoStack: ['x'], redoStack: [], pendingSnapshot: null,
+        history: { ops: [{ id: 1 }] },
         hostId: 's1',
         users: { s1: { name: 'Alice', color: '#000' }, s2: { name: 'Bob', color: '#fff' } },
         ...overrides
@@ -34,7 +34,7 @@ test('saveRoomState upserts canvas, host and user names only', async () => {
     assert.strictEqual(update.$set.canvasState, 'data:image/png;base64,AAA');
     assert.strictEqual(update.$set.hostId, 's1');
     assert.deepStrictEqual(update.$set.users, ['Alice', 'Bob']);
-    assert.strictEqual(update.$set.undoStack, undefined, 'history is never persisted');
+    assert.strictEqual(update.$set.history, undefined, 'history is never persisted');
     assert.strictEqual(update.$set.passwordHash, null);
     assert.deepStrictEqual(options, { upsert: true });
 });
@@ -134,8 +134,11 @@ test('canvas survives a server restart', async (t) => {
     const alice = connect('alice');
     await alice.trigger('create-room', { userName: 'Alice' });
     const roomId = last(alice.emitted, 'room-created').data.roomId;
-    alice.trigger('save-undo-snapshot', { roomId, state: null });
-    alice.trigger('stroke-complete', { roomId, state: 'data:image/png;base64,DRAWN' });
+    alice.trigger('op', {
+        roomId,
+        op: { type: 'stroke', points: [[0.1, 0.1], [0.2, 0.2]], color: '#000000', ns: 0.01, tool: 'brush' },
+        state: 'data:image/png;base64,DRAWN'
+    });
     await alice.trigger('disconnecting');
     assert.strictEqual(docs[roomId].canvasState, 'data:image/png;base64,DRAWN');
 

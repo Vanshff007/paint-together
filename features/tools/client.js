@@ -118,7 +118,71 @@ function drawShape(c, shape, x1, y1, x2, y2, color, size) {
     c.restore();
 }
 
-if (typeof module !== 'undefined') module.exports = { floodFill, hexToRgba, isValidShape, drawShape, drawText, fitImage, FILL_TOLERANCE, MAX_TEXT_LENGTH };
+// HISTORY CHANGES ("ops")
+// Every change in a room is kept as an op, so the canvas can be redrawn without one
+// user's undone changes (features/history). Two types:
+//   { type: 'stroke', points: [[nx, ny], ...], color, ns, tool }  brush or eraser stroke
+//   { type: 'shape', shape, nx1, ny1, ... }                       any draw-shape payload
+const MAX_STROKE_POINTS = 2000;
+const OP_KEYS = ['type', 'points', 'color', 'ns', 'tool', 'shape', 'nx1', 'ny1', 'nx2', 'ny2', 'text', 'src'];
+
+function isValidOp(op) {
+    if (!op || typeof op !== 'object') return false;
+    if (op.type === 'shape') return isValidShape(op);
+    if (op.type !== 'stroke') return false;
+    const unit = (v) => typeof v === 'number' && v >= 0 && v <= 1;
+    return Array.isArray(op.points) && op.points.length > 0 && op.points.length <= MAX_STROKE_POINTS &&
+           op.points.every(p => Array.isArray(p) && p.length === 2 && unit(p[0]) && unit(p[1])) &&
+           typeof op.color === 'string' && /^#[0-9a-f]{6}$/i.test(op.color) &&
+           typeof op.ns === 'number' && op.ns > 0 && op.ns <= 1 &&
+           (op.tool === 'brush' || op.tool === 'eraser');
+}
+
+// only the known fields of a valid op (drops anything else a client added)
+function cleanOp(op) {
+    const clean = {};
+    OP_KEYS.forEach(k => { if (op[k] !== undefined) clean[k] = op[k]; });
+    return clean;
+}
+
+// Draws one op onto a 2D context of a W x H canvas. image: the decoded picture of an image op.
+// Strokes are drawn segment by segment, exactly like live drawing.
+function drawOp(c, op, W, H, image) {
+    if (op.type === 'stroke') {
+        c.save();
+        c.lineWidth   = op.ns * W;
+        c.lineCap     = 'round';
+        c.lineJoin    = 'round';
+        c.strokeStyle = op.tool === 'eraser' ? '#ffffff' : op.color;
+        c.beginPath();
+        c.moveTo(op.points[0][0] * W, op.points[0][1] * H);
+        for (let i = 1; i < op.points.length; i++) {
+            const x = op.points[i][0] * W, y = op.points[i][1] * H;
+            c.lineTo(x, y);
+            c.stroke();
+            c.beginPath();
+            c.moveTo(x, y);
+        }
+        c.restore();
+        return;
+    }
+    const x1 = op.nx1 * W, y1 = op.ny1 * H, x2 = op.nx2 * W, y2 = op.ny2 * H;
+    if (op.shape === 'fill') {
+        const img = c.getImageData(0, 0, W, H);
+        if (floodFill(img, x1, y1, hexToRgba(op.color), FILL_TOLERANCE)) c.putImageData(img, 0, 0);
+    } else if (op.shape === 'text') {
+        drawText(c, op.text, x1, y1, op.color, op.ns * W);
+    } else if (op.shape === 'image') {
+        if (image) c.drawImage(image, x1, y1, x2 - x1, y2 - y1);
+    } else {
+        drawShape(c, op.shape, x1, y1, x2, y2, op.color, op.ns * W);
+    }
+}
+
+if (typeof module !== 'undefined') module.exports = {
+    floodFill, hexToRgba, isValidShape, drawShape, drawText, fitImage, isValidOp, cleanOp, drawOp,
+    FILL_TOLERANCE, MAX_TEXT_LENGTH, MAX_STROKE_POINTS
+};
 
 if (typeof document !== 'undefined') {
 
@@ -152,36 +216,25 @@ if (typeof document !== 'undefined') {
         y: Math.min(Math.max(p.y, 0), canvas.height)
     });
 
-    // CANVAS CHANGES (undo snapshot, commit, sync)
+    // CANVAS CHANGES (undo, commit, sync)
 
-    // Draw onto the committed image (not onto in-progress remote strokes), then show them again
-    function commitToCanvas(drawFn) {
-        if (canvasImage) ctx.putImageData(canvasImage, 0, 0);
-        else ctx.clearRect(0, 0, canvas.width, canvas.height);
-        drawFn(ctx);
-        canvasImage = ctx.getImageData(0, 0, canvas.width, canvas.height);
-        compositeRemoteLayers();
-    }
+    const commitToCanvas = drawOnCommitted; // history feature: draws below in-progress remote strokes
 
+    // offline: a local undo step; in a room the server keeps the history (one op per change)
     function beginChange() {
         restoreCanvas();
-        if (currentRoomId) socket.emit('save-undo-snapshot', { roomId: currentRoomId, state: canvasState() });
-        else saveToUndoStack();
+        if (!currentRoomId) saveToUndoStack();
     }
 
     function cancelChange() {
-        if (currentRoomId) {
-            socket.emit('discard-undo-snapshot', currentRoomId);
-        } else {
-            localUndoStack.pop();
-            updateUndoRedoButtons();
-        }
+        if (currentRoomId) return;
+        localUndoStack.pop();
+        updateUndoRedoButtons();
     }
 
     function finishChange(payload) {
         if (!currentRoomId) return;
-        socket.emit('draw-shape', { roomId: currentRoomId, ...payload });
-        socket.emit('stroke-complete', { roomId: currentRoomId, state: canvasState() });
+        socket.emit('op', { roomId: currentRoomId, op: { type: 'shape', ...payload }, state: canvasState() });
     }
 
     function fillAt(c, x, y, color) {
@@ -369,26 +422,8 @@ if (typeof document !== 'undefined') {
         img.src = url;
     });
 
-    // REMOTE SHAPES AND FILLS
-
-    socket.on('draw-shape', (data) => {
-        if (!isValidShape(data)) return;
-        const a = fromNorm(data.nx1, data.ny1);
-        if (data.shape === 'image') {
-            const b = fromNorm(data.nx2, data.ny2);
-            const img = new Image();
-            img.onload = () => commitToCanvas(c => c.drawImage(img, a.x, a.y, b.x - a.x, b.y - a.y));
-            img.src = data.src;
-            return;
-        }
-        if (data.shape === 'text') {
-            commitToCanvas(c => drawText(c, data.text, a.x, a.y, data.color, denormSize(data.ns)));
-        } else if (data.shape === 'fill') {
-            commitToCanvas(c => fillAt(c, a.x, a.y, data.color));
-        } else {
-            const b = fromNorm(data.nx2, data.ny2);
-            commitToCanvas(c => drawShape(c, data.shape, a.x, a.y, b.x, b.y, data.color, denormSize(data.ns)));
-        }
-        if (shapeStart && shapeEnd) pointerMove(shapeEnd); // the commit wiped the local preview
+    // a remote change was drawn (features/history), which wiped the local shape preview
+    socket.on('op', () => {
+        if (shapeStart && shapeEnd) pointerMove(shapeEnd);
     });
 }

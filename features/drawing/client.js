@@ -221,6 +221,7 @@ clearBtn.addEventListener('click', () => {
     canvasImage = null;
     if (currentRoomId) {
         socket.emit('clear', currentRoomId);
+        resetRoomHistory();
     } else {
         localRedoStack = [];
         updateUndoRedoButtons();
@@ -404,8 +405,8 @@ canvas.addEventListener('touchstart', (e) => {
     if (!currentRoomId) {
         saveToUndoStack();
     } else {
-        socket.emit('save-undo-snapshot', { roomId: currentRoomId, state: canvasState() });
         const _n = toNorm(pos.x, pos.y);
+        strokeOp = { type: 'stroke', points: [[_n.nx, _n.ny]], color: currentColor, ns: normSize(currentBrushSize), tool: currentTool };
         socket.emit('draw', { nx: _n.nx, ny: _n.ny, color: currentColor, ns: normSize(currentBrushSize), tool: currentTool, isStart: true, roomId: currentRoomId });
     }
 }, { passive: false });
@@ -425,6 +426,7 @@ canvas.addEventListener('touchmove', (e) => {
     lastX = pos.x; lastY = pos.y;
     if (currentRoomId) {
         const _n = toNorm(pos.x, pos.y);
+        addStrokePoint(_n);
         socket.emit('draw', { nx: _n.nx, ny: _n.ny, color: currentColor, ns: normSize(currentBrushSize), tool: currentTool, roomId: currentRoomId });
         const now = Date.now();
         if (now - lastEmitTime > EMIT_THROTTLE) {
@@ -452,6 +454,19 @@ canvas.addEventListener('touchcancel', (e) => {
 
 // DRAWING FUNCTIONS
 
+// In a room, the stroke in progress as a history change (features/history)
+let strokeOp = null;
+
+function addStrokePoint(n) {
+    if (!strokeOp) return;
+    strokeOp.points.push([n.nx, n.ny]);
+    // very long stroke: keep every second point so it stays under MAX_STROKE_POINTS
+    if (strokeOp.points.length >= MAX_STROKE_POINTS) {
+        const last = strokeOp.points.length - 1;
+        strokeOp.points = strokeOp.points.filter((p, i) => i % 2 === 0 || i === last);
+    }
+}
+
 function startDrawing(e) {
     hasDrawnInStroke = false;
     isDrawing  = true;
@@ -467,8 +482,8 @@ function startDrawing(e) {
     if (!currentRoomId) {
         saveToUndoStack();
     } else {
-        socket.emit('save-undo-snapshot', { roomId: currentRoomId, state: canvasState() });
         const _n = toNorm(pos.x, pos.y);
+        strokeOp = { type: 'stroke', points: [[_n.nx, _n.ny]], color: currentColor, ns: normSize(currentBrushSize), tool: currentTool };
         socket.emit('draw', { nx: _n.nx, ny: _n.ny, color: currentColor, ns: normSize(currentBrushSize), tool: currentTool, isStart: true, roomId: currentRoomId });
     }
 }
@@ -484,6 +499,7 @@ function draw(e) {
     lastX = pos.x; lastY = pos.y;
     if (currentRoomId) {
         const _n = toNorm(pos.x, pos.y);
+        addStrokePoint(_n);
         socket.emit('draw', { nx: _n.nx, ny: _n.ny, color: currentColor, ns: normSize(currentBrushSize), tool: currentTool, roomId: currentRoomId });
     }
 }
@@ -491,19 +507,19 @@ function draw(e) {
 function stopDrawing() {
     if (!isDrawing) return;
     isDrawing = false;
+    const op = strokeOp;
+    strokeOp = null;
     if (!hasDrawnInStroke) {
-        if (currentRoomId) {
-            socket.emit('discard-undo-snapshot', currentRoomId);
-        } else {
+        if (!currentRoomId) {
             localUndoStack.pop();
             updateUndoRedoButtons();
         }
         return;
     }
     canvasImage = ctx.getImageData(0, 0, canvas.width, canvas.height);
-    if (currentRoomId) {
+    if (currentRoomId && op) {
         socket.emit('mouseup', currentRoomId);
-        socket.emit('stroke-complete', { roomId: currentRoomId, state: canvasState() });
+        socket.emit('op', { roomId: currentRoomId, op, state: canvasState() });
     }
     if (currentTool === 'eraser' && showCursor) showCursorPreview();
 }
