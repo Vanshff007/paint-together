@@ -36,7 +36,7 @@ screen. The client reads it. The server ignores it.
 | `create-room` | `{ userName, clientId? }` | Generates a room ID not used by a live or saved room, joins socket, creates `roomData` and a `Room` document. Replies `room-created`. |
 | `join-room` | `{ roomId, userName, clientId? }` or `roomId` string | Restores room from MongoDB if not in memory. Replies `room-not-found`, `join-banned` (browser was kicked from this room), or `room-joined` + broadcasts `user-count-update`, `users-update`, `user-joined`, and sends `existing-users`. |
 | `draw` | `{ roomId, nx, ny, color, ns, tool, isStart? }` | Relays `draw` to others in room with `socketId` added. `tool` is `'brush'` or `'eraser'`. |
-| `draw-shape` | `{ roomId, ... }` | Relays `draw-shape` to others. **The current client does not send or handle this event.** |
+| `draw-shape` | `{ roomId, shape, nx1, ny1, nx2?, ny2?, color, ns? }` | Relays `draw-shape` to others unchanged. `shape` is `'line'`, `'rect'`, `'circle'` (ellipse in the box) or `'fill'` (flood fill at `nx1, ny1`; no `nx2`, `ny2`, `ns`). Sent by the tools feature, followed by `stroke-complete`. Receivers check every field (`isValidShape`) before drawing. |
 | `save-undo-snapshot` | `{ roomId, state }` | Stores `pendingSnapshot`, clears `redoStack`. Ignored unless `state` is a PNG data URL or `null`. |
 | `discard-undo-snapshot` | `roomId` | Clears `pendingSnapshot`. |
 | `stroke-complete` | `{ roomId, state }` | Pushes `pendingSnapshot` to `undoStack` (max 30), sets `canvasState`. Broadcasts `history-update`. Ignored unless `state` is a PNG data URL. |

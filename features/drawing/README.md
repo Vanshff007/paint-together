@@ -15,7 +15,8 @@ other users.
 ## Server behavior
 
 - `draw`: relayed to others in the room with `socketId` added.
-- `draw-shape`: relayed unchanged. The current client does not use it.
+- `draw-shape`: relayed unchanged. The tools feature (`features/tools/`) sends
+  and draws it.
 - `mouseup`: relayed as `{ socketId }` so receivers finish the right stroke.
 - `clear`: relayed to others, resets `canvasState`, `undoStack`, `redoStack`,
   and sends `history-update { hasUndo: false, hasRedo: false }` to the room.
