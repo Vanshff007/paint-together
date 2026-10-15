@@ -17,9 +17,10 @@ Text chat for the users in a room.
   nobody can post as someone else. `text` must be a string; it is trimmed
   and cut to 200 characters (`MAX_MESSAGE_LENGTH`), and empty text is dropped. The sender is not echoed; the client renders its own
   message locally.
-- The last 50 messages (`MAX_CHAT_HISTORY`) are kept in memory as
-  `roomData[roomId].chat`. They are lost on restart or when the room empties
-  (not saved to MongoDB).
+- The last 50 messages (`MAX_CHAT_HISTORY`) are kept as
+  `roomData[roomId].chat`. A message marks the room `dirty`, so autosave
+  writes the history to MongoDB (`chat` field) with the canvas, and a
+  restored room brings it back.
 - `chat-history roomId` (sender must be in the room): replies `chat-history`
   with `[{ author, text }]`, oldest first.
 
@@ -59,4 +60,5 @@ Manual test cases (two browser windows in one room):
 
 ## Known issues
 
-- History is in memory only: lost on restart or when the room empties.
+- Messages from the last autosave interval (up to 30 s) are lost if the
+  server crashes. A normal last-user-leaves save keeps them.

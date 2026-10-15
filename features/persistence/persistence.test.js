@@ -158,3 +158,21 @@ test('the password hash is saved with the room and on creation', async () => {
     await createPersistence({}, fresh).ensureRoomDoc('ROOM02', 's1', 'Alice', 'salt:hash');
     assert.strictEqual(fresh.calls[1][1].passwordHash, 'salt:hash');
 });
+
+test('chat history is saved with the room', async () => {
+    const model = fakeModel();
+    const chat = [{ author: 'Alice', text: 'hi' }];
+    await createPersistence({ ROOM01: room({ chat }) }, model).saveRoomState('ROOM01');
+    assert.deepStrictEqual(model.calls[0][2].$set.chat, chat);
+
+    const empty = fakeModel();
+    await createPersistence({ ROOM01: room() }, empty).saveRoomState('ROOM01');
+    assert.deepStrictEqual(empty.calls[0][2].$set.chat, []);
+});
+
+test('Room schema stores chat as plain { author, text } entries', () => {
+    const Room = require('./Room');
+    const doc = new Room({ roomId: 'ROOM01', chat: [{ author: 'Alice', text: 'hi', extra: 'dropped' }] });
+    assert.deepStrictEqual(doc.toObject().chat, [{ author: 'Alice', text: 'hi' }]);
+    assert.deepStrictEqual(new Room({ roomId: 'ROOM02' }).toObject().chat, []);
+});

@@ -42,6 +42,14 @@ app.get('/features/:name([a-z]+)/client.js', ...); // only client.js, from featu
   (`/socket.io/socket.io.js`, `/features/<name>/client.js`).
 - No caching headers, compression, or build step are configured.
 
+## Startup
+
+`server.js` exports `createServer(RoomModel)`, which builds the Express app,
+Socket.io and all features without listening. Only when run directly
+(`node server.js`) does it start autosave, connect MongoDB and listen on
+`PORT`. The browser tests (`e2e/`) call `createServer()` with an in-memory
+Room model.
+
 ## Socket.io
 
 ```js

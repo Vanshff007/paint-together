@@ -20,6 +20,7 @@ function createPersistence(roomData, RoomModel = Room) {
                         canvasState: room.canvasState,
                         hostId: room.hostId,
                         passwordHash: room.passwordHash || null,
+                        chat: room.chat || [],
                         users: Object.values(room.users).map(u => u.name),
                         updatedAt: new Date(),
                         lastSavedAt: new Date()

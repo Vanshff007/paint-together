@@ -83,6 +83,7 @@ and join with the room code.
 | `npm start` | Start the server |
 | `npm run dev` | Start with auto-restart (nodemon) |
 | `npm test` | Run all tests (no database needed) |
+| `npm run test:e2e` | Browser tests in headless Chrome (needs Chrome installed) |
 
 ## 📚 Documentation
 

@@ -23,6 +23,7 @@ Collection: `rooms` (Mongoose default for model `Room`).
 | `roomId` | String | — | Required, unique index. 6-char uppercase ID. |
 | `canvasState` | Mixed | `null` | PNG or WebP data URL string of the full canvas, or `null`. |
 | `hostId` | String | `null` | Socket ID of the host at last save. Not valid after restart. |
+| `chat` | [{ author, text }] | `[]` | Last 50 chat messages. Saved on every save, restored with the room. |
 | `passwordHash` | String | `null` | `salt:hash` (hex, scrypt) for a password-protected room, or `null`. Set on create, saved on every save. |
 | `users` | [String] | `[]` | Display names at last save. Snapshot only. |
 | `createdAt` | Date | `Date.now` | Set on insert. |

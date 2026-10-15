@@ -42,6 +42,7 @@ the server restarts.
 | `shortcuts` | no | yes | Keyboard shortcuts for undo/redo and tools. |
 | `cursors` | yes | yes | Live remote cursors. |
 | `chat` | yes | yes | Room chat. |
+| `ratelimit` | yes | no | Socket.io middleware: drops events over a per-socket or per-IP rate. Registered first. |
 | `origin` | yes | no | Socket.io `allowRequest`: only pages from this host may connect. |
 | `passwords` | yes (helpers for rooms) | no | Room password hashing, checking, wrong-guess limit. |
 | `persistence` | yes | no | MongoDB connection (`db.js`), `Room` model, save/load, autosave. |

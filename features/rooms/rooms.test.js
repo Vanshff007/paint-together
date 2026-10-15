@@ -416,3 +416,11 @@ test('a room that leaves memory during the password check is reported as not fou
     assert.strictEqual(last(bob.emitted, 'room-not-found').data, roomId);
     assert.strictEqual(bob.rooms.has(roomId), false);
 });
+
+test('a restored room brings back its chat history', async (t) => {
+    t.mock.method(console, 'log', () => {});
+    db.SAVED1 = { roomId: 'SAVED1', canvasState: null, chat: [{ author: 'Alice', text: 'hi', _id: 'x' }] };
+    const bob = connect('bob-socket');
+    await bob.trigger('join-room', { roomId: 'SAVED1', userName: 'Bob' });
+    assert.deepStrictEqual(ctx.roomData.SAVED1.chat, [{ author: 'Alice', text: 'hi' }]);
+});

@@ -90,6 +90,12 @@ What the server checks now:
   also need the room in `roomData`.
 - `server.js` wraps every handler: an error that still gets through is logged
   with the event name and never stops the server.
+- Every client event passes a rate limit first (`features/ratelimit/`).
+  Events over the limit are dropped silently. Per socket: `draw` 250/s,
+  `cursor-move` 60/s, `chat-message` 1/s, `save-undo-snapshot` and
+  `stroke-complete` 4/s, `draw-shape` 10/s, others 30/s, each with a burst.
+  Per IP (shared by all sockets of that IP): `create-room` 1 per 30 s after a
+  burst of 10, `join-room` 1/s after 20.
 - `kick-user` checks that the sender is host.
 - `clientId` must be a string. It is cut to 64 characters, otherwise treated as missing.
 - Canvas `state` must start with `data:image/png;base64,` or

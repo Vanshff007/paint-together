@@ -27,6 +27,7 @@ cp .env.example .env
 | `npm start` | `node server.js`. Production-style run. |
 | `npm run dev` | `nodemon server.js`. Restarts on server file changes. |
 | `npm test` | `node --test`. Runs every `features/**/*.test.js`. No MongoDB needed. |
+| `npm run test:e2e` | Browser tests in `e2e/`: two headless Chrome windows against the real server code (needs Chrome installed, no MongoDB). See `e2e/README.md`. |
 
 Open `http://localhost:3000`.
 
@@ -47,8 +48,8 @@ For phones on the same network, open `http://<your-LAN-IP>:3000`.
 
 ## Tests
 
-Tests use Node's built-in runner (`node:test`, `node:assert`). There are
-no test dependencies.
+Tests use Node's built-in runner (`node:test`, `node:assert`). The only
+test dependency is `playwright-core`, for the browser tests.
 
 - Each feature has `features/<name>/<name>.test.js`.
 - Server handlers are tested with `features/fake-socket.js`: fake `io` and
@@ -57,8 +58,10 @@ no test dependencies.
 - Persistence is tested with a fake Mongoose model, so tests never touch a
   database.
 - Timers (`setTimeout`, `setInterval`) are tested with `t.mock.timers`.
-- Browser code has no automated tests. Each feature `README.md` has manual
-  test cases. Run them with the multiplayer steps above.
+- Browser code: `npm run test:e2e` runs smoke tests in real Chrome (join,
+  draw, chat, undo, passwords, shapes and fill; see `e2e/README.md`). They
+  use `createServer()` from `server.js` with an in-memory Room model. Each
+  feature `README.md` also has manual test cases for the rest.
 
 ## Debugging
 

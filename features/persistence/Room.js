@@ -16,6 +16,11 @@ const roomSchema = new mongoose.Schema({
         type: String,
         default: null
     },
+    // last 50 chat messages (features/chat), so a restored room keeps its conversation
+    chat: {
+        type: [{ _id: false, author: String, text: String }],
+        default: []
+    },
     // salted scrypt hash "salt:hash" (features/passwords), null for an open room
     passwordHash: {
         type: String,
