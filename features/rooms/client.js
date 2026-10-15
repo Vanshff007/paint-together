@@ -218,8 +218,17 @@ exitRoomBtn.addEventListener('click', () => {
 
 // SOCKET EVENTS
 
+// true while joining currentRoomId again after a reconnect
+let rejoining = false;
+
 socket.on('connect', () => {
     mySocketId = socket.id;
+    // a reconnect gives a new socket that is not in the room yet; join it again
+    if (currentRoomId) {
+        rejoining = true;
+        Object.keys(remoteCursors).forEach(id => removeCursor(id));
+        socket.emit('join-room', { roomId: currentRoomId, userName: myName, clientId });
+    }
 });
 
 socket.on('disconnect', (reason) => {
@@ -252,6 +261,18 @@ socket.on('room-joined', (data) => {
     serverHasRedo  = data.hasRedo || false;
     updateRoomUI(data.roomId, data.userCount);
     updateUndoRedoButtons();
+    if (rejoining) {
+        rejoining = false;
+        // the server copy wins over anything drawn while offline
+        if (data.canvasState) {
+            loadCanvasState(data.canvasState);
+        } else {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            canvasImage = null;
+        }
+        showToast('🔄 Reconnected');
+        return;
+    }
     showApp();
     setTimeout(() => {
         showToast(`🚪 Joined room ${data.roomId}`);
@@ -260,11 +281,13 @@ socket.on('room-joined', (data) => {
 });
 
 socket.on('join-banned', (roomId) => {
+    if (rejoining) returnToLanding();
     showLandingError(`You were removed from room "${roomId}" and can't rejoin.`);
     window.history.pushState({}, '', '/');
 });
 
 socket.on('room-not-found', (roomId) => {
+    if (rejoining) returnToLanding();
     showLandingError(`Room "${roomId}" not found. Check the code!`);
     window.history.pushState({}, '', '/');
 });
@@ -306,6 +329,12 @@ socket.on('host-changed', (data) => {
 
 socket.on('kicked', () => {
     wasKicked = true;
+    returnToLanding('✕ You were kicked from the room');
+});
+
+// leave the room screen; message (optional) shows as a toast on the landing screen
+function returnToLanding(message) {
+    rejoining = false;
     currentRoomId = null;
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     canvasImage = null;
@@ -322,9 +351,9 @@ socket.on('kicked', () => {
         landingScreen.style.display = 'flex';
         landingScreen.classList.remove('fade-out');
         animateSplash();
-        showToast('✕ You were kicked from the room', 4000);
+        if (message) showToast(message, 4000);
     }, 400);
-});
+}
 
 socket.on('existing-users', (users) => {
     roomUsersCache = { ...users };

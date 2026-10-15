@@ -1,6 +1,6 @@
 # Progress
 
-Last updated: 2026-09-28.
+Last updated: 2026-10-15.
 
 ## Completed
 
@@ -21,11 +21,17 @@ Last updated: 2026-09-28.
 - Members list, host role, host hand-over, host can kick users. Kicked
   browsers cannot rejoin the same room (per-browser ID, in memory).
 - Copy room link, exit room.
-- MongoDB persistence (**in progress**, commit "Auto save feature started
-  building"):
+- MongoDB persistence:
   - `Room` model and `connectDB()`.
-  - Autosave every 30 s, save on last user leave.
+  - Autosave every 30 s of rooms that changed, save on last user leave.
   - Restore canvas from MongoDB when someone joins a room not in memory.
+  - Rooms expire 30 days after their last save (TTL index).
+  - Automated restart test (fake model). Not yet run against a real MongoDB.
+- Server hardening: malformed payloads are ignored, a handler error is logged
+  and never crashes the server, room events need room membership, room IDs
+  never collide.
+- Reconnect: after a Socket.io reconnect the client joins its room again and
+  loads the server's canvas.
 - Production deploy on Render.
 - SEO and link previews: `robots.txt`, `llms.txt`, `sitemap.xml`, Open Graph
   image, icons, and web app manifest (`features/seo/`).
@@ -34,7 +40,8 @@ Last updated: 2026-09-28.
 
 ## In progress / pending
 
-- Finish and test the autosave feature, including a restart test.
+- Run the persistence manual tests (`features/persistence/README.md`)
+  against a real MongoDB, including a real server restart.
 
 ## Planned / ideas
 
@@ -47,11 +54,8 @@ Last updated: 2026-09-28.
   can disconnect a client with a very large or detailed canvas.
 - Undo/redo history is lost on restart or when a room empties.
 - Chat history is not stored. New joiners do not see earlier messages.
-- The server does not check that a socket is a member of the `roomId` it sends
-  events for.
 - Chat `author` comes from the client and is not checked.
 - Socket.io CORS allows all origins.
-- Room IDs are random and are not checked for collisions.
 - Single instance only (in-memory state).
 - Kick bans use a `localStorage` ID: a private window or clearing site data
   gets around them, and they are lost when the room empties or the server
