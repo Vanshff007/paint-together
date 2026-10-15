@@ -8,7 +8,7 @@ with their name.
 | File | Runs in | Purpose |
 |------|---------|---------|
 | `server.js` | Node | Relays `cursor-move` and `cursor-leave`. |
-| `client.js` | Browser | Creates, moves, and removes cursor elements in `#cursorOverlay`. |
+| `client.js` | Browser | Creates, moves, and removes cursor elements in `#cursorOverlay` (inside `#canvasFrame`, over the canvas without its border, so cursors follow zoom). |
 | `cursors.test.js` | Node | Automated tests (`npm test`). |
 
 ## Server behavior

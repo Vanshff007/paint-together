@@ -119,16 +119,6 @@ function getRemoteLayer(socketId) {
     return remoteLayerState[socketId];
 }
 
-// Resize all remote layers when main canvas resizes
-function resizeRemoteLayers(w, h) {
-    Object.values(remoteLayerState).forEach(layer => {
-        // Snapshot, resize, redraw
-        const snap = layer.ctx.getImageData(0, 0, layer.canvas.width, layer.canvas.height);
-        layer.canvas.width  = w;
-        layer.canvas.height = h;
-        // Don't restore snap — on resize strokes are lost anyway (same as main canvas)
-    });
-}
 
 // Composite all remote layers onto the main canvas on top of committed pixels
 function compositeRemoteLayers() {
@@ -286,66 +276,53 @@ function loadCanvasState(base64) {
     const img = new Image();
     img.onload = () => {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
-        ctx.drawImage(img, 0, 0);
+        // states saved before the fixed size (other sizes) are scaled to fit
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
         canvasImage = ctx.getImageData(0, 0, canvas.width, canvas.height);
     };
     img.src = base64;
 }
 
-// CANVAS RESIZE
+// CANVAS SIZE
+// The drawing is always CANVAS_WIDTH x CANVAS_HEIGHT pixels (set in index.html), the same
+// for every user. CSS only scales the frame to the largest 16:10 box that fits, so
+// resizing the window never touches the pixels.
 
-function syncCanvasResolution() {
-    const rect     = canvas.getBoundingClientRect();
-    const displayW = Math.floor(rect.width);
-    const displayH = Math.floor(rect.height);
+const CANVAS_WIDTH  = canvas.width;
+const CANVAS_HEIGHT = canvas.height;
+const canvasFrame   = document.getElementById('canvasFrame');
 
-    // Skip if canvas has no size yet (not visible / not in DOM)
-    if (displayW <= 0 || displayH <= 0) return;
-    if (canvas.width === displayW && canvas.height === displayH) return;
-
-    const snapshot = canvas.width > 0 && canvas.height > 0
-        ? ctx.getImageData(0, 0, canvas.width, canvas.height)
-        : null;
-
-    canvas.width  = displayW;
-    canvas.height = displayH;
-    resizeRemoteLayers(displayW, displayH);
-
-    if (snapshot) {
-        const tmpCanvas = document.createElement('canvas');
-        tmpCanvas.width  = snapshot.width;
-        tmpCanvas.height = snapshot.height;
-        tmpCanvas.getContext('2d').putImageData(snapshot, 0, 0);
-        ctx.drawImage(tmpCanvas, 0, 0, displayW, displayH);
-        canvasImage = ctx.getImageData(0, 0, displayW, displayH);
-    }
+function fitCanvasFrame() {
+    const box    = canvasFrame.parentElement;
+    const style  = getComputedStyle(box);
+    const border = 2 * (canvas.clientLeft || 3);
+    const w = box.clientWidth  - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight)  - border;
+    const h = box.clientHeight - parseFloat(style.paddingTop)  - parseFloat(style.paddingBottom) - border;
+    if (w <= 0 || h <= 0) return;
+    const scale = Math.min(w / CANVAS_WIDTH, h / CANVAS_HEIGHT);
+    canvasFrame.style.width  = `${Math.floor(CANVAS_WIDTH  * scale) + border}px`;
+    canvasFrame.style.height = `${Math.floor(CANVAS_HEIGHT * scale) + border}px`;
 }
 
-window.addEventListener('load', syncCanvasResolution);
-const canvasResizeObserver = new ResizeObserver(() => syncCanvasResolution());
-canvasResizeObserver.observe(canvas);
+new ResizeObserver(fitCanvasFrame).observe(canvasFrame.parentElement);
 
 // COORDINATES
 
-function getMousePos(e) {
-    const rect   = canvas.getBoundingClientRect();
-    const scaleX = canvas.width  / rect.width;
-    const scaleY = canvas.height / rect.height;
+// Screen point -> canvas pixel. Measures inside the border, and works while the
+// frame is pinch-zoomed (getBoundingClientRect includes the CSS transform).
+function toCanvasPos(clientX, clientY) {
+    const rect = canvas.getBoundingClientRect();
+    const zoom = rect.width / canvas.offsetWidth; // 1 unless pinch-zoomed
+    const left = rect.left + canvas.clientLeft * zoom;
+    const top  = rect.top  + canvas.clientTop  * zoom;
     return {
-        x: (e.clientX - rect.left) * scaleX,
-        y: (e.clientY - rect.top)  * scaleY
+        x: (clientX - left) * canvas.width  / (canvas.clientWidth  * zoom),
+        y: (clientY - top)  * canvas.height / (canvas.clientHeight * zoom)
     };
 }
 
-function getTouchPos(touch) {
-    const rect   = canvas.getBoundingClientRect();
-    const scaleX = canvas.width  / rect.width;
-    const scaleY = canvas.height / rect.height;
-    return {
-        x: (touch.clientX - rect.left) * scaleX,
-        y: (touch.clientY - rect.top)  * scaleY
-    };
-}
+function getMousePos(e)     { return toCanvasPos(e.clientX, e.clientY); }
+function getTouchPos(touch) { return toCanvasPos(touch.clientX, touch.clientY); }
 
 function toNorm(x, y)     { return { nx: x / canvas.width, ny: y / canvas.height }; }
 function fromNorm(nx, ny) { return { x: nx * canvas.width,  y: ny * canvas.height }; }

@@ -23,8 +23,18 @@ other users.
 
 ## Client behavior
 
-- Coordinates and brush size are sent normalized (`nx`, `ny`, `ns` in
-  `0..1`), so users with different canvas sizes see strokes in the same place.
+- The canvas is always 1280×800 pixels (`width`/`height` in `index.html`,
+  read as `CANVAS_WIDTH`/`CANVAS_HEIGHT`), the same for every user.
+  `fitCanvasFrame()` sizes `#canvasFrame` (canvas plus cursor overlay) with
+  CSS to the largest 16:10 box that fits the canvas area, on every resize
+  (`ResizeObserver`). Resizing never touches the pixels.
+- Brush size is in canvas pixels, so a stroke has the same thickness relative
+  to the picture on every screen (it looks thinner on a small screen).
+- `toCanvasPos(clientX, clientY)` turns a screen point into a canvas pixel. It
+  measures inside the 3 px border and works while the frame is pinch-zoomed
+  (`features/zoom/`). `getMousePos` and `getTouchPos` use it.
+- Coordinates and brush size are still sent normalized (`nx`, `ny`, `ns` in
+  `0..1`).
 - Point events are sent on every move. Cursor updates (`cursor-move`) are
   sent from the same input handlers, throttled to 30 ms (`EMIT_THROTTLE`).
 - Each remote user draws on their own offscreen canvas ("remote layer").
@@ -43,8 +53,8 @@ other users.
   for a busy one, 1029 KB to 936 KB for a very dense one. Opaque pixels are
   exact; semi-transparent edge pixels can move by up to 4 of 255.
 - Save (download) always produces a PNG.
-- A `ResizeObserver` keeps the canvas resolution equal to its display size
-  and scales the current image.
+- `loadCanvasState` scales a saved image to 1280×800. Rooms saved before the
+  fixed size (other sizes) are stretched once to 16:10.
 
 Uses `socket`, `currentRoomId`, `canvas`, `ctx` from `public/core.js`, and
 `saveToUndoStack`, `localUndoStack`, `updateUndoRedoButtons` from history.

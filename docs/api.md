@@ -21,7 +21,8 @@ screen. The client reads it. The server ignores it.
 - Room IDs: 6 uppercase alphanumeric characters (`generateRoomId()`), unique
   among live rooms and rooms saved in MongoDB.
 - User names: trimmed and truncated to 20 characters on the server.
-- Coordinates: `nx`, `ny` are normalized to `0..1` of canvas width/height.
+- Coordinates: `nx`, `ny` are normalized to `0..1` of canvas width/height. The
+  canvas is 1280×800 pixels on every client.
   `ns` is brush size divided by canvas width.
 - Canvas state: PNG or lossless WebP data URL string (`canvasState()` in the
   drawing client), or `null`. Each browser picks the format (see
