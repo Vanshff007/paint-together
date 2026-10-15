@@ -12,8 +12,10 @@ Text chat for the users in a room.
 
 ## Server behavior
 
-- `chat-message { roomId, author, text }`: relayed to others as
-  `{ author, text }`. The sender is not echoed; the client renders its own
+- `chat-message { roomId, text }`: relayed to others as `{ author, text }`.
+  `author` is the sender's server-side name (`session.currentName`), so
+  nobody can post as someone else. `text` must be a string; it is trimmed
+  and cut to 200 characters (`MAX_MESSAGE_LENGTH`), and empty text is dropped. The sender is not echoed; the client renders its own
   message locally.
 - Messages are not stored. New users do not see earlier messages.
 
@@ -30,7 +32,7 @@ Text chat for the users in a room.
 
 Automated (`npm test`): relay with only `author`/`text`, no echo to sender,
 missing `roomId` ignored, sender not in the room ignored, malformed payloads
-ignored.
+ignored, client-sent `author` ignored, text trimmed and capped.
 
 Manual test cases (two browser windows in one room):
 
@@ -38,7 +40,9 @@ Manual test cases (two browser windows in one room):
 2. With B's popup closed: the unread dot appears; opening the popup clears it.
 3. Send `<b>x</b>`: it shows as plain text, not bold.
 4. Send only spaces: nothing is sent.
+5. In A's devtools run `socket.emit('chat-message', { roomId: currentRoomId,
+   author: 'B', text: 'fake' })`: B sees it under A's name, not "B".
 
 ## Known issues
 
-- `author` comes from the client and is not checked by the server.
+- Messages are not stored. New users do not see earlier messages.

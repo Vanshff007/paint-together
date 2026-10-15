@@ -35,7 +35,7 @@ chatPopup.addEventListener('click', (e) => e.stopPropagation());
 function sendMessage() {
     const message = chatInput.value.trim();
     if (!message || !currentRoomId) return;
-    socket.emit('chat-message', { roomId: currentRoomId, author: myName, text: message });
+    socket.emit('chat-message', { roomId: currentRoomId, text: message });
     addMessageToChat(myName, message, true);
     chatInput.value = '';
 }
