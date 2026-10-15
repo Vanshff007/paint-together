@@ -160,7 +160,7 @@ body {
 
 /* Title bar */
 .landing-card::before {
-    content: '⬛ Paint Together  —  v1.8.0';
+    content: '⬛ Paint Together  —  v1.8.1';
     display: block;
     background: var(--border);
     color: var(--white);
@@ -407,13 +407,16 @@ body {
     background-image: repeating-linear-gradient(45deg, transparent, transparent 3px, rgba(var(--grid-rgb),0.05) 3px, rgba(var(--grid-rgb),0.05) 6px);
 }
 
-.control-group { display: flex; align-items: center; gap: 5px; flex-shrink: 0; }
-/* tool buttons wrap onto a second row on narrow screens */
-.control-group:first-child { flex-wrap: wrap; flex-shrink: 1; min-width: 0; row-gap: 4px; }
+.control-group { display: flex; align-items: center; align-self: stretch; gap: 5px; flex-shrink: 0; } /* stretch: dividers span the whole row */
+/* row 1: all tool buttons (wrapping on narrow screens); row 2: colors, size, actions */
+.control-group:first-child {
+    flex: 1 1 100%; flex-wrap: wrap; min-width: 0; row-gap: 4px;
+    padding-bottom: 6px; border-bottom: 2px solid var(--border-light);
+}
 
 .control-group + .control-group { padding-left: 8px; border-left: 2px solid var(--border-light); }
-
-.control-group:nth-child(4) { flex: 1; display: flex; justify-content: center; }
+/* colors start row 2: no divider in front of them */
+.control-group:first-child + .control-group { padding-left: 0; border-left: none; }
 
 label { font-family: var(--font-pixel); font-size: 7px; color: var(--ink-mid); text-transform: uppercase; letter-spacing: 0.5px; white-space: nowrap; }
 
