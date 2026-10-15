@@ -72,5 +72,5 @@ function requestChatHistory() {
 socket.on('chat-history', (messages) => {
     if (!Array.isArray(messages)) return;
     chatMessages.innerHTML = '';
-    messages.forEach(m => addMessageToChat(m.author, m.text, m.own, true));
+    messages.forEach(m => addMessageToChat(m.author, m.text, false, true));
 });

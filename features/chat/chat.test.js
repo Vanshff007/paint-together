@@ -75,7 +75,7 @@ test('chat text is trimmed, capped, and must be a non-empty string', () => {
     assert.strictEqual(socket.broadcasts.length, 1);
 });
 
-test('chat-history returns earlier messages, marking the asker as own', () => {
+test('chat-history returns earlier messages in order', () => {
     const { join } = room();
     const alice = join('s1', 'Alice', 'alice-browser');
     const bob = join('s2', 'Bob', 'bob-browser');
@@ -85,17 +85,12 @@ test('chat-history returns earlier messages, marking the asker as own', () => {
     const carol = join('s3', 'Carol', 'carol-browser');
     carol.trigger('chat-history', 'ROOM01');
     assert.deepStrictEqual(last(carol.emitted, 'chat-history').data, [
-        { author: 'Alice', text: 'hi', own: false },
-        { author: 'Bob', text: 'hey', own: false }
+        { author: 'Alice', text: 'hi' },
+        { author: 'Bob', text: 'hey' }
     ]);
-
-    // same browser after a reconnect sees its message as its own
-    const alice2 = join('s4', 'Alice', 'alice-browser');
-    alice2.trigger('chat-history', 'ROOM01');
-    assert.deepStrictEqual(last(alice2.emitted, 'chat-history').data.map(m => m.own), [true, false]);
 });
 
-test('chat history keeps only the last MAX_CHAT_HISTORY messages and never sends clientId', () => {
+test('chat history keeps only the last MAX_CHAT_HISTORY messages', () => {
     const { roomData, join } = room();
     const alice = join('s1', 'Alice', 'alice-browser');
     for (let i = 0; i < chat.MAX_CHAT_HISTORY + 10; i++) alice.trigger('chat-message', { roomId: 'ROOM01', text: `m${i}` });
@@ -105,18 +100,13 @@ test('chat history keeps only the last MAX_CHAT_HISTORY messages and never sends
     const history = last(alice.emitted, 'chat-history').data;
     assert.strictEqual(history.length, chat.MAX_CHAT_HISTORY);
     assert.strictEqual(history[0].text, 'm10');
-    assert.ok(history.every(m => !('clientId' in m)));
 });
 
-test('chat-history: own is false without a clientId, empty room gives []', () => {
+test('chat-history of a room without messages is []', () => {
     const { join } = room();
     const anon = join('s1', 'Anon', null);
     anon.trigger('chat-history', 'ROOM01');
     assert.deepStrictEqual(last(anon.emitted, 'chat-history').data, []);
-    anon.trigger('chat-message', { roomId: 'ROOM01', text: 'hi' });
-    const anon2 = join('s2', 'Anon2', null);
-    anon2.trigger('chat-history', 'ROOM01');
-    assert.strictEqual(last(anon2.emitted, 'chat-history').data[0].own, false);
 });
 
 test('chat-history needs membership and ignores malformed payloads', () => {

@@ -80,7 +80,7 @@ roomData[roomId] = {
   hostId,           // socket.id of the current host
   users,            // { [socketId]: { name, color } }
   dirty,            // true when the canvas changed since the last MongoDB save
-  chat              // last 50 { author, text, clientId } messages, created on the first message
+  chat              // last 50 { author, text } messages, created on the first message
 }
 ```
 

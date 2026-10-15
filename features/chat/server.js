@@ -14,25 +14,20 @@ function register(socket, ctx, session) {
             const message = { author: session.currentName, text };
             socket.to(data.roomId).emit('chat-message', message);
 
-            // in-memory history for late joiners; clientId marks the sender's own messages
+            // in-memory history for late joiners
             const room = roomData[data.roomId];
             if (room) {
                 const history = (room.chat ||= []);
-                history.push({ ...message, clientId: socket.data.clientId });
+                history.push(message);
                 if (history.length > MAX_CHAT_HISTORY) history.shift();
             }
         }
     });
 
-    // Client asks after joining; clientId never leaves the server, only an `own` flag
+    // Client asks after joining (also after a reconnect)
     socket.on('chat-history', (roomId) => {
         if (!inRoom(socket, roomId) || !roomData[roomId]) return;
-        const myId = socket.data.clientId;
-        socket.emit('chat-history', (roomData[roomId].chat || []).map(m => ({
-            author: m.author,
-            text: m.text,
-            own: Boolean(myId) && m.clientId === myId
-        })));
+        socket.emit('chat-history', roomData[roomId].chat || []);
     });
 }
 

@@ -74,7 +74,7 @@ screen. The client reads it. The server ignores it.
 | `cursor-move` | `{ socketId, nx, ny, x, y, color, name }` | Others in room |
 | `cursor-hide` | `socketId` | Others in room |
 | `chat-message` | `{ author, text }` | Others in room |
-| `chat-history` | `[{ author, text, own }]`, oldest first. `own` is true for messages sent from the asker's browser (same `clientId`). | Asker |
+| `chat-history` | `[{ author, text }]`, oldest first | Asker |
 
 ## Validation and trust
 
