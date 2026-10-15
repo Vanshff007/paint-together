@@ -47,6 +47,7 @@ screen. The client reads it. The server ignores it.
 | `cursor-move` | `{ roomId, nx, ny }` | Relays `cursor-move` with server-side `socketId`, `color`, `name`. |
 | `cursor-leave` | `roomId` | Relays `cursor-hide` (`socketId`) to others. |
 | `chat-message` | `{ roomId, text }` | Relays `{ author, text }` to others. `author` is the sender's server-side name. `text` must be a string; it is trimmed and cut to 200 characters, and empty text is ignored. Sender renders its own message locally. |
+| `chat-history` | `roomId` | Replies `chat-history` with the room's last 50 messages. Sender must be in the room. The client sends it after every `room-joined`. |
 | `kick-user` | `{ roomId, targetSocketId }` | Only if sender is host and target is not sender: bans the target's `clientId` from the room (unless it equals the host's), emits `kicked` to target, disconnects it after 500 ms. |
 
 ## Server → client events
@@ -73,6 +74,7 @@ screen. The client reads it. The server ignores it.
 | `cursor-move` | `{ socketId, nx, ny, x, y, color, name }` | Others in room |
 | `cursor-hide` | `socketId` | Others in room |
 | `chat-message` | `{ author, text }` | Others in room |
+| `chat-history` | `[{ author, text, own }]`, oldest first. `own` is true for messages sent from the asker's browser (same `clientId`). | Asker |
 
 ## Validation and trust
 

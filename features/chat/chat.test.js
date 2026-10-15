@@ -3,12 +3,26 @@ const assert = require('node:assert');
 const { createFakeIo, createFakeSocket, last } = require('../fake-socket');
 const chat = require('./server');
 
-function setup(session = { userColor: '#000', currentName: 'Alice' }) {
+function setup(session = { userColor: '#000', currentName: 'Alice' }, roomData = {}) {
     const io = createFakeIo();
     const socket = createFakeSocket(io, 's1');
     socket.join('ROOM01');
-    chat.register(socket, { io, roomData: {} }, session);
+    chat.register(socket, { io, roomData }, session);
     return socket;
+}
+
+// several users in one room, sharing roomData
+function room() {
+    const io = createFakeIo();
+    const roomData = { ROOM01: { users: {} } };
+    const join = (id, name, clientId) => {
+        const s = createFakeSocket(io, id);
+        s.data.clientId = clientId;
+        s.join('ROOM01');
+        chat.register(s, { io, roomData }, { userColor: '#000', currentName: name });
+        return s;
+    };
+    return { roomData, join };
 }
 
 test('chat-message is relayed to others with only author and text', () => {
@@ -59,4 +73,55 @@ test('chat text is trimmed, capped, and must be a non-empty string', () => {
     assert.strictEqual(last(socket.broadcasts, 'chat-message').data.text, 'x'.repeat(chat.MAX_MESSAGE_LENGTH));
     for (const text of ['', '   ', 5, null, { a: 1 }, ['hi']]) socket.trigger('chat-message', { roomId: 'ROOM01', text });
     assert.strictEqual(socket.broadcasts.length, 1);
+});
+
+test('chat-history returns earlier messages, marking the asker as own', () => {
+    const { join } = room();
+    const alice = join('s1', 'Alice', 'alice-browser');
+    const bob = join('s2', 'Bob', 'bob-browser');
+    alice.trigger('chat-message', { roomId: 'ROOM01', text: 'hi' });
+    bob.trigger('chat-message', { roomId: 'ROOM01', text: 'hey' });
+
+    const carol = join('s3', 'Carol', 'carol-browser');
+    carol.trigger('chat-history', 'ROOM01');
+    assert.deepStrictEqual(last(carol.emitted, 'chat-history').data, [
+        { author: 'Alice', text: 'hi', own: false },
+        { author: 'Bob', text: 'hey', own: false }
+    ]);
+
+    // same browser after a reconnect sees its message as its own
+    const alice2 = join('s4', 'Alice', 'alice-browser');
+    alice2.trigger('chat-history', 'ROOM01');
+    assert.deepStrictEqual(last(alice2.emitted, 'chat-history').data.map(m => m.own), [true, false]);
+});
+
+test('chat history keeps only the last MAX_CHAT_HISTORY messages and never sends clientId', () => {
+    const { roomData, join } = room();
+    const alice = join('s1', 'Alice', 'alice-browser');
+    for (let i = 0; i < chat.MAX_CHAT_HISTORY + 10; i++) alice.trigger('chat-message', { roomId: 'ROOM01', text: `m${i}` });
+    assert.strictEqual(roomData.ROOM01.chat.length, chat.MAX_CHAT_HISTORY);
+
+    alice.trigger('chat-history', 'ROOM01');
+    const history = last(alice.emitted, 'chat-history').data;
+    assert.strictEqual(history.length, chat.MAX_CHAT_HISTORY);
+    assert.strictEqual(history[0].text, 'm10');
+    assert.ok(history.every(m => !('clientId' in m)));
+});
+
+test('chat-history: own is false without a clientId, empty room gives []', () => {
+    const { join } = room();
+    const anon = join('s1', 'Anon', null);
+    anon.trigger('chat-history', 'ROOM01');
+    assert.deepStrictEqual(last(anon.emitted, 'chat-history').data, []);
+    anon.trigger('chat-message', { roomId: 'ROOM01', text: 'hi' });
+    const anon2 = join('s2', 'Anon2', null);
+    anon2.trigger('chat-history', 'ROOM01');
+    assert.strictEqual(last(anon2.emitted, 'chat-history').data[0].own, false);
+});
+
+test('chat-history needs membership and ignores malformed payloads', () => {
+    const { join } = room();
+    const alice = join('s1', 'Alice', 'a');
+    for (const bad of ['OTHER1', null, undefined, 5, { roomId: 'ROOM01' }]) alice.trigger('chat-history', bad);
+    assert.strictEqual(alice.emitted.length, 0);
 });
