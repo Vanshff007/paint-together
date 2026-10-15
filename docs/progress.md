@@ -12,7 +12,10 @@ Last updated: 2026-10-15.
   The theme follows the system setting until the user picks one.
 - Responsive layout for phones (portrait and landscape) and tablets.
 - Drawing: brush, eraser, color palette plus custom color, brush size 1–50.
-- Mouse and touch input. Normalized coordinates for different screen sizes.
+- Mouse and touch input. Fixed 1280×800 canvas, scaled to fit any screen
+  (16:10), so every user has the same pixels and resizing never blurs the
+  drawing.
+- Two-finger pinch-zoom and pan on touch screens (`features/zoom/`).
 - Per-user remote layers, so simultaneous strokes do not merge.
 - Shared, server-side undo/redo (max 30 steps per room).
 - Clear canvas (synced), download as PNG.

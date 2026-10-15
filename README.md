@@ -20,7 +20,7 @@ chat, and see each other's cursors live on a shared canvas.
 - 👑 **Host controls**: the host can remove users, and removed users cannot rejoin
 - 💾 **Autosave**: canvases are saved to MongoDB and come back after a restart
 - 📥 **Download** the canvas as PNG
-- 🌙 **Dark mode**, mouse and touch support
+- 🌙 **Dark mode**, mouse and touch support, pinch-zoom on phones
 
 ## 🛠️ Tech stack
 
@@ -44,6 +44,7 @@ paint-together/
 │   ├── history/           # shared undo/redo
 │   ├── tools/             # line, rectangle, ellipse, fill bucket
 │   ├── shortcuts/         # keyboard shortcuts
+│   ├── zoom/              # pinch-zoom and pan on touch screens
 │   ├── cursors/           # live remote cursors
 │   ├── chat/              # room chat
 │   ├── persistence/       # MongoDB connection, Room model, autosave

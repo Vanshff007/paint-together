@@ -215,6 +215,15 @@ if (typeof document !== 'undefined') {
     let toolTouchId = null;
     const ownTouch = (e) => Array.from(e.changedTouches).find(t => t.identifier === toolTouchId);
 
+    // a second finger turned this touch into a pinch (features/zoom): drop the shape in progress
+    window.cancelToolGesture = () => {
+        toolTouchId = null;
+        if (shapeStart) {
+            shapeStart = shapeEnd = null;
+            restoreCanvas();
+        }
+    };
+
     container.addEventListener('touchstart', (e) => {
         if (e.target !== canvas || !toolActive() || toolTouchId !== null) return;
         e.preventDefault();
