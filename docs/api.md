@@ -37,16 +37,16 @@ screen. The client reads it. The server ignores it.
 | `join-room` | `{ roomId, userName, clientId? }` or `roomId` string | Restores room from MongoDB if not in memory. Replies `room-not-found`, `join-banned` (browser was kicked from this room), or `room-joined` + broadcasts `user-count-update`, `users-update`, `user-joined`, and sends `existing-users`. |
 | `draw` | `{ roomId, nx, ny, color, ns, tool, isStart? }` | Relays `draw` to others in room with `socketId` added. `tool` is `'brush'` or `'eraser'`. |
 | `draw-shape` | `{ roomId, ... }` | Relays `draw-shape` to others. **The current client does not send or handle this event.** |
-| `save-undo-snapshot` | `{ roomId, state }` | Stores `pendingSnapshot`, clears `redoStack`. |
+| `save-undo-snapshot` | `{ roomId, state }` | Stores `pendingSnapshot`, clears `redoStack`. Ignored unless `state` is a PNG data URL or `null`. |
 | `discard-undo-snapshot` | `roomId` | Clears `pendingSnapshot`. |
-| `stroke-complete` | `{ roomId, state }` | Pushes `pendingSnapshot` to `undoStack` (max 30), sets `canvasState`. Broadcasts `history-update`. |
+| `stroke-complete` | `{ roomId, state }` | Pushes `pendingSnapshot` to `undoStack` (max 30), sets `canvasState`. Broadcasts `history-update`. Ignored unless `state` is a PNG data URL. |
 | `mouseup` | `roomId` | Relays `mouseup` `{ socketId }` to others. |
 | `clear` | `roomId` | Relays `clear` to others, resets `canvasState` and history. Broadcasts `history-update`. |
 | `undo` | `roomId` | Pops `undoStack`. Broadcasts `canvas-restore`. No-op if empty. |
 | `redo` | `roomId` | Pops `redoStack`. Broadcasts `canvas-restore`. No-op if empty. |
 | `cursor-move` | `{ roomId, nx, ny }` | Relays `cursor-move` with server-side `socketId`, `color`, `name`. |
 | `cursor-leave` | `roomId` | Relays `cursor-hide` (`socketId`) to others. |
-| `chat-message` | `{ roomId, author, text }` | Relays `{ author, text }` to others. Sender renders its own message locally. |
+| `chat-message` | `{ roomId, text }` | Relays `{ author, text }` to others. `author` is the sender's server-side name. `text` must be a string; it is trimmed and cut to 200 characters, and empty text is ignored. Sender renders its own message locally. |
 | `kick-user` | `{ roomId, targetSocketId }` | Only if sender is host and target is not sender: bans the target's `clientId` from the room (unless it equals the host's), emits `kicked` to target, disconnects it after 500 ms. |
 
 ## Server → client events
@@ -87,15 +87,26 @@ What the server checks now:
   with the event name and never stops the server.
 - `kick-user` checks that the sender is host.
 - `clientId` must be a string. It is cut to 64 characters, otherwise treated as missing.
+- Canvas `state` must start with `data:image/png;base64,` (`isPngDataUrl` in
+  `features/history/server.js`). Browsers load it with `img.src`, so a URL would
+  make every member fetch it (IP leak), and a cross-origin image would taint
+  the canvas so `toDataURL()` throws for the whole room. The client's
+  `loadCanvasState()` refuses anything else too, which covers bad states saved
+  before this check.
+- `chat-message` `author` is always the sender's server-side name. A
+  client-sent `author` is ignored.
+- Socket.io accepts connections only from pages served by the same host
+  (`allowRequest` in `features/origin/server.js`). Requests with no `Origin`
+  header (non-browser clients) are allowed.
 - User names must be strings. They are trimmed and truncated to 20
   characters. A missing, empty, or non-string name uses the default name.
 
 What the server does **not** check (keep in mind when you change handlers):
 
-- `chat-message` `author` and `text` come from the client unchanged. The
-  client limits input to 200 characters (`maxlength`) and renders with
+- `chat-message` `text` content is not filtered. Clients render it with
   `textContent`. Keep rendering with `textContent`, never `innerHTML`.
-- `state` payloads are not checked for size or format.
+- `state` payloads are not checked for size beyond Socket.io's 1 MB message
+  limit, or that the base64 is a valid PNG.
 
 ## Rules for changing the protocol
 
