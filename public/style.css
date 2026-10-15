@@ -160,7 +160,7 @@ body {
 
 /* Title bar */
 .landing-card::before {
-    content: '⬛ Paint Together  —  v1.6.0';
+    content: '⬛ Paint Together  —  v1.7.0';
     display: block;
     background: var(--border);
     color: var(--white);
@@ -527,6 +527,13 @@ label { font-family: var(--font-pixel); font-size: 7px; color: var(--ink-mid); t
 }
 /* sized by fitCanvasFrame() (drawing client) to the largest 16:10 box that fits */
 .canvas-frame { position: relative; flex: none; transform-origin: 0 0; }
+/* text tool: typed on the canvas, drawn on Enter (see features/tools) */
+.canvas-text-input {
+    position: absolute; z-index: 3; min-width: 4ch;
+    padding: 0; margin: 0; border: 1px dashed var(--ink); outline: none;
+    background: rgba(255, 255, 255, 0.6);
+    font-family: sans-serif; font-weight: bold; line-height: 1;
+}
 .canvas-container::before { display: none; }
 
 canvas#canvas {

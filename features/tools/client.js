@@ -1,8 +1,12 @@
-// Tools feature: line, rectangle and ellipse shapes, and a fill bucket.
+// Tools feature: line, rectangle and ellipse shapes, fill bucket, text, and inserted images.
 // The pure functions at the top also load in Node for tests (see tools.test.js).
 
 const SHAPE_TOOLS    = ['line', 'rect', 'circle'];
 const FILL_TOLERANCE = 32; // per RGB channel, so fill also covers anti-aliased edges
+const MAX_TEXT_LENGTH = 100;
+const IMAGE_MAX_SHARE = 0.6; // an inserted image fits in 60% of the canvas width and height
+// only inline image data: a URL would make every member fetch it and taint the canvas
+const IMAGE_DATA_URL  = /^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/;
 
 // '#rrggbb' -> [r, g, b, 255]
 function hexToRgba(hex) {
@@ -62,11 +66,36 @@ function floodFill(image, x, y, fill, tolerance = 0) {
 
 // A received draw-shape payload is drawn only if every field is sane
 function isValidShape(d) {
-    const unit = (v) => typeof v === 'number' && v >= 0 && v <= 1;
-    if (!d || typeof d.color !== 'string' || !/^#[0-9a-f]{6}$/i.test(d.color)) return false;
-    if (d.shape === 'fill') return unit(d.nx1) && unit(d.ny1);
-    return SHAPE_TOOLS.includes(d.shape) && unit(d.nx1) && unit(d.ny1) && unit(d.nx2) && unit(d.ny2) &&
-           typeof d.ns === 'number' && d.ns > 0 && d.ns <= 1;
+    if (!d) return false;
+    const unit  = (v) => typeof v === 'number' && v >= 0 && v <= 1;
+    const color = typeof d.color === 'string' && /^#[0-9a-f]{6}$/i.test(d.color);
+    const size  = typeof d.ns === 'number' && d.ns > 0 && d.ns <= 1;
+    const point = unit(d.nx1) && unit(d.ny1);
+    const box   = point && unit(d.nx2) && unit(d.ny2);
+    switch (d.shape) {
+        case 'fill':  return color && point;
+        case 'text':  return color && size && point && typeof d.text === 'string' &&
+                             d.text.length > 0 && d.text.length <= MAX_TEXT_LENGTH;
+        case 'image': return box && d.nx2 > d.nx1 && d.ny2 > d.ny1 &&
+                             typeof d.src === 'string' && IMAGE_DATA_URL.test(d.src);
+        default:      return SHAPE_TOOLS.includes(d.shape) && color && size && box;
+    }
+}
+
+// Text with its top-left corner at (x, y)
+function drawText(c, text, x, y, color, fontPx) {
+    c.save();
+    c.fillStyle    = color;
+    c.font         = `bold ${fontPx}px sans-serif`;
+    c.textBaseline = 'top';
+    c.fillText(text, x, y);
+    c.restore();
+}
+
+// Size for an inserted image: keeps its shape, only ever shrinks, fits in maxW x maxH
+function fitImage(w, h, maxW, maxH) {
+    const scale = Math.min(1, maxW / w, maxH / h);
+    return { w: Math.max(1, Math.round(w * scale)), h: Math.max(1, Math.round(h * scale)) };
 }
 
 // Outline from (x1, y1) to (x2, y2); a circle is the ellipse inside that box
@@ -89,7 +118,7 @@ function drawShape(c, shape, x1, y1, x2, y2, color, size) {
     c.restore();
 }
 
-if (typeof module !== 'undefined') module.exports = { floodFill, hexToRgba, isValidShape, drawShape, FILL_TOLERANCE };
+if (typeof module !== 'undefined') module.exports = { floodFill, hexToRgba, isValidShape, drawShape, drawText, fitImage, FILL_TOLERANCE, MAX_TEXT_LENGTH };
 
 if (typeof document !== 'undefined') {
 
@@ -99,7 +128,8 @@ if (typeof document !== 'undefined') {
         line:   document.getElementById('lineBtn'),
         rect:   document.getElementById('rectBtn'),
         circle: document.getElementById('circleBtn'),
-        fill:   document.getElementById('fillBtn')
+        fill:   document.getElementById('fillBtn'),
+        text:   document.getElementById('textBtn')
     };
 
     Object.entries(toolButtons).forEach(([tool, btn]) => {
@@ -116,7 +146,7 @@ if (typeof document !== 'undefined') {
         Object.values(toolButtons).forEach(b => b.classList.remove('active'));
     }));
 
-    const toolActive = () => currentTool === 'fill' || SHAPE_TOOLS.includes(currentTool);
+    const toolActive = () => currentTool === 'fill' || currentTool === 'text' || SHAPE_TOOLS.includes(currentTool);
     const clampPos   = (p) => ({
         x: Math.min(Math.max(p.x, 0), canvas.width),
         y: Math.min(Math.max(p.y, 0), canvas.height)
@@ -169,6 +199,7 @@ if (typeof document !== 'undefined') {
     let shapeEnd   = null; // latest drag position, to redraw the preview
 
     function pointerDown(pos) {
+        if (currentTool === 'text') return openTextInput(pos);
         if (currentTool !== 'fill') {
             shapeStart = pos;
             return;
@@ -251,12 +282,108 @@ if (typeof document !== 'undefined') {
         else { shapeStart = shapeEnd = null; restoreCanvas(); }
     }, { capture: true, passive: false }));
 
+    // TEXT
+    // A click opens a text box at that point; Enter or clicking elsewhere draws the text,
+    // Escape cancels. Font size follows the Size slider.
+
+    let textBox = null; // { input, pos, fontPx, color } while typing
+
+    const textFontPx = () => 12 + currentBrushSize * 2;
+
+    function openTextInput(pos) {
+        closeTextInput(true);
+        const input   = document.createElement('input');
+        input.type      = 'text';
+        input.className = 'canvas-text-input';
+        input.maxLength = MAX_TEXT_LENGTH;
+        const fontPx  = textFontPx();
+        const k       = canvas.clientWidth / canvas.width; // CSS px per canvas px
+        input.style.left     = `${canvas.clientLeft + pos.x * k}px`;
+        input.style.top      = `${canvas.clientTop + pos.y * k}px`;
+        // at least 16px on screen: readable on phones, and iOS does not zoom the page on focus
+        input.style.fontSize = `${Math.max(16, fontPx * k)}px`;
+        input.style.color    = currentColor;
+        canvasFrame.appendChild(input);
+        textBox = { input, pos, fontPx, color: currentColor };
+        input.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter')  closeTextInput(true);
+            if (e.key === 'Escape') closeTextInput(false);
+        });
+        input.addEventListener('blur', () => closeTextInput(true));
+        setTimeout(() => input.focus()); // after the click has finished moving focus
+    }
+
+    function closeTextInput(draw) {
+        if (!textBox) return;
+        const box = textBox;
+        textBox = null; // first, so the blur from remove() does nothing
+        box.input.remove();
+        const text = box.input.value.trim();
+        if (!draw || !text) return;
+        beginChange();
+        commitToCanvas(c => drawText(c, text, box.pos.x, box.pos.y, box.color, box.fontPx));
+        const n = toNorm(box.pos.x, box.pos.y);
+        finishChange({ shape: 'text', nx1: n.nx, ny1: n.ny, text, color: box.color, ns: box.fontPx / canvas.width });
+    }
+
+    // INSERT IMAGE
+    // The picture is read locally (never uploaded anywhere else), shrunk to fit 60% of the
+    // canvas, centered, and sent to the room as a JPEG data URL inside draw-shape.
+
+    const imageBtn   = document.getElementById('imageBtn');
+    const imageInput = document.getElementById('imageInput');
+
+    imageBtn.addEventListener('click', () => imageInput.click());
+
+    imageInput.addEventListener('change', () => {
+        const file = imageInput.files[0];
+        imageInput.value = ''; // the same file can be picked again
+        if (!file) return;
+        if (!file.type.startsWith('image/')) return showToast('⚠️ That file is not an image');
+        const url = URL.createObjectURL(file);
+        const img = new Image();
+        img.onload = () => {
+            URL.revokeObjectURL(url);
+            const { w, h } = fitImage(img.naturalWidth, img.naturalHeight,
+                canvas.width * IMAGE_MAX_SHARE, canvas.height * IMAGE_MAX_SHARE);
+            // re-encode at the placed size: small enough for one Socket.io message
+            const tmp = document.createElement('canvas');
+            tmp.width = w;
+            tmp.height = h;
+            const tctx = tmp.getContext('2d');
+            tctx.fillStyle = '#ffffff'; // JPEG has no transparency: transparent parts become paper white
+            tctx.fillRect(0, 0, w, h);
+            tctx.drawImage(img, 0, 0, w, h);
+            const x = Math.round((canvas.width - w) / 2);
+            const y = Math.round((canvas.height - h) / 2);
+            beginChange();
+            commitToCanvas(c => c.drawImage(tmp, x, y));
+            const a = toNorm(x, y);
+            const b = toNorm(x + w, y + h);
+            finishChange({ shape: 'image', nx1: a.nx, ny1: a.ny, nx2: b.nx, ny2: b.ny, src: tmp.toDataURL('image/jpeg', 0.85) });
+        };
+        img.onerror = () => {
+            URL.revokeObjectURL(url);
+            showToast('⚠️ Could not read that image');
+        };
+        img.src = url;
+    });
+
     // REMOTE SHAPES AND FILLS
 
     socket.on('draw-shape', (data) => {
         if (!isValidShape(data)) return;
         const a = fromNorm(data.nx1, data.ny1);
-        if (data.shape === 'fill') {
+        if (data.shape === 'image') {
+            const b = fromNorm(data.nx2, data.ny2);
+            const img = new Image();
+            img.onload = () => commitToCanvas(c => c.drawImage(img, a.x, a.y, b.x - a.x, b.y - a.y));
+            img.src = data.src;
+            return;
+        }
+        if (data.shape === 'text') {
+            commitToCanvas(c => drawText(c, data.text, a.x, a.y, data.color, denormSize(data.ns)));
+        } else if (data.shape === 'fill') {
             commitToCanvas(c => fillAt(c, a.x, a.y, data.color));
         } else {
             const b = fromNorm(data.nx2, data.ny2);

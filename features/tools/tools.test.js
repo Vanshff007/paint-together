@@ -1,6 +1,6 @@
 const { test } = require('node:test');
 const assert = require('node:assert');
-const { floodFill, hexToRgba, isValidShape, drawShape, FILL_TOLERANCE } = require('./client');
+const { floodFill, hexToRgba, isValidShape, drawShape, drawText, fitImage, FILL_TOLERANCE } = require('./client');
 
 // w x h image of one RGBA color, plus helpers to read/write pixels
 function image(w, h, rgba = [0, 0, 0, 0]) {
@@ -117,4 +117,46 @@ test('drawShape: line, rect and the ellipse inside the drag box', () => {
     calls.length = 0;
     drawShape(fake, 'circle', 0, 0, 10, 4, '#000000', 1);
     assert.deepStrictEqual(calls.find(c => c[0] === 'ellipse').slice(1, 5), [5, 2, 5, 2]);
+});
+
+test('isValidShape: text', () => {
+    const text = { shape: 'text', nx1: 0.1, ny1: 0.2, text: 'Hello', color: '#000000', ns: 0.02 };
+    assert.strictEqual(isValidShape(text), true);
+    for (const bad of [
+        { ...text, text: '' }, { ...text, text: 'x'.repeat(101) }, { ...text, text: 5 }, { ...text, text: undefined },
+        { ...text, color: 'red' }, { ...text, ns: 0 }, { ...text, nx1: 2 }
+    ]) assert.strictEqual(isValidShape(bad), false, JSON.stringify(bad));
+});
+
+test('isValidShape: image accepts only inline PNG, JPEG or WebP data', () => {
+    const image = { shape: 'image', nx1: 0.2, ny1: 0.2, nx2: 0.8, ny2: 0.8, src: 'data:image/jpeg;base64,/9j/4AAQ' };
+    assert.strictEqual(isValidShape(image), true);
+    assert.strictEqual(isValidShape({ ...image, src: 'data:image/png;base64,iVBOR=' }), true);
+    assert.strictEqual(isValidShape({ ...image, src: 'data:image/webp;base64,UklGR' }), true);
+    for (const src of ['https://evil.example/x.jpg', '//evil.example/x.png', 'data:image/svg+xml;base64,PHN2Zz4=',
+        'data:image/jpeg;base64,abc" onerror="x', 'data:text/html;base64,PGI+', '', 5, undefined]) {
+        assert.strictEqual(isValidShape({ ...image, src }), false, String(src));
+    }
+    assert.strictEqual(isValidShape({ ...image, nx2: 0.1 }), false, 'box must have positive size');
+    assert.strictEqual(isValidShape({ ...image, ny2: 1.5 }), false);
+});
+
+test('drawText draws bold text from its top-left corner', () => {
+    const calls = [];
+    const fake = new Proxy({}, {
+        get: (t, k) => (k in t ? t[k] : (...args) => calls.push([k, ...args])),
+        set: (t, k, v) => { t[k] = v; return true; }
+    });
+    drawText(fake, 'Hi', 10, 20, '#ff0000', 30);
+    assert.deepStrictEqual(calls.find(c => c[0] === 'fillText'), ['fillText', 'Hi', 10, 20]);
+    assert.strictEqual(fake.font, 'bold 30px sans-serif');
+    assert.strictEqual(fake.textBaseline, 'top');
+    assert.strictEqual(fake.fillStyle, '#ff0000');
+});
+
+test('fitImage keeps the shape and only shrinks', () => {
+    assert.deepStrictEqual(fitImage(4000, 3000, 768, 480), { w: 640, h: 480 });
+    assert.deepStrictEqual(fitImage(3000, 1000, 768, 480), { w: 768, h: 256 });
+    assert.deepStrictEqual(fitImage(100, 50, 768, 480), { w: 100, h: 50 }, 'small images keep their size');
+    assert.deepStrictEqual(fitImage(10000, 1, 768, 480), { w: 768, h: 1 }, 'never 0 px');
 });

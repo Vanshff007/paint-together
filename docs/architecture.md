@@ -38,7 +38,7 @@ the server restarts.
 | `rooms` | yes | yes | Create/join/exit, landing, members, host, kick, disconnect cleanup. |
 | `drawing` | yes | yes | Canvas input, tools, colors, remote stroke layers, clear, download. |
 | `history` | yes | yes | Shared undo/redo. |
-| `tools` | no (uses `draw-shape` relay) | yes | Line, rectangle, ellipse, fill bucket. |
+| `tools` | no (uses `draw-shape` relay) | yes | Line, rectangle, ellipse, fill bucket, text, insert image. |
 | `shortcuts` | no | yes | Keyboard shortcuts for undo/redo and tools. |
 | `zoom` | no | yes | Two-finger pinch-zoom and pan on touch screens. |
 | `cursors` | yes | yes | Live remote cursors. |
