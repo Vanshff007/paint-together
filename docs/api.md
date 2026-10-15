@@ -35,8 +35,8 @@ screen. The client reads it. The server ignores it.
 
 | Event | Payload | Server behavior |
 |-------|---------|-----------------|
-| `create-room` | `{ userName, clientId? }` | Generates a room ID not used by a live or saved room, joins socket, creates `roomData` and a `Room` document. Replies `room-created`. |
-| `join-room` | `{ roomId, userName, clientId? }` or `roomId` string | Restores room from MongoDB if not in memory. Replies `room-not-found`, `join-banned` (browser was kicked from this room), or `room-joined` + broadcasts `user-count-update`, `users-update`, `user-joined`, and sends `existing-users`. |
+| `create-room` | `{ userName, clientId?, password? }` | Generates a room ID not used by a live or saved room, joins socket, creates `roomData` and a `Room` document. A non-empty `password` (max 64 chars) is stored as a salted scrypt hash and protects the room. Replies `room-created`. |
+| `join-room` | `{ roomId, userName, clientId?, password? }` or `roomId` string | Restores room from MongoDB if not in memory. Replies `room-not-found`, `join-banned` (browser was kicked from this room), `join-password` (room has a password and it is missing, wrong, or this IP must wait), or `room-joined` + broadcasts `user-count-update`, `users-update`, `user-joined`, and sends `existing-users`. |
 | `draw` | `{ roomId, nx, ny, color, ns, tool, isStart? }` | Relays `draw` to others in room with `socketId` added. `tool` is `'brush'` or `'eraser'`. |
 | `draw-shape` | `{ roomId, shape, nx1, ny1, nx2?, ny2?, color, ns? }` | Relays `draw-shape` to others unchanged. `shape` is `'line'`, `'rect'`, `'circle'` (ellipse in the box) or `'fill'` (flood fill at `nx1, ny1`; no `nx2`, `ny2`, `ns`). Sent by the tools feature, followed by `stroke-complete`. Receivers check every field (`isValidShape`) before drawing. |
 | `save-undo-snapshot` | `{ roomId, state }` | Stores `pendingSnapshot`, clears `redoStack`. Ignored unless `state` is a PNG or WebP data URL, or `null`. |
@@ -60,6 +60,7 @@ screen. The client reads it. The server ignores it.
 | `room-joined` | `{ roomId, userCount, userColor, userName, canvasState, hasUndo, hasRedo, isHost, hostId }` | Joiner |
 | `room-not-found` | `roomId` | Joiner |
 | `join-banned` | `roomId` | Joiner whose browser was kicked from the room |
+| `join-password` | `{ roomId, reason, retryIn? }`. `reason` is `'required'` (no password sent), `'wrong'`, or `'wait'` (5 wrong tries from this IP; `retryIn` is seconds) | Joiner of a password-protected room |
 | `existing-users` | `{ [socketId]: { name, color } }` (excludes joiner) | Joiner |
 | `user-joined` | `{ socketId, name, color }` | Others in room |
 | `user-left` | `socketId` | Others in room |
@@ -103,6 +104,11 @@ What the server checks now:
 - Socket.io accepts connections only from pages served by the same host
   (`allowRequest` in `features/origin/server.js`). Requests with no `Origin`
   header (non-browser clients) are allowed.
+- Room passwords: only a salted scrypt hash is kept (`features/passwords/`),
+  and neither the password nor the hash is ever sent to a client. Wrong
+  guesses are limited per IP: 5, then 30 s wait. A missing password does not
+  count. Passwords travel in the socket message, so production needs HTTPS
+  (Render provides it).
 - User names must be strings. They are trimmed and truncated to 20
   characters. A missing, empty, or non-string name uses the default name.
 

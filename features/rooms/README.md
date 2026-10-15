@@ -13,14 +13,21 @@ host role, host hand-over, and kicking users.
 
 ## Server behavior
 
-- `create-room { userName }`: generates a 6-char ID that no live room and no
+- `create-room { userName, password? }`: a non-empty password is hashed and
+  stored as `roomData[roomId].passwordHash` (and in MongoDB).
+  Generates a 6-char ID that no live room and no
   saved room uses, creates `roomData[roomId]`
   with the creator as host, asks persistence to create the MongoDB document,
   and replies `room-created`.
 - `join-room { roomId, userName }` (or a bare `roomId` string):
-  - If the room is not in memory, tries `persistence.loadRoom()`. A restored
-    room makes the joiner host, because the stored host socket is gone. If two
-    users restore the same room at once, the first restore wins.
+  - If the room is not in memory, tries `persistence.loadRoom()`, including
+    its password hash. A restored room has no host until the first user gets
+    in (passes the ban and password checks); that user becomes host, because
+    the stored host socket is gone. If two users restore the same room at
+    once, the first restore wins.
+  - Room with a password: the `password` field is checked
+    (`features/passwords/`). Missing, wrong, or too many wrong tries from
+    this IP: replies `join-password` and does not join.
   - Unknown room: replies `room-not-found`.
   - Else replies `room-joined`, broadcasts `user-count-update`, `users-update`,
     `user-joined`, and sends `existing-users` to the joiner.
@@ -57,7 +64,16 @@ object (`{ userColor, currentName }`) is shared with the cursors feature.
 
 ## Client behavior
 
-- Enter on the name field creates a room, or joins if a code is filled in.
+- Enter on the name or password field creates a room, or joins if a code is
+  filled in.
+- The optional "Room Password" field is sent with both create and join. Once
+  the room opens, the field is cleared and the password is kept in a variable
+  (memory only, never stored) so a reconnect can rejoin.
+- `join-password` puts the room code in the code field, focuses the password
+  field, and shows "This room needs a password.", "Wrong password. Try
+  again." or "Too many wrong passwords. Wait N s.". During a reconnect it
+  first returns to the landing screen.
+- Landing errors disappear after 3 s; a newer error restarts that timer.
 - `room-created` / `room-joined` switch to the app screen (`showApp()` in
   `public/core.js`) and push `/?room=<ID>` to the URL.
 - `existing-users` fills the members list and creates cursors for other users.
@@ -84,7 +100,11 @@ kick ban (same browser blocked, others allowed, no ban without `clientId`,
 no self-ban for the host's browser, `clientId` validation),
 host hand-over, save and cleanup on last leave, `inRoom`, malformed
 payloads (create, join, kick), kick needs membership, no room ID reuse
-(live or saved), two joins restoring the same room at once.
+(live or saved), two joins restoring the same room at once, passwords
+(required, wrong, right, bare-string join, never sent to clients, ignored by
+open rooms, 5 wrong tries lock the IP for 30 s, a missing password is not a
+wrong try, restored rooms keep their password and only a user who gets in
+becomes host, room leaving memory during the check).
 
 Manual test cases (two browser windows):
 
@@ -107,6 +127,15 @@ Manual test cases (two browser windows):
     `socket.connect()` in A: A's canvas shows B's drawing.
 13. Server restart with no saved room: both windows return to landing with
     "Room ... not found".
+14. A creates a room with a password: toast mentions the password, the field
+    is cleared. B joins with no password: "This room needs a password.". With
+    a wrong one: "Wrong password.". With the right one: B is in.
+15. With a password room open, run `socket.io.engine.close()` in B: B
+    reconnects without being asked again.
+16. Everyone leaves a password room, then someone joins the code again: the
+    password is still required, and the first user in becomes host.
+17. Six wrong passwords in a row: the sixth shows "Wait 30 s", and even the
+    right password is refused until then.
 
 ## Known issues
 

@@ -16,6 +16,11 @@ const roomSchema = new mongoose.Schema({
         type: String,
         default: null
     },
+    // salted scrypt hash "salt:hash" (features/passwords), null for an open room
+    passwordHash: {
+        type: String,
+        default: null
+    },
     users: {
         type: [String],
         default: []

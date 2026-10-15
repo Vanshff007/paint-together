@@ -23,6 +23,7 @@ Collection: `rooms` (Mongoose default for model `Room`).
 | `roomId` | String | — | Required, unique index. 6-char uppercase ID. |
 | `canvasState` | Mixed | `null` | PNG or WebP data URL string of the full canvas, or `null`. |
 | `hostId` | String | `null` | Socket ID of the host at last save. Not valid after restart. |
+| `passwordHash` | String | `null` | `salt:hash` (hex, scrypt) for a password-protected room, or `null`. Set on create, saved on every save. |
 | `users` | [String] | `[]` | Display names at last save. Snapshot only. |
 | `createdAt` | Date | `Date.now` | Set on insert. |
 | `updatedAt` | Date | `Date.now` | Set on every save. TTL index: the document is deleted 30 days after the last save. |
