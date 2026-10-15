@@ -21,7 +21,7 @@ Collection: `rooms` (Mongoose default for model `Room`).
 | Field | Type | Default | Notes |
 |-------|------|---------|-------|
 | `roomId` | String | — | Required, unique index. 6-char uppercase ID. |
-| `canvasState` | Mixed | `null` | PNG data URL string of the full canvas, or `null`. |
+| `canvasState` | Mixed | `null` | PNG or WebP data URL string of the full canvas, or `null`. |
 | `hostId` | String | `null` | Socket ID of the host at last save. Not valid after restart. |
 | `users` | [String] | `[]` | Display names at last save. Snapshot only. |
 | `createdAt` | Date | `Date.now` | Set on insert. |
@@ -57,7 +57,7 @@ crash the server or affect connected users.
 
 ## Limitations
 
-- MongoDB documents are limited to 16 MB. `canvasState` is a base64 PNG, so a
+- MongoDB documents are limited to 16 MB. `canvasState` is a base64 image, so a
   very large or very detailed canvas can come near that limit.
 - Rooms not saved for 30 days are deleted by MongoDB (TTL index on
   `updatedAt`, `expires: '30d'` in `Room.js`). MongoDB removes expired

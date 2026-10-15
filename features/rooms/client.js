@@ -261,6 +261,7 @@ socket.on('room-joined', (data) => {
     serverHasRedo  = data.hasRedo || false;
     updateRoomUI(data.roomId, data.userCount);
     updateUndoRedoButtons();
+    requestChatHistory();
     if (rejoining) {
         rejoining = false;
         // the server copy wins over anything drawn while offline

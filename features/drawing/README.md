@@ -15,7 +15,8 @@ other users.
 ## Server behavior
 
 - `draw`: relayed to others in the room with `socketId` added.
-- `draw-shape`: relayed unchanged. The current client does not use it.
+- `draw-shape`: relayed unchanged. The tools feature (`features/tools/`) sends
+  and draws it.
 - `mouseup`: relayed as `{ socketId }` so receivers finish the right stroke.
 - `clear`: relayed to others, resets `canvasState`, `undoStack`, `redoStack`,
   and sends `history-update { hasUndo: false, hasRedo: false }` to the room.
@@ -30,9 +31,18 @@ other users.
   On `mouseup` the layer is merged into the committed image (`canvasImage`).
   This stops two users' simultaneous strokes from joining into one line.
 - The eraser paints white and shows a dashed circle preview.
-- `loadCanvasState(dataUrl)` draws a saved PNG onto the canvas. History and
-  rooms use it. It ignores anything that is not a `data:image/png;base64,`
-  string, so a URL never loads (no IP leak, no tainted canvas).
+- `loadCanvasState(dataUrl)` draws a saved canvas onto the canvas. History and
+  rooms use it. It ignores anything that is not a `data:image/png;base64,` or
+  `data:image/webp;base64,` string, so a URL never loads (no IP leak, no
+  tainted canvas).
+- `canvasState()` returns the canvas as a data URL for the server. At startup
+  the client encodes an 8x8 test image as WebP at quality 1, decodes it, and
+  compares every byte. Only if they match (lossless, as in Chrome) does it
+  use WebP; otherwise PNG. Lossy WebP would lose quality on every undo.
+  Measured in Chrome: 73 KB to 20 KB for a simple drawing, 407 KB to 231 KB
+  for a busy one, 1029 KB to 936 KB for a very dense one. Opaque pixels are
+  exact; semi-transparent edge pixels can move by up to 4 of 255.
+- Save (download) always produces a PNG.
 - A `ResizeObserver` keeps the canvas resolution equal to its display size
   and scales the current image.
 

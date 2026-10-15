@@ -25,16 +25,9 @@ socket.on('history-update', (data) => {
     updateUndoRedoButtons();
 });
 
-// BUTTONS AND SHORTCUTS
+// BUTTONS (keyboard shortcuts live in features/shortcuts)
 undoBtn.addEventListener('click', undo);
 redoBtn.addEventListener('click', redo);
-
-document.addEventListener('keydown', (e) => {
-    if (e.ctrlKey && e.key === 'z')  { e.preventDefault(); undo(); }
-    if ((e.ctrlKey && e.key === 'y') || (e.ctrlKey && e.shiftKey && e.key === 'z')) {
-        e.preventDefault(); redo();
-    }
-});
 
 // UNDO/REDO
 

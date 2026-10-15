@@ -246,9 +246,43 @@ downloadBtn.addEventListener('click', () => {
     link.click();
 });
 
+// CANVAS STATE FORMAT
+// Canvas state goes to the server as a data URL. Lossless WebP (quality 1 in Chrome) is
+// 10-70% smaller than PNG. Other browsers may encode WebP lossy, which would degrade the
+// image on every undo, or not encode it at all, so probe once and fall back to PNG.
+let canvasStateType = 'image/png';
+
+(async () => {
+    try {
+        const probe = document.createElement('canvas');
+        probe.width = probe.height = 8;
+        const pctx = probe.getContext('2d');
+        for (let i = 0; i < 64; i++) {
+            pctx.fillStyle = `rgb(${(i * 37) % 256}, ${(i * 91) % 256}, ${(i * 53) % 256})`;
+            pctx.fillRect(i % 8, i >> 3, 1, 1);
+        }
+        const url = probe.toDataURL('image/webp', 1);
+        if (!url.startsWith('data:image/webp')) return;
+        const img = new Image();
+        img.src = url;
+        await img.decode();
+        const back = document.createElement('canvas');
+        back.width = back.height = 8;
+        const bctx = back.getContext('2d');
+        bctx.drawImage(img, 0, 0);
+        const a = pctx.getImageData(0, 0, 8, 8).data;
+        const b = bctx.getImageData(0, 0, 8, 8).data;
+        if (a.every((v, i) => v === b[i])) canvasStateType = 'image/webp';
+    } catch (e) { /* keep PNG */ }
+})();
+
+function canvasState() {
+    return canvas.toDataURL(canvasStateType, 1);
+}
+
 function loadCanvasState(base64) {
     // never load a URL: it would leak the viewer's IP and taint the canvas
-    if (typeof base64 !== 'string' || !base64.startsWith('data:image/png;base64,')) return;
+    if (typeof base64 !== 'string' || !/^data:image\/(png|webp);base64,/.test(base64)) return;
     const img = new Image();
     img.onload = () => {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -393,7 +427,7 @@ canvas.addEventListener('touchstart', (e) => {
     if (!currentRoomId) {
         saveToUndoStack();
     } else {
-        socket.emit('save-undo-snapshot', { roomId: currentRoomId, state: canvas.toDataURL('image/png') });
+        socket.emit('save-undo-snapshot', { roomId: currentRoomId, state: canvasState() });
         const _n = toNorm(pos.x, pos.y);
         socket.emit('draw', { nx: _n.nx, ny: _n.ny, color: currentColor, ns: normSize(currentBrushSize), tool: currentTool, isStart: true, roomId: currentRoomId });
     }
@@ -456,7 +490,7 @@ function startDrawing(e) {
     if (!currentRoomId) {
         saveToUndoStack();
     } else {
-        socket.emit('save-undo-snapshot', { roomId: currentRoomId, state: canvas.toDataURL('image/png') });
+        socket.emit('save-undo-snapshot', { roomId: currentRoomId, state: canvasState() });
         const _n = toNorm(pos.x, pos.y);
         socket.emit('draw', { nx: _n.nx, ny: _n.ny, color: currentColor, ns: normSize(currentBrushSize), tool: currentTool, isStart: true, roomId: currentRoomId });
     }
@@ -492,7 +526,7 @@ function stopDrawing() {
     canvasImage = ctx.getImageData(0, 0, canvas.width, canvas.height);
     if (currentRoomId) {
         socket.emit('mouseup', currentRoomId);
-        socket.emit('stroke-complete', { roomId: currentRoomId, state: canvas.toDataURL('image/png') });
+        socket.emit('stroke-complete', { roomId: currentRoomId, state: canvasState() });
     }
     if (currentTool === 'eraser' && showCursor) showCursorPreview();
 }

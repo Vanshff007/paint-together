@@ -120,10 +120,11 @@ test('malformed payloads are ignored and do not throw', () => {
     assert.strictEqual(room.canvasState, null);
 });
 
-test('only PNG data URLs are accepted as canvas state', () => {
+test('only PNG or WebP data URLs are accepted as canvas state', () => {
     stroke(EMPTY, A);
     const bad = ['https://evil.example/track.png', '//evil.example/x.png', 'javascript:alert(1)',
-        'data:image/svg+xml;base64,AAA', 'DATA:image/png;base64,AAA', 5, { src: A }, undefined];
+        'data:image/svg+xml;base64,AAA', 'data:image/jpeg;base64,AAA', 'data:image/gif;base64,AAA',
+        'DATA:image/png;base64,AAA', 'data:image/webp,AAA', 5, { src: A }, undefined];
     for (const state of bad) {
         socket.trigger('save-undo-snapshot', { roomId: 'ROOM01', state });
         socket.trigger('stroke-complete', { roomId: 'ROOM01', state });
@@ -133,9 +134,20 @@ test('only PNG data URLs are accepted as canvas state', () => {
     assert.strictEqual(room.pendingSnapshot, null);
 });
 
-test('isPngDataUrl', () => {
-    assert.strictEqual(history.isPngDataUrl(A), true);
-    for (const bad of [null, '', 'data:image/png', 'http://x/data:image/png;base64,', ['data:image/png;base64,']]) {
-        assert.strictEqual(history.isPngDataUrl(bad), false);
+test('isCanvasDataUrl', () => {
+    assert.strictEqual(history.isCanvasDataUrl(A), true);
+    assert.strictEqual(history.isCanvasDataUrl('data:image/webp;base64,UklGR'), true);
+    for (const bad of [null, '', 'data:image/png', 'http://x/data:image/png;base64,', ['data:image/png;base64,'],
+        ' data:image/png;base64,AAA', 'data:image/webpx;base64,AAA']) {
+        assert.strictEqual(history.isCanvasDataUrl(bad), false);
     }
+});
+
+test('a WebP stroke from one browser and a PNG stroke from another both work', () => {
+    const webp = 'data:image/webp;base64,W1';
+    stroke(EMPTY, webp);
+    stroke(webp, A);
+    assert.deepStrictEqual(room.undoStack, [EMPTY, webp]);
+    socket.trigger('undo', 'ROOM01');
+    assert.strictEqual(room.canvasState, webp);
 });

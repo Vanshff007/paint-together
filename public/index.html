@@ -100,8 +100,12 @@
         <!-- Toolbar -->
         <div class="toolbar">
             <div class="control-group">
-                <button id="brushBtn" class="tool-btn active">✏️ Brush</button>
-                <button id="eraserBtn" class="tool-btn">⬜ Eraser</button>
+                <button id="brushBtn" class="tool-btn active" title="Brush (B)">✏️ Brush</button>
+                <button id="eraserBtn" class="tool-btn" title="Eraser (E)">⬜ Eraser</button>
+                <button id="lineBtn" class="tool-btn" title="Line (L)">╱ Line</button>
+                <button id="rectBtn" class="tool-btn" title="Rectangle (R)">▭ Rect</button>
+                <button id="circleBtn" class="tool-btn" title="Ellipse (O)">◯ Circle</button>
+                <button id="fillBtn" class="tool-btn" title="Fill (F)">🪣 Fill</button>
             </div>
             <div class="control-group color-palette-group">
                 <label>Colors:</label>
@@ -116,8 +120,8 @@
             <div class="control-group toolbar-actions">
                 <button id="clearBtn" class="action-btn clear-btn">🗑️ Clear</button>
                 <button id="downloadBtn" class="action-btn download-btn">💾 Save</button>
-                <button id="undoBtn" class="action-btn undo-btn" disabled>↩ Undo</button>
-                <button id="redoBtn" class="action-btn redo-btn" disabled>↪ Redo</button>
+                <button id="undoBtn" class="action-btn undo-btn" title="Undo (Ctrl+Z)" disabled>↩ Undo</button>
+                <button id="redoBtn" class="action-btn redo-btn" title="Redo (Ctrl+Y)" disabled>↪ Redo</button>
             </div>
         </div>
 
@@ -179,6 +183,8 @@
     <script src="/features/theme/client.js"></script>
     <script src="/features/drawing/client.js"></script>
     <script src="/features/history/client.js"></script>
+    <script src="/features/tools/client.js"></script>
+    <script src="/features/shortcuts/client.js"></script>
     <script src="/features/cursors/client.js"></script>
     <script src="/features/chat/client.js"></script>
     <script src="/features/rooms/client.js"></script>

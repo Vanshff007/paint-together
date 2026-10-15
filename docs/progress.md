@@ -32,11 +32,18 @@ Last updated: 2026-10-15.
   never collide.
 - Reconnect: after a Socket.io reconnect the client joins its room again and
   loads the server's canvas.
-- Canvas state must be a PNG data URL, on the server and in the client, so a
+- Canvas state must be a PNG or WebP data URL, on the server and in the client, so a
   member cannot make others load a URL or break the room's canvas.
 - Chat author is the sender's server-side name (no spoofing). Chat text is
   capped at 200 characters on the server.
 - Socket.io accepts only pages from the same host (`features/origin/`).
+- Chat history: joiners get the room's last 50 messages.
+- Tools: line, rectangle, ellipse and fill bucket, synced through `draw-shape`
+  and part of the shared undo/redo (`features/tools/`).
+- Keyboard shortcuts: Ctrl/Cmd+Z, Ctrl/Cmd+Y, Ctrl/Cmd+Shift+Z, and B, E, L,
+  R, O, F for the tools; ignored while typing (`features/shortcuts/`).
+- Canvas state is sent as lossless WebP when the browser supports it (10-70%
+  smaller than PNG), else PNG.
 - Production deploy on Render.
 - SEO and link previews: `robots.txt`, `llms.txt`, `sitemap.xml`, Open Graph
   image, icons, and web app manifest (`features/seo/`).
@@ -50,23 +57,17 @@ Last updated: 2026-10-15.
 
 ## Planned / ideas
 
-- Chat history: keep the last 50 messages per room in memory and send them on
-  join.
-- Shapes tool (line, rectangle, circle). The server relays `draw-shape`, but
-  the client does not use it. An earlier "shapes feature" commit exists in
-  history.
-- Fill bucket: flood fill on the canvas pixels.
 - Room passwords or private rooms. Today anyone with the 6-char code can join.
-- Smaller canvas payloads: WebP instead of PNG (about 3x smaller), to stay
-  under the 1 MB Socket.io limit.
-- Keyboard shortcuts: Ctrl+Z / Ctrl+Y, B for brush, E for eraser.
 
 ## Known limitations
 
-- Canvas state is a full PNG data URL. Socket.io's default 1 MB message limit
-  can disconnect a client with a very large or detailed canvas.
+- Canvas state is a full-canvas data URL. Socket.io's default 1 MB message
+  limit can disconnect a client with a very large or detailed canvas. Lossless
+  WebP makes this rarer, but a dense canvas is only about 10% smaller than
+  PNG, and browsers without lossless WebP still send PNG.
 - Undo/redo history is lost on restart or when a room empties.
-- Chat history is not stored. New joiners do not see earlier messages.
+- Chat history (last 50 messages) is in memory only. It is lost on restart
+  or when the room empties.
 - Single instance only (in-memory state).
 - Kick bans use a `localStorage` ID: a private window or clearing site data
   gets around them, and they are lost when the room empties or the server

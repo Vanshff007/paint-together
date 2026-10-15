@@ -43,7 +43,7 @@ function sendMessage() {
 chatSendBtn.addEventListener('click', sendMessage);
 chatInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') sendMessage(); });
 
-function addMessageToChat(author, text, isOwn = false) {
+function addMessageToChat(author, text, isOwn = false, fromHistory = false) {
     const messageEl = document.createElement('div');
     messageEl.className = `chat-message ${isOwn ? 'own' : ''}`;
     const authorEl = document.createElement('div');
@@ -56,9 +56,21 @@ function addMessageToChat(author, text, isOwn = false) {
     messageEl.appendChild(textEl);
     chatMessages.appendChild(messageEl);
     chatMessages.scrollTop = chatMessages.scrollHeight;
-    if (!chatIsOpen && !isOwn) chatNotification.classList.add('show');
+    if (!chatIsOpen && !isOwn && !fromHistory) chatNotification.classList.add('show');
 }
 
 socket.on('chat-message', (data) => {
     addMessageToChat(data.author, data.text, false);
+});
+
+// Earlier messages, asked for after every join (also after a reconnect);
+// replaces the list so a rejoin does not show messages twice
+function requestChatHistory() {
+    if (currentRoomId) socket.emit('chat-history', currentRoomId);
+}
+
+socket.on('chat-history', (messages) => {
+    if (!Array.isArray(messages)) return;
+    chatMessages.innerHTML = '';
+    messages.forEach(m => addMessageToChat(m.author, m.text, false, true));
 });

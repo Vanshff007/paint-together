@@ -2,11 +2,11 @@ const { inRoom } = require('../rooms/server');
 
 const MAX_HISTORY = 30;
 
-// Only a PNG data URL may become canvas state. Browsers load it with img.src, so a URL
-// would make every member fetch it, and a cross-origin image would taint the canvas
-// so toDataURL() throws for the whole room.
-function isPngDataUrl(state) {
-    return typeof state === 'string' && state.startsWith('data:image/png;base64,');
+// Only a PNG or WebP data URL may become canvas state. Browsers load it with img.src,
+// so a URL would make every member fetch it, and a cross-origin image would taint the
+// canvas so toDataURL() throws for the whole room.
+function isCanvasDataUrl(state) {
+    return typeof state === 'string' && /^data:image\/(png|webp);base64,/.test(state);
 }
 
 function register(socket, ctx) {
@@ -16,7 +16,7 @@ function register(socket, ctx) {
     socket.on('save-undo-snapshot', (data) => {
         const { roomId, state } = data || {};
         if (!inRoom(socket, roomId) || !roomData[roomId]) return;
-        if (state !== null && !isPngDataUrl(state)) return;
+        if (state !== null && !isCanvasDataUrl(state)) return;
         roomData[roomId].pendingSnapshot = state;
         roomData[roomId].redoStack = [];
     });
@@ -28,7 +28,7 @@ function register(socket, ctx) {
 
     socket.on('stroke-complete', (data) => {
         const { roomId, state } = data || {};
-        if (!inRoom(socket, roomId) || !roomData[roomId] || !isPngDataUrl(state)) return;
+        if (!inRoom(socket, roomId) || !roomData[roomId] || !isCanvasDataUrl(state)) return;
         const room = roomData[roomId];
         if (room.pendingSnapshot !== null && room.pendingSnapshot !== undefined) {
             room.undoStack.push(room.pendingSnapshot);
@@ -76,4 +76,4 @@ function register(socket, ctx) {
     });
 }
 
-module.exports = { register, MAX_HISTORY, isPngDataUrl };
+module.exports = { register, MAX_HISTORY, isCanvasDataUrl };
