@@ -75,9 +75,9 @@ All live room state is in memory, in the `roomData` object created in `server.js
 
 ```js
 roomData[roomId] = {
-  canvasState,      // latest full canvas as a PNG data URL, or null
-  undoStack,        // array of PNG data URLs, max MAX_HISTORY (30)
-  redoStack,        // array of PNG data URLs
+  canvasState,      // latest full canvas as a PNG or WebP data URL, or null
+  undoStack,        // array of canvas data URLs, max MAX_HISTORY (30)
+  redoStack,        // array of canvas data URLs
   pendingSnapshot,  // canvas before the stroke in progress
   hostId,           // socket.id of the current host
   users,            // { [socketId]: { name, color } }
@@ -106,7 +106,7 @@ is never persisted and is lost when a room empties or the server restarts.
    ("remote layer"). This prevents simultaneous strokes from different users
    from joining into one line.
 5. On `mouseup`, the client sends `mouseup` and `stroke-complete` (full canvas
-   PNG). Receivers merge that user's layer into the committed canvas. The server
+   as lossless WebP, or PNG). Receivers merge that user's layer into the committed canvas. The server
    moves `pendingSnapshot` to `undoStack` and stores the new `canvasState`.
 6. The server sends `history-update` so all clients enable or disable their
    Undo/Redo buttons.
@@ -148,7 +148,8 @@ Drawing, cursor, and mousemove events **never** write to MongoDB.
 - Single process. `roomData` is in memory, so horizontal scaling (several
   instances) needs a Socket.io adapter (for example Redis) and shared state.
   Do not add this until it is needed.
-- Canvas state is a full PNG data URL. Large canvases give large payloads. See
+- Canvas state is a full-canvas data URL (lossless WebP, or PNG). Large
+  canvases give large payloads. See
   "Known limitations" in `docs/progress.md`.
 - The server trusts most client input. See `docs/api.md` for which fields it
   validates. Room-scoped events are accepted only from sockets in that room.

@@ -135,7 +135,7 @@ if (typeof document !== 'undefined') {
 
     function beginChange() {
         restoreCanvas();
-        if (currentRoomId) socket.emit('save-undo-snapshot', { roomId: currentRoomId, state: canvas.toDataURL('image/png') });
+        if (currentRoomId) socket.emit('save-undo-snapshot', { roomId: currentRoomId, state: canvasState() });
         else saveToUndoStack();
     }
 
@@ -151,7 +151,7 @@ if (typeof document !== 'undefined') {
     function finishChange(payload) {
         if (!currentRoomId) return;
         socket.emit('draw-shape', { roomId: currentRoomId, ...payload });
-        socket.emit('stroke-complete', { roomId: currentRoomId, state: canvas.toDataURL('image/png') });
+        socket.emit('stroke-complete', { roomId: currentRoomId, state: canvasState() });
     }
 
     function fillAt(c, x, y, color) {

@@ -14,7 +14,7 @@ user can undo the last stroke of any user. Outside a room it is local.
 ## Server behavior
 
 State lives in `roomData[roomId]`: `undoStack`, `redoStack`,
-`pendingSnapshot`, `canvasState`. All states are PNG data URLs.
+`pendingSnapshot`, `canvasState`. All states are PNG or WebP data URLs.
 
 1. `save-undo-snapshot { roomId, state }` at stroke start: stores the canvas
    before the stroke as `pendingSnapshot`, clears `redoStack`.
@@ -22,7 +22,7 @@ State lives in `roomData[roomId]`: `undoStack`, `redoStack`,
    `pendingSnapshot` onto `undoStack` (max 30, oldest dropped), sets
    `canvasState`, sends `history-update` to the room.
 
-`state` must be a PNG data URL (`isPngDataUrl`), or `null` for a snapshot.
+`state` must be a PNG or WebP data URL (`isCanvasDataUrl`), or `null` for a snapshot.
 Anything else (a URL, another image type, a non-string) is ignored. See
 "Validation and trust" in `docs/api.md`.
 3. `discard-undo-snapshot roomId`: a tap with no movement drops the snapshot.
@@ -42,7 +42,7 @@ History is never saved to MongoDB and is lost when the room empties.
 
 Automated (`npm test`): stroke push, undo, redo, redo cleared by new stroke,
 discard, 30-step cap, empty-stack no-op, unknown room ignored, URL and
-non-PNG states rejected, `isPngDataUrl`, room marked
+other image types rejected, `isCanvasDataUrl`, mixed WebP and PNG states, room marked
 dirty, sender not in the room ignored, malformed payloads ignored.
 
 Manual test cases (two browser windows in one room):

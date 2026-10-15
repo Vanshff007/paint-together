@@ -23,7 +23,9 @@ screen. The client reads it. The server ignores it.
 - User names: trimmed and truncated to 20 characters on the server.
 - Coordinates: `nx`, `ny` are normalized to `0..1` of canvas width/height.
   `ns` is brush size divided by canvas width.
-- Canvas state: PNG data URL string (`canvas.toDataURL('image/png')`) or `null`.
+- Canvas state: PNG or lossless WebP data URL string (`canvasState()` in the
+  drawing client), or `null`. Each browser picks the format (see
+  `features/drawing/README.md`), so one room can mix both.
 - `clientId`: random per-browser ID from `localStorage`, used only for kick
   bans. It is kept on `socket.data.clientId` and never sent to other clients.
 - Some events send a bare `roomId` string as payload, not an object. Keep this
@@ -37,9 +39,9 @@ screen. The client reads it. The server ignores it.
 | `join-room` | `{ roomId, userName, clientId? }` or `roomId` string | Restores room from MongoDB if not in memory. Replies `room-not-found`, `join-banned` (browser was kicked from this room), or `room-joined` + broadcasts `user-count-update`, `users-update`, `user-joined`, and sends `existing-users`. |
 | `draw` | `{ roomId, nx, ny, color, ns, tool, isStart? }` | Relays `draw` to others in room with `socketId` added. `tool` is `'brush'` or `'eraser'`. |
 | `draw-shape` | `{ roomId, shape, nx1, ny1, nx2?, ny2?, color, ns? }` | Relays `draw-shape` to others unchanged. `shape` is `'line'`, `'rect'`, `'circle'` (ellipse in the box) or `'fill'` (flood fill at `nx1, ny1`; no `nx2`, `ny2`, `ns`). Sent by the tools feature, followed by `stroke-complete`. Receivers check every field (`isValidShape`) before drawing. |
-| `save-undo-snapshot` | `{ roomId, state }` | Stores `pendingSnapshot`, clears `redoStack`. Ignored unless `state` is a PNG data URL or `null`. |
+| `save-undo-snapshot` | `{ roomId, state }` | Stores `pendingSnapshot`, clears `redoStack`. Ignored unless `state` is a PNG or WebP data URL, or `null`. |
 | `discard-undo-snapshot` | `roomId` | Clears `pendingSnapshot`. |
-| `stroke-complete` | `{ roomId, state }` | Pushes `pendingSnapshot` to `undoStack` (max 30), sets `canvasState`. Broadcasts `history-update`. Ignored unless `state` is a PNG data URL. |
+| `stroke-complete` | `{ roomId, state }` | Pushes `pendingSnapshot` to `undoStack` (max 30), sets `canvasState`. Broadcasts `history-update`. Ignored unless `state` is a PNG or WebP data URL. |
 | `mouseup` | `roomId` | Relays `mouseup` `{ socketId }` to others. |
 | `clear` | `roomId` | Relays `clear` to others, resets `canvasState` and history. Broadcasts `history-update`. |
 | `undo` | `roomId` | Pops `undoStack`. Broadcasts `canvas-restore`. No-op if empty. |
@@ -89,7 +91,8 @@ What the server checks now:
   with the event name and never stops the server.
 - `kick-user` checks that the sender is host.
 - `clientId` must be a string. It is cut to 64 characters, otherwise treated as missing.
-- Canvas `state` must start with `data:image/png;base64,` (`isPngDataUrl` in
+- Canvas `state` must start with `data:image/png;base64,` or
+  `data:image/webp;base64,` (`isCanvasDataUrl` in
   `features/history/server.js`). Browsers load it with `img.src`, so a URL would
   make every member fetch it (IP leak), and a cross-origin image would taint
   the canvas so `toDataURL()` throws for the whole room. The client's
@@ -108,7 +111,7 @@ What the server does **not** check (keep in mind when you change handlers):
 - `chat-message` `text` content is not filtered. Clients render it with
   `textContent`. Keep rendering with `textContent`, never `innerHTML`.
 - `state` payloads are not checked for size beyond Socket.io's 1 MB message
-  limit, or that the base64 is a valid PNG.
+  limit, or that the base64 is a valid image.
 
 ## Rules for changing the protocol
 
