@@ -96,7 +96,8 @@ function register(socket, ctx, session) {
                     // old hostId belonged to a socket that's long gone; the first user who gets in becomes host
                     hostId: null,
                     users: {},
-                    passwordHash: dbRoom.passwordHash || null
+                    passwordHash: dbRoom.passwordHash || null,
+                    chat: (dbRoom.chat || []).map(m => ({ author: m.author, text: m.text }))
                 };
                 console.log(`♻️ Room ${roomId} restored from MongoDB`);
             }

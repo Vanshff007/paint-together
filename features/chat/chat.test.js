@@ -115,3 +115,10 @@ test('chat-history needs membership and ignores malformed payloads', () => {
     for (const bad of ['OTHER1', null, undefined, 5, { roomId: 'ROOM01' }]) alice.trigger('chat-history', bad);
     assert.strictEqual(alice.emitted.length, 0);
 });
+
+test('a chat message marks the room dirty so autosave saves the history', () => {
+    const { roomData, join } = room();
+    const alice = join('s1', 'Alice', 'a');
+    alice.trigger('chat-message', { roomId: 'ROOM01', text: 'hi' });
+    assert.strictEqual(roomData.ROOM01.dirty, true);
+});

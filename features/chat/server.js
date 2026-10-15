@@ -14,12 +14,13 @@ function register(socket, ctx, session) {
             const message = { author: session.currentName, text };
             socket.to(data.roomId).emit('chat-message', message);
 
-            // in-memory history for late joiners
+            // history for late joiners; dirty so autosave also writes it to MongoDB
             const room = roomData[data.roomId];
             if (room) {
                 const history = (room.chat ||= []);
                 history.push(message);
                 if (history.length > MAX_CHAT_HISTORY) history.shift();
+                room.dirty = true;
             }
         }
     });
