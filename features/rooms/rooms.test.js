@@ -20,8 +20,8 @@ beforeEach(() => {
     };
 });
 
-function connect(id) {
-    const socket = createFakeSocket(io, id);
+function connect(id, ip) {
+    const socket = createFakeSocket(io, id, ip);
     const session = { userColor: '#22c55e', currentName: `User_${id.substring(0, 4)}` };
     rooms.register(socket, ctx, session);
     return socket;
@@ -139,25 +139,80 @@ test('kicked browser cannot rejoin the same room, others can', async (t) => {
     assert.strictEqual(last(bob2.emitted, 'room-joined'), undefined);
     assert.strictEqual(ctx.roomData[roomId].users['bob-socket-2'], undefined);
 
-    const carol = connect('carol-socket');
+    const carol = connect('carol-socket', '10.0.0.3');
     await carol.trigger('join-room', { roomId, userName: 'Carol', clientId: 'carol-browser' });
     assert.ok(last(carol.emitted, 'room-joined'));
 });
 
-test('kicking a client without clientId does not ban anyone', async (t) => {
+test('a kick also blocks new browsers from that IP for an hour, not members from it', async (t) => {
+    t.mock.timers.enable({ apis: ['setTimeout', 'Date'] });
+    t.mock.method(console, 'log', () => {});
+    const alice = connect('alice-socket', '10.0.0.1');
+    await alice.trigger('create-room', { userName: 'Alice', clientId: 'alice-browser' });
+    const roomId = last(alice.emitted, 'room-created').data.roomId;
+    const dave = connect('dave-socket', '10.0.0.2');
+    await dave.trigger('join-room', { roomId, userName: 'Dave', clientId: 'dave-browser' });
+    const bob = connect('bob-socket', '10.0.0.2');
+    await bob.trigger('join-room', { roomId, userName: 'Bob', clientId: 'bob-browser' });
+    alice.trigger('kick-user', { roomId, targetSocketId: 'bob-socket' });
+    assert.strictEqual(ctx.roomData[roomId].dirty, true, 'bans are saved');
+
+    // Bob in a private window: new browser id, same IP
+    const bobPrivate = connect('bob-private', '10.0.0.2');
+    await bobPrivate.trigger('join-room', { roomId, userName: 'Bob', clientId: 'bob-private-browser' });
+    assert.strictEqual(last(bobPrivate.emitted, 'join-banned').data, roomId);
+
+    // Dave got in before, from the same IP: still welcome (a reconnect, say)
+    const dave2 = connect('dave-socket-2', '10.0.0.2');
+    await dave2.trigger('join-room', { roomId, userName: 'Dave', clientId: 'dave-browser' });
+    assert.ok(last(dave2.emitted, 'room-joined'));
+
+    // an hour later new browsers from that IP get in again; the kicked browser never does
+    t.mock.timers.tick(60 * 60 * 1000);
+    await bobPrivate.trigger('join-room', { roomId, userName: 'Bob', clientId: 'bob-private-browser' });
+    assert.ok(last(bobPrivate.emitted, 'room-joined'));
+    const bob2 = connect('bob-socket-2', '10.0.0.9');
+    await bob2.trigger('join-room', { roomId, userName: 'Bob', clientId: 'bob-browser' });
+    assert.strictEqual(last(bob2.emitted, 'join-banned').data, roomId);
+});
+
+test('kicking a client without clientId bans only its IP', async (t) => {
     t.mock.timers.enable({ apis: ['setTimeout'] });
     t.mock.method(console, 'log', () => {});
-    const alice = connect('alice-socket');
+    const alice = connect('alice-socket', '10.0.0.1');
     const roomId = await createRoom(alice);
-    const bob = connect('bob-socket');
+    const bob = connect('bob-socket', '10.0.0.2');
     await bob.trigger('join-room', { roomId, userName: 'Bob' });
 
     alice.trigger('kick-user', { roomId, targetSocketId: 'bob-socket' });
     assert.strictEqual(ctx.roomData[roomId].banned, undefined);
 
-    const bob2 = connect('bob-socket-2');
+    const bob2 = connect('bob-socket-2', '10.0.0.2');
     await bob2.trigger('join-room', { roomId, userName: 'Bob' });
-    assert.ok(last(bob2.emitted, 'room-joined'));
+    assert.strictEqual(last(bob2.emitted, 'join-banned').data, roomId);
+    const bob3 = connect('bob-socket-3', '10.0.0.3');
+    await bob3.trigger('join-room', { roomId, userName: 'Bob' });
+    assert.ok(last(bob3.emitted, 'room-joined'));
+});
+
+test('a restored room keeps its bans, members and undo history', async (t) => {
+    t.mock.method(console, 'log', () => {});
+    const history = { baseState: null, ops: [{ id: 1, author: 'bob-browser', undone: false, op: {} }], nextId: 2, redo: {} };
+    db.SAVED1 = {
+        roomId: 'SAVED1', canvasState: null, members: ['dave-browser'], banned: ['bob-browser'],
+        bannedIps: [{ ip: '10.0.0.2', until: Date.now() + 60000 }], history
+    };
+    const bob = connect('bob-socket', '10.0.0.5');
+    await bob.trigger('join-room', { roomId: 'SAVED1', userName: 'Bob', clientId: 'bob-browser' });
+    assert.strictEqual(last(bob.emitted, 'join-banned').data, 'SAVED1');
+    const eve = connect('eve-socket', '10.0.0.2');
+    await eve.trigger('join-room', { roomId: 'SAVED1', userName: 'Eve', clientId: 'eve-browser' });
+    assert.strictEqual(last(eve.emitted, 'join-banned').data, 'SAVED1');
+    const dave = connect('dave-socket', '10.0.0.2');
+    await dave.trigger('join-room', { roomId: 'SAVED1', userName: 'Dave', clientId: 'dave-browser' });
+    assert.ok(last(dave.emitted, 'room-joined'));
+    assert.deepStrictEqual(ctx.roomData.SAVED1.history.ops, history.ops);
+    assert.strictEqual(ctx.roomData.SAVED1.history.compacting, null);
 });
 
 test('host is never banned when kicking a tab from the same browser', async (t) => {
@@ -183,6 +238,10 @@ test('join-room ignores a non-string clientId and truncates long ones', async ()
     const carol = connect('carol-socket');
     await carol.trigger('join-room', { roomId, userName: 'Carol', clientId: 'x'.repeat(100) });
     assert.strictEqual(carol.data.clientId.length, 64);
+    // '.' and '$' would break the saved history (MongoDB keys)
+    const dan = connect('dan-socket');
+    await dan.trigger('join-room', { roomId, userName: 'Dan', clientId: '$where.x' });
+    assert.strictEqual(dan.data.clientId, null);
 });
 
 test('disconnecting host hands host role to the next user', async () => {
@@ -404,6 +463,53 @@ test('a restored room keeps its password, and only someone who gets in becomes h
     const joined = last(bob.emitted, 'room-joined').data;
     assert.strictEqual(joined.isHost, true);
     assert.strictEqual(joined.canvasState, 'data:image/png;base64,AAA');
+});
+
+test('a browser that got in before skips the password, even after a restore', async (t) => {
+    t.mock.method(console, 'log', () => {});
+    const alice = connect('alice-socket');
+    await alice.trigger('create-room', { userName: 'Alice', clientId: 'alice-browser', password: 'hunter2' });
+    const roomId = last(alice.emitted, 'room-created').data.roomId;
+    const bob = connect('bob-socket');
+    await bob.trigger('join-room', { roomId, userName: 'Bob', clientId: 'bob-browser', password: 'hunter2' });
+    const room = ctx.roomData[roomId];
+    db[roomId] = { roomId, passwordHash: room.passwordHash, members: room.members };
+    delete ctx.roomData[roomId];
+
+    // everyone forgot the password: the creator's and Bob's browsers still get in
+    const alice2 = connect('alice-socket-2');
+    await alice2.trigger('join-room', { roomId, userName: 'Alice', clientId: 'alice-browser' });
+    assert.ok(last(alice2.emitted, 'room-joined'));
+    const bob2 = connect('bob-socket-2');
+    await bob2.trigger('join-room', { roomId, userName: 'Bob', clientId: 'bob-browser' });
+    assert.ok(last(bob2.emitted, 'room-joined'));
+    const eve = connect('eve-socket');
+    await eve.trigger('join-room', { roomId, userName: 'Eve', clientId: 'eve-browser' });
+    assert.strictEqual(last(eve.emitted, 'join-password').data.reason, 'required');
+});
+
+test('only the host can set or remove the password', async (t) => {
+    t.mock.method(console, 'log', () => {});
+    const roomId = await createLockedRoom('hunter2');
+    const bob = connect('bob-socket');
+    await bob.trigger('join-room', { roomId, userName: 'Bob', password: 'hunter2' });
+    const before = ctx.roomData[roomId].passwordHash;
+    await bob.trigger('set-password', { roomId, password: 'mine' });
+    assert.strictEqual(ctx.roomData[roomId].passwordHash, before);
+
+    const alice = io.sockets.sockets.get('alice-socket');
+    await alice.trigger('set-password', { roomId, password: 'tulip42' });
+    assert.deepStrictEqual(last(alice.emitted, 'password-set').data, { locked: true });
+    const carol = connect('carol-socket');
+    await carol.trigger('join-room', { roomId, userName: 'Carol', password: 'hunter2' });
+    assert.strictEqual(last(carol.emitted, 'join-password').data.reason, 'wrong');
+    await carol.trigger('join-room', { roomId, userName: 'Carol', password: 'tulip42' });
+    assert.ok(last(carol.emitted, 'room-joined'));
+
+    await alice.trigger('set-password', { roomId, password: '' });
+    assert.deepStrictEqual(last(alice.emitted, 'password-set').data, { locked: false });
+    assert.strictEqual(ctx.roomData[roomId].passwordHash, null);
+    assert.strictEqual(ctx.roomData[roomId].dirty, true);
 });
 
 test('a room that leaves memory during the password check is reported as not found', async (t) => {

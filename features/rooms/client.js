@@ -18,6 +18,7 @@ const myNameBadge      = document.getElementById('myNameBadge');
 const membersBtn      = document.getElementById('membersBtn');
 const membersDropdown = document.getElementById('membersDropdown');
 const membersList     = document.getElementById('membersList');
+const setPasswordBtn  = document.getElementById('setPasswordBtn');
 
 const kickModal       = document.getElementById('kickModal');
 const kickModalText   = document.getElementById('kickModalText');
@@ -46,6 +47,7 @@ document.addEventListener('click', (e) => {
 membersDropdown.addEventListener('click', e => e.stopPropagation());
 
 function renderMembersList() {
+    setPasswordBtn.hidden = !amIHost;
     membersList.innerHTML = '';
     Object.entries(roomUsersCache).forEach(([socketId, info]) => {
         const isHost  = socketId === currentHostId;
@@ -94,6 +96,13 @@ function renderMembersList() {
         membersList.appendChild(li);
     });
 }
+
+// host only: a new password for people who join from now on (browsers already in skip it)
+setPasswordBtn.addEventListener('click', () => {
+    const password = prompt('New room password (leave empty to remove it):');
+    if (password === null || !currentRoomId) return;
+    socket.emit('set-password', { roomId: currentRoomId, password });
+});
 
 kickCancelBtn.addEventListener('click', () => {
     kickModal.classList.remove('show');
@@ -304,7 +313,7 @@ socket.on('room-joined', (data) => {
 
 socket.on('join-banned', (roomId) => {
     if (rejoining) returnToLanding();
-    showLandingError(`You were removed from room "${roomId}" and can't rejoin.`);
+    showLandingError(`You can't join room "${roomId}": the host removed you or someone on your network.`);
     window.history.pushState({}, '', '/');
 });
 
@@ -319,6 +328,10 @@ socket.on('join-password', (data) => {
     };
     showLandingError(messages[data.reason] || messages.required);
     roomPasswordInput.focus();
+});
+
+socket.on('password-set', (data) => {
+    showToast(data && data.locked ? '🔒 New password set. Share it with new people.' : '🔓 Password removed');
 });
 
 socket.on('room-not-found', (roomId) => {

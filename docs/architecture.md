@@ -93,8 +93,8 @@ roomData[roomId] = {
 Socket.io rooms (`io.sockets.adapter.rooms`) track which sockets are in which
 room. `roomData` holds the application data for that room.
 
-Only `canvasState`, `hostId`, and user names are persisted. Undo/redo history
-is never persisted and is lost when a room empties or the server restarts.
+Persisted: `canvasState`, `hostId`, user names, password hash, chat, undo/redo
+history (if under 8 MB), members, and bans (see `docs/database.md`).
 
 ## Real-time drawing flow
 
@@ -134,8 +134,9 @@ Undo/redo is **per user** (per browser, by `clientId`), kept on the server.
   base image (`compact-request` / `compact`). Those changes can no longer be
   undone.
 - Clear resets the history. Offline (no room) undo uses local snapshots.
-- History is not saved to MongoDB: a restored room starts from its saved
-  canvas as the base.
+- History is saved to MongoDB with the room, so undo works after a restart or
+  after the room empties. A history over 8 MB is not saved; that room restarts
+  its history from the saved canvas.
 
 ## Persistence flow
 
@@ -156,8 +157,11 @@ Drawing, cursor, and mousemove events **never** write to MongoDB.
 
 - The room creator is host. When the host disconnects, the first remaining user
   in `roomData[roomId].users` becomes host (`host-changed`).
-- A kick also bans the target's browser (`clientId`) from that room. The ban
-  list is `roomData[roomId].banned`, in memory only.
+- A kick also bans the target's browser (`clientId`) from that room, and for
+  1 hour any new browser from the target's IP. Browsers that got in before
+  (`members`) are not blocked by the IP ban. Bans are saved with the room.
+- Browsers that got in once skip the room password, so a forgotten password
+  never locks a room. The host can set a new password or remove it.
 - Only the host can send `kick-user`. The server checks `hostId` and then
   disconnects the target socket after 500 ms.
 

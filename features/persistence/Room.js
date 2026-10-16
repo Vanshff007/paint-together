@@ -30,6 +30,18 @@ const roomSchema = new mongoose.Schema({
         type: [String],
         default: []
     },
+    // undo/redo history (features/history): { baseState, ops, nextId, redo }, null if too big
+    history: {
+        type: mongoose.Schema.Types.Mixed,
+        default: null
+    },
+    // browser ids that got in (skip the password), kicked browser ids, and 1-hour IP bans
+    members: { type: [String], default: [] },
+    banned: { type: [String], default: [] },
+    bannedIps: {
+        type: [{ _id: false, ip: String, until: Number }],
+        default: []
+    },
     createdAt: {
         type: Date,
         default: Date.now

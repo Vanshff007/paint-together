@@ -20,9 +20,35 @@ function parseName(data, fallback) {
     return name || fallback;
 }
 
-// browser id from localStorage, used only for kick bans
+// browser id from localStorage (kick bans, undo owner, known members). Letters, digits and
+// dashes only: it becomes a key in the saved history, and MongoDB keys cannot hold '.' or '$'.
 function parseClientId(data) {
-    return (data && typeof data.clientId === 'string') ? data.clientId.substring(0, 64) : null;
+    const id = (data && typeof data.clientId === 'string') ? data.clientId.substring(0, 64) : '';
+    return /^[A-Za-z0-9-]+$/.test(id) ? id : null;
+}
+
+const MAX_MEMBERS = 500;          // browsers remembered per room
+const IP_BAN_MS   = 60 * 60 * 1000; // a kick also blocks new browsers from that IP for 1 hour
+
+// true if this browser got into the room before (it skips the password and IP bans)
+function isMember(room, clientId) {
+    return Boolean(clientId) && (room.members || []).includes(clientId);
+}
+
+// ponytail: plain list, oldest dropped past MAX_MEMBERS; a Set if rooms ever get big
+function addMember(room, clientId) {
+    if (!clientId || isMember(room, clientId)) return;
+    const members = (room.members ||= []);
+    members.push(clientId);
+    if (members.length > MAX_MEMBERS) members.shift();
+    room.dirty = true;
+}
+
+// a kicked browser, or a new browser from the IP of someone kicked within the last hour
+function isBanned(room, clientId, ip) {
+    if (clientId && (room.banned || []).includes(clientId)) return true;
+    if (isMember(room, clientId)) return false;
+    return (room.bannedIps || []).some(b => b.ip === ip && b.until > Date.now());
 }
 
 function randomUserColor() {
@@ -61,6 +87,7 @@ function register(socket, ctx, session) {
         };
 
         roomData[roomId].users[socket.id] = { name: uName, color: session.userColor };
+        addMember(roomData[roomId], socket.data.clientId);
 
         await persistence.ensureRoomDoc(roomId, socket.id, uName, passwordHash);
 
@@ -91,8 +118,13 @@ function register(socket, ctx, session) {
                     hostId: null,
                     users: {},
                     passwordHash: dbRoom.passwordHash || null,
-                    chat: (dbRoom.chat || []).map(m => ({ author: m.author, text: m.text }))
+                    chat: (dbRoom.chat || []).map(m => ({ author: m.author, text: m.text })),
+                    members: [...(dbRoom.members || [])],
+                    banned: [...(dbRoom.banned || [])],
+                    bannedIps: (dbRoom.bannedIps || []).map(b => ({ ip: b.ip, until: Number(b.until) }))
                 };
+                // undo/redo history (features/history), if it was small enough to save
+                if (dbRoom.history) roomData[roomId].history = { ...dbRoom.history, compacting: null };
                 console.log(`♻️ Room ${roomId} restored from MongoDB`);
             }
         }
@@ -103,16 +135,16 @@ function register(socket, ctx, session) {
             return;
         }
 
-        const banned = roomData[roomId] && roomData[roomId].banned;
-        if (banned && socket.data.clientId && banned.includes(socket.data.clientId)) {
+        const ip = clientIp(socket);
+        if (roomData[roomId] && isBanned(roomData[roomId], socket.data.clientId, ip)) {
             socket.emit('join-banned', roomId);
             return;
         }
 
-        // password-protected room: check the password, with a wrong-guess limit per IP
+        // password-protected room: check the password, with a wrong-guess limit per IP.
+        // A browser that got in before skips it, so a forgotten password never locks the room.
         const passwordHash = roomData[roomId] && roomData[roomId].passwordHash;
-        if (passwordHash) {
-            const ip = clientIp(socket);
+        if (passwordHash && !isMember(roomData[roomId], socket.data.clientId)) {
             const wait = limiter.waitFor(ip);
             if (wait) {
                 socket.emit('join-password', { roomId, reason: 'wait', retryIn: Math.ceil(wait / 1000) });
@@ -143,6 +175,7 @@ function register(socket, ctx, session) {
         // restored room (no host yet), or a host that is gone: this user becomes host
         if (!roomData[roomId].users[roomData[roomId].hostId]) roomData[roomId].hostId = socket.id;
         roomData[roomId].users[socket.id] = { name: uName, color: session.userColor };
+        addMember(roomData[roomId], socket.data.clientId);
 
         const userCount = getRoomUserCount(io, roomId);
         const isHost    = roomData[roomId].hostId === socket.id;
@@ -181,17 +214,40 @@ function register(socket, ctx, session) {
         const targetSocket = io.sockets.sockets.get(targetSocketId);
         if (!targetSocket) return;
 
-        // ponytail: in-memory ban by browser id; lost when the room empties or the server restarts,
-        // and bypassed by clearing localStorage. Real bans need user accounts.
-        // same browser as the host (two tabs): skip, or the host would ban themselves
-        if (targetSocket.data.clientId && targetSocket.data.clientId !== socket.data.clientId) {
-            (roomData[roomId].banned ||= []).push(targetSocket.data.clientId);
+        // ponytail: bans by browser id plus a 1-hour IP ban for new browsers, saved with the room.
+        // A new IP (mobile data, VPN) still gets around them. Real bans need user accounts.
+        const room = roomData[roomId];
+        const targetId = targetSocket.data.clientId;
+        // same browser as the host (two tabs): no ban, or the host would ban themselves
+        if (!(targetId && targetId === socket.data.clientId)) {
+            if (targetId) {
+                (room.banned ||= []).push(targetId);
+                if (room.members) room.members = room.members.filter(id => id !== targetId);
+            }
+            // members already in from that IP (same school or home) are not affected
+            const now = Date.now();
+            room.bannedIps = (room.bannedIps || []).filter(b => b.until > now);
+            room.bannedIps.push({ ip: clientIp(targetSocket), until: now + IP_BAN_MS });
+            room.dirty = true;
         }
 
         targetSocket.emit('kicked');
         console.log(`✕ ${targetSocketId} kicked from room ${roomId} by host`);
 
         setTimeout(() => { targetSocket.disconnect(true); }, 500);
+    });
+
+    // Host sets a new room password, or removes it with an empty one
+    socket.on('set-password', async (data) => {
+        const roomId = data && data.roomId;
+        if (!inRoom(socket, roomId) || !roomData[roomId]) return;
+        if (roomData[roomId].hostId !== socket.id) return;
+        const password = parsePassword(data);
+        const hash = password ? await hashPassword(password) : null;
+        if (!roomData[roomId]) return;
+        roomData[roomId].passwordHash = hash;
+        roomData[roomId].dirty = true;
+        socket.emit('password-set', { locked: Boolean(hash) });
     });
 
     // Leave rooms: update members, hand over host, save and clean up empty rooms
@@ -245,4 +301,4 @@ function register(socket, ctx, session) {
     });
 }
 
-module.exports = { register, inRoom, generateRoomId, getRoomUserCount, randomUserColor };
+module.exports = { register, inRoom, generateRoomId, getRoomUserCount, randomUserColor, IP_BAN_MS, MAX_MEMBERS };

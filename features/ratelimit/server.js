@@ -25,7 +25,8 @@ const LIMITS = {
     'chat-message':       { burst: 8,   perSecond: 1 },
     'op':                 { burst: 20,  perSecond: 10 },  // one per finished change, carries a canvas image
     'canvas-state':       { burst: 10,  perSecond: 4 },
-    'compact':            { burst: 5,   perSecond: 1 }
+    'compact':            { burst: 5,   perSecond: 1 },
+    'set-password':       { burst: 5,   perSecond: 1 / 5 } // each one runs scrypt
 };
 const DEFAULT_LIMIT = { burst: 60, perSecond: 30 };
 

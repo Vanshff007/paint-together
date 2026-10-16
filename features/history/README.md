@@ -110,6 +110,8 @@ Manual test cases (two browser windows in one room):
   flattened into the base.
 - Every undo/redo redraws the canvas from up to 200 changes on every client.
   Fills and images make that slower on old phones.
-- Undo history is lost on restart or when the room empties (not saved).
+- Undo history is saved with the room, but only up to 8 MB (many inserted
+  images can pass that). A bigger history is not saved: after a restart or
+  once the room empties, that room's undo starts over from the saved canvas.
 - A fill is recomputed when redrawn. Different browsers can anti-alias edges
   slightly differently, so a fill edge can differ by a pixel between browsers.

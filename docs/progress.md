@@ -1,6 +1,6 @@
 # Progress
 
-Last updated: 2026-10-15.
+Last updated: 2026-10-16.
 
 ## Completed
 
@@ -19,11 +19,15 @@ Last updated: 2026-10-15.
 - Per-user remote layers, so simultaneous strokes do not merge.
 - Per-user undo/redo in rooms: each user undoes only their own changes. The
   server keeps the last 200 changes; older ones are flattened (not undoable).
+  The history is saved to MongoDB (up to 8 MB), so undo survives restarts and
+  empty rooms.
 - Clear canvas (synced), download as PNG.
 - Live remote cursors with user name and color.
 - Live chat with unread indicator.
 - Members list, host role, host hand-over, host can kick users. Kicked
-  browsers cannot rejoin the same room (per-browser ID, in memory).
+  browsers cannot rejoin the same room, and new browsers from the kicked
+  user's IP are blocked for 1 hour (members already in are not). Bans are
+  saved with the room.
 - Copy room link, exit room.
 - MongoDB persistence:
   - `Room` model and `connectDB()`.
@@ -49,10 +53,14 @@ Last updated: 2026-10-15.
 - Rate limits per socket (draw, chat, cursors, canvas saves) and per IP
   (create-room, join-room); excess events are dropped (`features/ratelimit/`).
 - Chat history is saved to MongoDB with the room and restored with it.
-- Browser smoke tests in real Chrome: `npm run test:e2e` (`e2e/`).
+- Browser smoke tests in real Chrome: `npm run test:e2e` (`e2e/`), and in
+  Firefox and WebKit: `npm run test:e2e:firefox`, `npm run test:e2e:webkit`.
+- Socket.io messages up to 10 MB (default 1 MB), so a detailed canvas never
+  disconnects anyone.
 - Optional room passwords: salted scrypt hash in memory and MongoDB, 5 wrong
   guesses per IP then a 30 s wait, kept in the tab's memory for reconnects
-  (`features/passwords/`).
+  (`features/passwords/`). Browsers that got in once skip the password, and
+  the host can set a new one or remove it.
 - Canvas state is sent as lossless WebP when the browser supports it (10-70%
   smaller than PNG), else PNG.
 - Production deploy on Render.
@@ -72,17 +80,17 @@ Last updated: 2026-10-15.
 
 ## Known limitations
 
-- A forgotten room password cannot be reset. Once everyone leaves, the room
-  cannot be opened until MongoDB deletes it (30 days after the last save).
-- Canvas state is a full-canvas data URL. Socket.io's default 1 MB message
-  limit can disconnect a client with a very large or detailed canvas. Lossless
-  WebP makes this rarer, but a dense canvas is only about 10% smaller than
-  PNG, and browsers without lossless WebP still send PNG.
-- Undo/redo history is lost on restart or when a room empties.
+- A room whose password is forgotten can be opened only by a browser that got
+  in before. If all of them cleared their site data, it stays locked until
+  MongoDB deletes it (30 days after the last save).
+- Canvas state is a full-canvas data URL, up to about 6 MB for a very noisy
+  canvas; messages are capped at 10 MB.
+- Undo/redo history over 8 MB (many inserted images) is not saved; such a
+  room restarts its history from the saved canvas.
 - Single instance only (in-memory state).
-- Kick bans use a `localStorage` ID: a private window or clearing site data
-  gets around them, and they are lost when the room empties or the server
-  restarts.
+- Kick bans use a `localStorage` ID plus a 1-hour IP ban. A new IP and a new
+  browser together get around them; new people on the kicked user's network
+  are blocked for that hour too.
 - Browser tests cover the main flows only (`e2e/`); the rest of the browser
-  code has manual test cases in each feature README. Browser tests run in
-  Chrome only.
+  code has manual test cases in each feature README. The pinch-zoom test runs
+  in Chrome only (it needs the DevTools protocol).

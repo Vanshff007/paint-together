@@ -85,6 +85,7 @@ and join with the room code.
 | `npm run dev` | Start with auto-restart (nodemon) |
 | `npm test` | Run all tests (no database needed) |
 | `npm run test:e2e` | Browser tests in headless Chrome (needs Chrome installed) |
+| `npm run test:e2e:firefox` / `test:e2e:webkit` | Same tests in Firefox / WebKit (`npx playwright-core install firefox webkit` first) |
 
 ## 📚 Documentation
 

@@ -32,9 +32,15 @@ host role, host hand-over, and kicking users.
   - Else replies `room-joined`, broadcasts `user-count-update`, `users-update`,
     `user-joined`, and sends `existing-users` to the joiner.
 - `kick-user { roomId, targetSocketId }`: only the host, never themselves.
-  The target's `clientId` is added to `roomData[roomId].banned`, then the
-  target gets `kicked` and is disconnected after 500 ms.
-- `join-room` from a banned `clientId` gets `join-banned` and is not added.
+  The target's `clientId` is added to `roomData[roomId].banned` and its IP to
+  `bannedIps` for 1 hour, then the target gets `kicked` and is disconnected
+  after 500 ms.
+- `join-room` from a banned `clientId`, or from a new browser on a banned IP,
+  gets `join-banned` and is not added.
+- `set-password { roomId, password }`: host only. Sets a new password, or
+  removes it when empty. Replies `password-set { locked }`.
+- Every browser that gets in is added to `roomData[roomId].members` (max 500).
+  Members skip the password and IP bans.
 - Malformed payloads (`null`, non-string `roomId` or `userName`) are ignored.
   A non-string or empty name uses the default name.
 - `inRoom(socket, roomId)` is exported for every feature: true only when
@@ -47,15 +53,22 @@ The client makes a random ID once (`crypto.randomUUID()`), stores it in
 `join-room`. The server keeps it on `socket.data` only, never in
 `users`, so other users never see it.
 
+A kick also bans the target's IP for 1 hour, for browsers that were never in
+the room. So a private window or another browser on the same network cannot
+rejoin right away, while members already in from that network (same school or
+home) can.
+
+Bans are saved with the room (`banned`, `bannedIps` in MongoDB), so they
+survive restarts and empty rooms.
+
 Limits (deliberate, no user accounts):
 
-- A private window, another browser, or clearing site data gives a new ID,
-  so a determined user can still rejoin.
-- Bans are in memory. They are lost when the room empties or the server
-  restarts.
+- A new IP (mobile data, VPN) plus a new browser can still rejoin. After an
+  hour, a new browser on the same IP can too.
+- New people on a kicked user's network are blocked for that hour as well.
 - Tabs of the same browser share one ID. If the host kicks a tab from their
   own browser, no ban is added, so the host never locks themselves out.
-- Clients that send no `clientId` are kicked but not banned.
+- Clients that send no `clientId` are banned by IP only.
 - `disconnecting`: removes the user, hands host to the first remaining user,
   and when the room becomes empty saves it and deletes it from memory.
 
@@ -136,6 +149,13 @@ Manual test cases (two browser windows):
     password is still required, and the first user in becomes host.
 17. Six wrong passwords in a row: the sixth shows "Wait 30 s", and even the
     right password is refused until then.
+18. Host kicks B, B opens a private window and joins: "You can't join room
+    ...: the host removed you or someone on your network.".
+19. Host opens Members, clicks "🔒 Set password", enters a new one: toast "New
+    password set". A new browser needs the new password; B's earlier
+    browser and the host's get in with no password, even after everyone left.
+20. "🔒 Set password" with an empty value: toast "Password removed", anyone can
+    join.
 
 ## Known issues
 
