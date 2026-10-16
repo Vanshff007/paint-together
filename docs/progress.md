@@ -1,6 +1,6 @@
 # Progress
 
-Last updated: 2026-10-16.
+Last updated: 2026-10-16 (1.10.0).
 
 ## Completed
 
@@ -46,10 +46,16 @@ Last updated: 2026-10-16.
   capped at 200 characters on the server.
 - Socket.io accepts only pages from the same host (`features/origin/`).
 - Chat history: joiners get the room's last 50 messages.
-- Tools: line, rectangle, ellipse, fill bucket, text and insert image, synced as history changes (`op`)
-  and part of the shared undo/redo (`features/tools/`).
+- Tools: line, rectangle, ellipse, fill bucket, text, insert image, select and
+  move, and eyedropper, synced as history changes (`op`) and part of the shared
+  undo/redo (`features/tools/`).
+- View-only mode: the host can stop everyone else drawing (`features/lock/`).
+- Changes carry no canvas image: each user sends the full canvas once, 1.5 s
+  after their last change, and joiners redraw from the history.
+- CI: GitHub Actions runs unit tests and browser tests in Chrome, Firefox and
+  WebKit on every PR.
 - Keyboard shortcuts: Ctrl/Cmd+Z, Ctrl/Cmd+Y, Ctrl/Cmd+Shift+Z, and B, E, L,
-  R, O, F, T, I for the tools; ignored while typing (`features/shortcuts/`).
+  R, O, F, T, I, S, K for the tools; ignored while typing (`features/shortcuts/`).
 - Rate limits per socket (draw, chat, cursors, canvas saves) and per IP
   (create-room, join-room); excess events are dropped (`features/ratelimit/`).
 - Chat history is saved to MongoDB with the room and restored with it.

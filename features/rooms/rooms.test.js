@@ -98,7 +98,8 @@ test('join-room restores a room from MongoDB and makes the joiner host', async (
     await bob.trigger('join-room', { roomId: 'SAVED1', userName: 'Bob' });
 
     const joined = last(bob.emitted, 'room-joined').data;
-    assert.strictEqual(joined.canvasState, 'data:image/png;base64,AAA');
+    assert.strictEqual(joined.canvasState, undefined, 'the joiner redraws from the history');
+    assert.strictEqual(ctx.roomData.SAVED1.canvasState, 'data:image/png;base64,AAA');
     assert.strictEqual(joined.isHost, true);
 });
 
@@ -462,7 +463,7 @@ test('a restored room keeps its password, and only someone who gets in becomes h
     await bob.trigger('join-room', { roomId, userName: 'Bob', password: 'hunter2' });
     const joined = last(bob.emitted, 'room-joined').data;
     assert.strictEqual(joined.isHost, true);
-    assert.strictEqual(joined.canvasState, 'data:image/png;base64,AAA');
+    assert.strictEqual(ctx.roomData[roomId].canvasState, 'data:image/png;base64,AAA');
 });
 
 test('a browser that got in before skips the password, even after a restore', async (t) => {

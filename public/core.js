@@ -11,6 +11,12 @@ let amIHost = false;
 let currentHostId = null;
 let mySocketId = null;
 let wasKicked = false;
+let roomLocked = false; // view-only mode (features/lock)
+
+// false only in a view-only room for everyone but the host
+function canDraw() {
+    return !currentRoomId || !roomLocked || amIHost;
+}
 
 // SHARED DOM ELEMENTS
 const landingScreen    = document.getElementById('landingScreen');

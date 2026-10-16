@@ -205,8 +205,9 @@ function redo() {
 
 function updateUndoRedoButtons() {
     if (currentRoomId) {
-        undoBtn.disabled = !serverHasUndo;
-        redoBtn.disabled = !serverHasRedo;
+        // a view-only room (features/lock): only the host may undo
+        undoBtn.disabled = !serverHasUndo || !canDraw();
+        redoBtn.disabled = !serverHasRedo || !canDraw();
     } else {
         undoBtn.disabled = localUndoStack.length === 0;
         redoBtn.disabled = localRedoStack.length === 0;

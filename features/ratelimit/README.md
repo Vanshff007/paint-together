@@ -31,6 +31,7 @@ is logged with `console.warn`.
 | `canvas-state` | 10 | 4 | per socket |
 | `compact` | 5 | 1 | per socket |
 | `set-password` | 5 | 1 per 5 s | per socket (each runs scrypt) |
+| `lock-room` | 5 | 1 | per socket |
 | anything else | 60 | 30 | per socket |
 
 Per-IP limits use `clientIp()` from `features/passwords/` (last

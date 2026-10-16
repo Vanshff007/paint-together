@@ -50,12 +50,7 @@ function initColorPalette() {
     });
 
     colorPickerOk.addEventListener('click', () => {
-        const pickedColor = colorPicker.value;
-        selectColor(pickedColor, null);
-        document.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('active'));
-        customColorBtn.classList.add('active');
-        customColorBtn.style.background = pickedColor;
-        customColorBtn.style.color = getBrightness(pickedColor) > 128 ? '#000000' : '#ffffff';
+        useColor(colorPicker.value);
         colorPickerModal.classList.remove('show');
     });
 
@@ -76,6 +71,18 @@ function selectColor(color, element) {
         customColorBtn.style.background = '';
         customColorBtn.style.color = '';
     }
+}
+
+// any '#rrggbb': selects the matching swatch, or shows it on the custom color button
+function useColor(color) {
+    const swatch = Array.from(document.querySelectorAll('.color-swatch'))
+        .find(s => s.dataset.color.toLowerCase() === color.toLowerCase());
+    customColorBtn.classList.toggle('active', !swatch);
+    if (swatch) return selectColor(swatch.dataset.color, swatch);
+    selectColor(color, null);
+    document.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('active'));
+    customColorBtn.style.background = color;
+    customColorBtn.style.color = getBrightness(color) > 128 ? '#000000' : '#ffffff';
 }
 
 function getBrightness(hexColor) {
@@ -216,6 +223,7 @@ brushSize.addEventListener('input', (e) => {
 });
 
 clearBtn.addEventListener('click', () => {
+    if (!canDraw()) return;
     if (!currentRoomId) saveToUndoStack();
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     canvasImage = null;
@@ -267,21 +275,25 @@ let canvasStateType = 'image/png';
     } catch (e) { /* keep PNG */ }
 })();
 
-function canvasState() {
-    return canvas.toDataURL(canvasStateType, 1);
-}
+// The server needs the full canvas only to save the room (and as a fallback when the
+// history is too big to save), so it gets one once this user pauses, not with every change.
+// ponytail: a tab closed within the pause leaves the server's copy a change behind; the
+// saved history still has that change.
+const STATE_DELAY_MS = 1500;
+let stateTimer = null;
 
-function loadCanvasState(base64) {
-    // never load a URL: it would leak the viewer's IP and taint the canvas
-    if (typeof base64 !== 'string' || !/^data:image\/(png|webp);base64,/.test(base64)) return;
-    const img = new Image();
-    img.onload = () => {
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        // states saved before the fixed size (other sizes) are scaled to fit
-        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-        canvasImage = ctx.getImageData(0, 0, canvas.width, canvas.height);
-    };
-    img.src = base64;
+function reportCanvasState() {
+    clearTimeout(stateTimer);
+    const roomId = currentRoomId;
+    stateTimer = setTimeout(() => {
+        if (roomId !== currentRoomId || !canvasImage) return;
+        // the committed pixels only: no previews, cursors, or strokes others are drawing
+        const off = document.createElement('canvas');
+        off.width  = canvas.width;
+        off.height = canvas.height;
+        off.getContext('2d').putImageData(canvasImage, 0, 0);
+        socket.emit('canvas-state', { roomId, state: off.toDataURL(canvasStateType, 1) });
+    }, STATE_DELAY_MS);
 }
 
 // CANVAS SIZE
@@ -387,7 +399,7 @@ let activeTouchId = null;
 
 canvas.addEventListener('touchstart', (e) => {
     e.preventDefault();
-    if (activeTouchId !== null) return;
+    if (activeTouchId !== null || !canDraw()) return;
     const t = e.changedTouches[0];
     activeTouchId = t.identifier;
     const pos = getTouchPos(t);
@@ -468,6 +480,7 @@ function addStrokePoint(n) {
 }
 
 function startDrawing(e) {
+    if (!canDraw()) return;
     hasDrawnInStroke = false;
     isDrawing  = true;
     const pos  = getMousePos(e);
@@ -519,7 +532,8 @@ function stopDrawing() {
     canvasImage = ctx.getImageData(0, 0, canvas.width, canvas.height);
     if (currentRoomId && op) {
         socket.emit('mouseup', currentRoomId);
-        socket.emit('op', { roomId: currentRoomId, op, state: canvasState() });
+        socket.emit('op', { roomId: currentRoomId, op });
+        reportCanvasState();
     }
     if (currentTool === 'eraser' && showCursor) showCursorPreview();
 }

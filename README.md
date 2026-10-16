@@ -12,12 +12,12 @@ chat, and see each other's cursors live on a shared canvas.
 - 🧑‍🤝‍🧑 **Real-time collaboration**: several users draw at the same time, with no crossed strokes
 - 🏠 **Rooms**: create a room or join one with a 6-character code or a shared link
 - 🔒 **Room passwords** (optional): only people with the password can join
-- 🎨 **Drawing tools**: brush, eraser, line, rectangle, ellipse, fill bucket, text, insert image, color palette, custom colors, size 1–50
-- ⌨️ **Keyboard shortcuts**: Ctrl/Cmd+Z, Ctrl/Cmd+Y, and B, E, L, R, O, F, T, I for the tools
+- 🎨 **Drawing tools**: brush, eraser, line, rectangle, ellipse, fill bucket, text, insert image, select and move, eyedropper, color palette, custom colors, size 1–50
+- ⌨️ **Keyboard shortcuts**: Ctrl/Cmd+Z, Ctrl/Cmd+Y, and B, E, L, R, O, F, T, I, S, K for the tools
 - ↩️ **Per-user undo / redo**: you undo only your own changes, even when others drew after you
 - 🖱️ **Live cursors**: see where everyone is pointing
 - 💬 **Live chat** with unread indicator; new joiners see the last 50 messages
-- 👑 **Host controls**: the host can remove users, and removed users cannot rejoin
+- 👑 **Host controls**: the host can remove users (removed users cannot rejoin), change the password, and make the room view-only
 - 💾 **Autosave**: canvases are saved to MongoDB and come back after a restart
 - 📥 **Download** the canvas as PNG
 - 🌙 **Dark mode**, mouse and touch support, pinch-zoom on phones
@@ -42,6 +42,7 @@ paint-together/
 │   ├── rooms/             # create/join/exit, members, host, kick
 │   ├── drawing/           # canvas, tools, colors, live strokes
 │   ├── history/           # shared undo/redo
+│   ├── lock/              # view-only mode
 │   ├── tools/             # line, rectangle, ellipse, fill bucket, text, image
 │   ├── shortcuts/         # keyboard shortcuts
 │   ├── zoom/              # pinch-zoom and pan on touch screens

@@ -24,8 +24,8 @@ screen. The client reads it. The server ignores it.
 - Coordinates: `nx`, `ny` are normalized to `0..1` of canvas width/height. The
   canvas is 1280×800 pixels on every client.
   `ns` is brush size divided by canvas width.
-- Canvas state: PNG or lossless WebP data URL string (`canvasState()` in the
-  drawing client), or `null`. Each browser picks the format (see
+- Canvas state: PNG or lossless WebP data URL string (`reportCanvasState()` in
+  the drawing client), or `null`. Each browser picks the format (see
   `features/drawing/README.md`), so one room can mix both.
 - `clientId`: random per-browser ID from `localStorage` (letters, digits and
   dashes, max 64; anything else counts as none). Used for kick bans, undo
@@ -42,9 +42,9 @@ screen. The client reads it. The server ignores it.
 | `create-room` | `{ userName, clientId?, password? }` | Generates a room ID not used by a live or saved room, joins socket, creates `roomData` and a `Room` document. A non-empty `password` (max 64 chars) is stored as a salted scrypt hash and protects the room. Replies `room-created`. |
 | `join-room` | `{ roomId, userName, clientId?, password? }` or `roomId` string | Restores room from MongoDB if not in memory. Replies `room-not-found`, `join-banned` (browser was kicked from this room, or a new browser from the IP of someone kicked in the last hour), `join-password` (skipped for browsers that got in before) (room has a password and it is missing, wrong, or this IP must wait), or `room-joined` + broadcasts `user-count-update`, `users-update`, `user-joined`, and sends `existing-users`. |
 | `draw` | `{ roomId, nx, ny, color, ns, tool, isStart? }` | Relays `draw` to others in room with `socketId` added. `tool` is `'brush'` or `'eraser'`. |
-| `op` | `{ roomId, op, state }` | A finished change, for the room history (per-user undo). `op` is `{ type: 'stroke', points: [[nx, ny], ...], color, ns, tool }` (max 2000 points; `tool` `'brush'` or `'eraser'`) or `{ type: 'shape', shape, nx1, ny1, nx2?, ny2?, color?, ns?, text?, src? }` with `shape` `'line'`, `'rect'`, `'circle'` (ellipse in the box), `'fill'` (at `nx1, ny1`), `'text'` (top-left at `nx1, ny1`, font size `ns`) or `'image'` (`src` a PNG, JPEG or WebP data URL drawn into the box). `state` is the sender's full canvas (PNG or WebP data URL). Checked with `isValidOp` (unknown fields dropped), stored with an id and the sender's browser, `canvasState` set, then broadcast as `op` to the whole room. Ends the sender's redo. |
+| `op` | `{ roomId, op, state? }` | A finished change, for the room history (per-user undo). `op` is `{ type: 'stroke', points: [[nx, ny], ...], color, ns, tool }` (max 2000 points; `tool` `'brush'` or `'eraser'`) or `{ type: 'shape', shape, nx1, ny1, nx2?, ny2?, color?, ns?, text?, src? }` with `shape` `'line'`, `'rect'`, `'circle'` (ellipse in the box), `'fill'` (at `nx1, ny1`), `'text'` (top-left at `nx1, ny1`, font size `ns`), `'image'` (`src` a PNG, JPEG or WebP data URL drawn into the box) or `'move'` (the box `nx1, ny1, nx2, ny2` moved by `dx, dy`, each -1 to 1). Current clients send no `state`; the full canvas follows as `canvas-state` once the user pauses. A valid `state` (older clients) still sets `canvasState`. Checked with `isValidOp` (unknown fields dropped), stored with an id and the sender's browser, then broadcast as `op` to the whole room. Ends the sender's redo. |
 | `history-sync` | `roomId` | Replies `history-sync` with the room's history. The client sends it after every `room-joined`. |
-| `canvas-state` | `{ roomId, state }` | The canvas redrawn after this user's undo/redo. Sets `canvasState` (for autosave and joiners). Ignored unless `state` is a PNG or WebP data URL. |
+| `canvas-state` | `{ roomId, state }` | The full canvas, sent 1.5 s after this user's last change (debounced) and after their undo/redo. Sets `canvasState` (for autosave, and as the history base when a saved history was too big). Ignored unless `state` is a PNG or WebP data URL. |
 | `compact` | `{ roomId, upTo, state }` | Answer to `compact-request`, only from the socket that was asked: `state` (base + ops up to `upTo`) becomes the new base, those ops are removed, broadcast `history-compacted`. |
 | `mouseup` | `roomId` | Relays `mouseup` `{ socketId }` to others. |
 | `clear` | `roomId` | Relays `clear` to others, resets `canvasState` and the room history. Broadcasts `history-update`. |
@@ -55,6 +55,7 @@ screen. The client reads it. The server ignores it.
 | `chat-message` | `{ roomId, text }` | Relays `{ author, text }` to others. `author` is the sender's server-side name. `text` must be a string; it is trimmed and cut to 200 characters, and empty text is ignored. Sender renders its own message locally. |
 | `chat-history` | `roomId` | Replies `chat-history` with the room's last 50 messages. Sender must be in the room. The client sends it after every `room-joined`. |
 | `kick-user` | `{ roomId, targetSocketId }` | Only if sender is host and target is not sender: unless the target's `clientId` equals the host's, bans that `clientId` from the room for good and the target's IP for new browsers for 1 hour (saved with the room). Emits `kicked` to target, disconnects it after 500 ms. |
+| `lock-room` | `{ roomId, locked }` | Host only. `locked: true` makes the room view-only: `draw`, `mouseup`, `op`, `clear`, `undo` and `redo` from anyone but the host are dropped (`features/lock/`). Saved with the room. Broadcasts `room-locked`. |
 | `set-password` | `{ roomId, password }` | Host only. A non-empty `password` (max 64 chars) replaces the room password; empty removes it. Replies `password-set`. Browsers already in the room are not affected. |
 
 ## Server → client events
@@ -62,7 +63,8 @@ screen. The client reads it. The server ignores it.
 | Event | Payload | Sent to |
 |-------|---------|---------|
 | `room-created` | `{ roomId, userCount, userColor, userName, isHost: true }` | Creator |
-| `room-joined` | `{ roomId, userCount, userColor, userName, canvasState, isHost, hostId }` | Joiner |
+| `room-joined` | `{ roomId, userCount, userColor, userName, isHost, hostId, locked }` (no canvas: the joiner redraws from `history-sync`) | Joiner |
+| `room-locked` | `{ locked }` | Room |
 | `room-not-found` | `roomId` | Joiner |
 | `join-banned` | `roomId` | Joiner whose browser was kicked from the room, or a new browser from a kicked user's IP (1 hour) |
 | `password-set` | `{ locked }` (`false` when the password was removed) | Host who sent `set-password` |
@@ -115,9 +117,9 @@ What the server checks now:
   `data:image/webp;base64,` (`isCanvasDataUrl` in
   `features/history/server.js`). Browsers load it with `img.src`, so a URL would
   make every member fetch it (IP leak), and a cross-origin image would taint
-  the canvas so `toDataURL()` throws for the whole room. The client's
-  `loadCanvasState()` refuses anything else too, which covers bad states saved
-  before this check.
+  the canvas so `toDataURL()` throws for the whole room. The history client's
+  `loadImage()` refuses anything but a `data:image/` URL too, which covers bad
+  states saved before this check.
 - `chat-message` `author` is always the sender's server-side name. A
   client-sent `author` is ignored.
 - Socket.io accepts connections only from pages served by the same host

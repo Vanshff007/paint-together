@@ -121,7 +121,8 @@ function register(socket, ctx, session) {
                     chat: (dbRoom.chat || []).map(m => ({ author: m.author, text: m.text })),
                     members: [...(dbRoom.members || [])],
                     banned: [...(dbRoom.banned || [])],
-                    bannedIps: (dbRoom.bannedIps || []).map(b => ({ ip: b.ip, until: Number(b.until) }))
+                    bannedIps: (dbRoom.bannedIps || []).map(b => ({ ip: b.ip, until: Number(b.until) })),
+                    locked: dbRoom.locked === true
                 };
                 // undo/redo history (features/history), if it was small enough to save
                 if (dbRoom.history) roomData[roomId].history = { ...dbRoom.history, compacting: null };
@@ -180,11 +181,12 @@ function register(socket, ctx, session) {
         const userCount = getRoomUserCount(io, roomId);
         const isHost    = roomData[roomId].hostId === socket.id;
 
+        // no canvas here: the joiner redraws from the history (history-sync)
         socket.emit('room-joined', {
             roomId, userCount, userColor: session.userColor, userName: uName,
-            canvasState: roomData[roomId].canvasState,
             isHost,
-            hostId: roomData[roomId].hostId
+            hostId: roomData[roomId].hostId,
+            locked: Boolean(roomData[roomId].locked) // view-only mode (features/lock)
         });
 
         io.to(roomId).emit('user-count-update', userCount);

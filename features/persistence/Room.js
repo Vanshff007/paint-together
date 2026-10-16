@@ -42,6 +42,8 @@ const roomSchema = new mongoose.Schema({
         type: [{ _id: false, ip: String, until: Number }],
         default: []
     },
+    // view-only mode (features/lock): only the host can draw
+    locked: { type: Boolean, default: false },
     createdAt: {
         type: Date,
         default: Date.now

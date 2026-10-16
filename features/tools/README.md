@@ -1,6 +1,7 @@
 # Tools
 
-Line, rectangle and ellipse shapes, a fill bucket, text, and inserted images.
+Line, rectangle and ellipse shapes, a fill bucket, text, inserted images,
+select and move, and an eyedropper.
 
 ## Files
 
@@ -28,6 +29,18 @@ file for `isValidOp` and `cleanOp`).
   finishes (the point is clamped to the canvas).
 
 ## Behavior
+
+- **Select and move:** drag to select a box (dashed outline). Drag inside it
+  to move those pixels; the old spot becomes empty paper and the block is
+  laid over what is at the new spot. The box follows its pixels, so it can be
+  moved again. A drag outside it starts a new box; Escape, another tool or
+  Clear drops it. Each move is one op (`shape: 'move'`, box plus `dx, dy`),
+  drawn by `moveRegion()` with plain pixel math (no canvas compositing), so
+  every client and every redraw gets the same pixels. Parts moved off the
+  canvas are lost.
+- **Eyedropper:** a click takes the color under the pointer as it looks on
+  the page (transparent counts as white, `pixelToHex()`), selects it
+  (`useColor()` in the drawing client), and switches back to the brush.
 
 - **Shapes:** press, drag, release. The preview is drawn on top of the
   committed image while dragging. A tap (under 2 px) draws nothing. The

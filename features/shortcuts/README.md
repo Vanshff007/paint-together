@@ -25,6 +25,8 @@ There is no server code.
 | F | Fill |
 | T | Text |
 | I | Insert image (opens the file picker) |
+| S | Select and move |
+| K | Eyedropper (pick a color) |
 
 Letters work in upper or lower case. Any key with Alt, and letter keys with
 Ctrl or Cmd (Ctrl+F, Cmd+R, ...), are left to the browser.
