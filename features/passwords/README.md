@@ -46,7 +46,9 @@ Room-level behavior (join flow, restore, lockout across sockets) is tested in
 
 ## Known issues
 
-- No reset for a forgotten password. Once everyone leaves, the room cannot be
+- A forgotten password is not a lock-out: browsers that got in before skip
+  it, and the host can set a new one (🔒 Set password in the members list).
+  If every one of those browsers has cleared its site data, the room cannot be
   opened until MongoDB deletes it (30 days after the last save).
 - The limiter is in memory: a restart clears it. With several server
   instances each would have its own (the app runs one).

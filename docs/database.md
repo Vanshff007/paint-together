@@ -26,11 +26,15 @@ Collection: `rooms` (Mongoose default for model `Room`).
 | `chat` | [{ author, text }] | `[]` | Last 50 chat messages. Saved on every save, restored with the room. |
 | `passwordHash` | String | `null` | `salt:hash` (hex, scrypt) for a password-protected room, or `null`. Set on create, saved on every save. |
 | `users` | [String] | `[]` | Display names at last save. Snapshot only. |
+| `history` | Mixed | `null` | Undo/redo history `{ baseState, ops, nextId, redo }` (`features/history`). `null` when empty or over 8 MB (`MAX_HISTORY_BYTES`), so the document stays under MongoDB's 16 MB limit; the room then restarts its history from `canvasState`. |
+| `members` | [String] | `[]` | Browser IDs (`clientId`) that got in, max 500. They skip the password and IP bans. |
+| `banned` | [String] | `[]` | Kicked browser IDs. |
+| `bannedIps` | [{ ip, until }] | `[]` | IPs of kicked users; `until` is a ms timestamp (1 hour). Expired ones are dropped on save. |
 | `createdAt` | Date | `Date.now` | Set on insert. |
 | `updatedAt` | Date | `Date.now` | Set on every save. TTL index: the document is deleted 30 days after the last save. |
 | `lastSavedAt` | Date | `Date.now` | Set on every save. |
 
-Socket objects and undo/redo stacks are never stored.
+Socket objects are never stored.
 
 ## Reads and writes
 

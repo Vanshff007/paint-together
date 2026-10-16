@@ -1,6 +1,6 @@
 const { test } = require('node:test');
 const assert = require('node:assert');
-const { createPersistence, AUTOSAVE_INTERVAL_MS } = require('./server');
+const { createPersistence, savableHistory, AUTOSAVE_INTERVAL_MS, MAX_HISTORY_BYTES } = require('./server');
 
 // Fake Mongoose model: records calls, optional failure
 function fakeModel({ existing = null, fail = false } = {}) {
@@ -24,7 +24,7 @@ function room(overrides = {}) {
     };
 }
 
-test('saveRoomState upserts canvas, host and user names only', async () => {
+test('saveRoomState upserts canvas, host, user names, history and bans', async () => {
     const model = fakeModel();
     const p = createPersistence({ ROOM01: room() }, model);
     await p.saveRoomState('ROOM01');
@@ -34,7 +34,9 @@ test('saveRoomState upserts canvas, host and user names only', async () => {
     assert.strictEqual(update.$set.canvasState, 'data:image/png;base64,AAA');
     assert.strictEqual(update.$set.hostId, 's1');
     assert.deepStrictEqual(update.$set.users, ['Alice', 'Bob']);
-    assert.strictEqual(update.$set.history, undefined, 'history is never persisted');
+    assert.deepStrictEqual(update.$set.history, { ops: [{ id: 1 }] });
+    assert.deepStrictEqual(update.$set.members, []);
+    assert.deepStrictEqual(update.$set.banned, []);
     assert.strictEqual(update.$set.passwordHash, null);
     assert.deepStrictEqual(options, { upsert: true });
 });
@@ -178,4 +180,19 @@ test('Room schema stores chat as plain { author, text } entries', () => {
     const doc = new Room({ roomId: 'ROOM01', chat: [{ author: 'Alice', text: 'hi', extra: 'dropped' }] });
     assert.deepStrictEqual(doc.toObject().chat, [{ author: 'Alice', text: 'hi' }]);
     assert.deepStrictEqual(new Room({ roomId: 'ROOM02' }).toObject().chat, []);
+});
+
+test('savableHistory drops the compacting flag, and skips a history that is too big', () => {
+    assert.strictEqual(savableHistory({}), null);
+    const h = { baseState: null, ops: [{ id: 1 }], nextId: 2, redo: {}, compacting: { upTo: 1, socketId: 's1' } };
+    assert.deepStrictEqual(savableHistory({ history: h }), { baseState: null, ops: [{ id: 1 }], nextId: 2, redo: {} });
+    const huge = { ...h, baseState: 'x'.repeat(MAX_HISTORY_BYTES) };
+    assert.strictEqual(savableHistory({ history: huge }), null);
+});
+
+test('saveRoomState drops expired IP bans', async () => {
+    const model = fakeModel();
+    const bannedIps = [{ ip: 'old', until: Date.now() - 1 }, { ip: 'new', until: Date.now() + 60000 }];
+    await createPersistence({ ROOM01: room({ bannedIps }) }, model).saveRoomState('ROOM01');
+    assert.deepStrictEqual(model.calls[0][2].$set.bannedIps.map(b => b.ip), ['new']);
 });

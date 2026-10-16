@@ -1,14 +1,22 @@
 # Browser tests (e2e)
 
-End-to-end smoke tests that drive two real Chrome windows against the real
-server code. They cover what the Node unit tests cannot: browser code,
+End-to-end smoke tests that drive two real browser windows (Chrome by
+default, or Firefox / WebKit) against the real server code. They cover what the Node unit tests cannot: browser code,
 canvas pixels, and two users talking through Socket.io.
 
 ## Run
 
 ```
-npm run test:e2e
+npm run test:e2e           # installed Chrome
+npm run test:e2e:firefox   # Playwright's Firefox
+npm run test:e2e:webkit    # Playwright's WebKit (Safari's engine)
 ```
+
+Firefox and WebKit are Playwright's own builds. Install them once with
+`npx playwright-core install firefox webkit`. `E2E_BROWSER=firefox` (or
+`webkit`, `chrome`) picks the engine too. The pinch-zoom test needs the
+DevTools protocol, so it runs in Chrome only and is skipped in the others.
+Firefox has no mobile emulation, so its phone tests use a small touch window.
 
 - Needs Google Chrome installed. `playwright-core` (dev dependency) drives the
   installed Chrome (`channel: 'chrome'`), so no browser is downloaded.
@@ -30,6 +38,8 @@ npm run test:e2e
 | text and an inserted image reach the other user | T, click, type, Enter: the other user sees the text. A 400×200 blue PNG through the file input appears centered for the other user, with nothing outside it. Escape closes a text box without drawing. |
 | per-user undo: each user undoes only their own changes; joiners and reconnects agree | Alice draws, Bob draws, Alice draws again. Bob's Undo removes only his line. Alice undoes twice, both redo. A new joiner sees the same picture and has nothing to undo. Bob reconnects and can still undo his change. |
 | over 200 changes, the oldest are flattened into the base and the picture stays right | 205 changes at the rate limit; the server asks the sender to flatten 100, the base is set, the other user's history shrinks to match, and after an Undo everyone's redraw still shows the old strokes (from the base) and hides the undone one. About 40 s. |
+| a canvas over 1 MB (Socket.io default limit) still reaches the server | A 3 MB `canvas-state` is stored and the sender stays connected. |
+| kick blocks a private window; members reopen a password room and keep their undo | Host kicks Bob through the members list; Bob in a new browser with the right password gets the ban message. Host sets a new password (prompt). Everyone leaves; the host reopens the room with no password, sees the stroke, and can still undo it. |
 | a chat flood is cut by the rate limit; history survives in the saved room | 50 chat messages at once reach the other user as 8 (the burst). Everyone leaves, the room is saved and leaves memory; a new joiner gets the same chat history back from the saved room. |
 
 Each user is a separate browser context (own `localStorage`, so its own

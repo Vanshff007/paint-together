@@ -28,6 +28,7 @@ cp .env.example .env
 | `npm run dev` | `nodemon server.js`. Restarts on server file changes. |
 | `npm test` | `node --test`. Runs every `features/**/*.test.js`. No MongoDB needed. |
 | `npm run test:e2e` | Browser tests in `e2e/`: two headless Chrome windows against the real server code (needs Chrome installed, no MongoDB). See `e2e/README.md`. |
+| `npm run test:e2e:firefox` / `test:e2e:webkit` | The same tests in Firefox or WebKit (Safari's engine). Install the browsers once: `npx playwright-core install firefox webkit`. |
 
 Open `http://localhost:3000`.
 
@@ -59,7 +60,8 @@ test dependency is `playwright-core`, for the browser tests.
   database.
 - Timers (`setTimeout`, `setInterval`) are tested with `t.mock.timers`.
 - Browser code: `npm run test:e2e` runs smoke tests in real Chrome (join,
-  draw, chat, undo, passwords, shapes and fill; see `e2e/README.md`). They
+  draw, chat, undo, passwords, kicks, shapes and fill; see `e2e/README.md`),
+  and `test:e2e:firefox` / `test:e2e:webkit` in the other engines. They
   use `createServer()` from `server.js` with an in-memory Room model. Each
   feature `README.md` also has manual test cases for the rest.
 

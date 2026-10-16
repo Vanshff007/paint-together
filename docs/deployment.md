@@ -33,8 +33,9 @@ WebSockets work on Render web services with no extra settings.
 
 - Free Render instances sleep when idle. The first request after sleep is slow.
   Sockets disconnect when the instance sleeps.
-- A restart or redeploy clears all in-memory state (users, undo/redo). Canvases
-  come back from MongoDB, up to the last autosave (max 30 s old).
+- A restart or redeploy clears all in-memory state (users, wrong-password
+  counts). Canvases, undo/redo history and bans come back from MongoDB, up to
+  the last autosave (max 30 s old).
 - Run only **one** instance. `roomData` is in memory, so several instances do
   not share rooms. Scaling needs a Socket.io adapter (Redis) and shared state.
 

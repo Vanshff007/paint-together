@@ -12,9 +12,11 @@ function createFakeIo() {
     return io;
 }
 
-function createFakeSocket(io, id) {
+// ip (optional) becomes the handshake address; without it clientIp() is 'unknown'
+function createFakeSocket(io, id, ip) {
     const socket = {
         id,
+        handshake: ip ? { address: ip, headers: {} } : undefined,
         rooms: new Set([id]),
         data: {},
         handlers: {},

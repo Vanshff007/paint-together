@@ -14,13 +14,16 @@ const chat = require('./features/chat/server');
 const { allowRequest } = require('./features/origin/server');
 const ratelimit = require('./features/ratelimit/server');
 
+const MAX_MESSAGE_BYTES = 10 * 1024 * 1024;
+
 // Builds the app without starting it. RoomModel is injectable so browser tests
 // (e2e/) can run with an in-memory model instead of MongoDB.
 function createServer(RoomModel) {
     const app = express();
     const server = http.createServer(app);
-    // only pages from this host may connect (see features/origin/README.md)
-    const io = socketIo(server, { allowRequest });
+    // only pages from this host may connect (see features/origin/README.md).
+    // 10 MB per message: a full 1280x800 canvas can be ~6 MB as base64 PNG (default limit is 1 MB)
+    const io = socketIo(server, { allowRequest, maxHttpBufferSize: MAX_MESSAGE_BYTES });
 
     app.use(express.static(path.join(__dirname, 'public')));
     // robots.txt, llms.txt, sitemap.xml, icons, og-image.png at the site root
@@ -85,4 +88,4 @@ if (require.main === module) {
     });
 }
 
-module.exports = { createServer };
+module.exports = { createServer, MAX_MESSAGE_BYTES };

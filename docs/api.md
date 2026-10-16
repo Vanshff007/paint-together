@@ -27,8 +27,11 @@ screen. The client reads it. The server ignores it.
 - Canvas state: PNG or lossless WebP data URL string (`canvasState()` in the
   drawing client), or `null`. Each browser picks the format (see
   `features/drawing/README.md`), so one room can mix both.
-- `clientId`: random per-browser ID from `localStorage`, used only for kick
-  bans. It is kept on `socket.data.clientId` and never sent to other clients.
+- `clientId`: random per-browser ID from `localStorage` (letters, digits and
+  dashes, max 64; anything else counts as none). Used for kick bans, undo
+  ownership, and room membership: a browser that got into a room once skips
+  its password later. It is kept on `socket.data.clientId` and never sent to
+  other clients.
 - Some events send a bare `roomId` string as payload, not an object. Keep this
   shape when you change them, or update both sides together.
 
@@ -37,7 +40,7 @@ screen. The client reads it. The server ignores it.
 | Event | Payload | Server behavior |
 |-------|---------|-----------------|
 | `create-room` | `{ userName, clientId?, password? }` | Generates a room ID not used by a live or saved room, joins socket, creates `roomData` and a `Room` document. A non-empty `password` (max 64 chars) is stored as a salted scrypt hash and protects the room. Replies `room-created`. |
-| `join-room` | `{ roomId, userName, clientId?, password? }` or `roomId` string | Restores room from MongoDB if not in memory. Replies `room-not-found`, `join-banned` (browser was kicked from this room), `join-password` (room has a password and it is missing, wrong, or this IP must wait), or `room-joined` + broadcasts `user-count-update`, `users-update`, `user-joined`, and sends `existing-users`. |
+| `join-room` | `{ roomId, userName, clientId?, password? }` or `roomId` string | Restores room from MongoDB if not in memory. Replies `room-not-found`, `join-banned` (browser was kicked from this room, or a new browser from the IP of someone kicked in the last hour), `join-password` (skipped for browsers that got in before) (room has a password and it is missing, wrong, or this IP must wait), or `room-joined` + broadcasts `user-count-update`, `users-update`, `user-joined`, and sends `existing-users`. |
 | `draw` | `{ roomId, nx, ny, color, ns, tool, isStart? }` | Relays `draw` to others in room with `socketId` added. `tool` is `'brush'` or `'eraser'`. |
 | `op` | `{ roomId, op, state }` | A finished change, for the room history (per-user undo). `op` is `{ type: 'stroke', points: [[nx, ny], ...], color, ns, tool }` (max 2000 points; `tool` `'brush'` or `'eraser'`) or `{ type: 'shape', shape, nx1, ny1, nx2?, ny2?, color?, ns?, text?, src? }` with `shape` `'line'`, `'rect'`, `'circle'` (ellipse in the box), `'fill'` (at `nx1, ny1`), `'text'` (top-left at `nx1, ny1`, font size `ns`) or `'image'` (`src` a PNG, JPEG or WebP data URL drawn into the box). `state` is the sender's full canvas (PNG or WebP data URL). Checked with `isValidOp` (unknown fields dropped), stored with an id and the sender's browser, `canvasState` set, then broadcast as `op` to the whole room. Ends the sender's redo. |
 | `history-sync` | `roomId` | Replies `history-sync` with the room's history. The client sends it after every `room-joined`. |
@@ -51,7 +54,8 @@ screen. The client reads it. The server ignores it.
 | `cursor-leave` | `roomId` | Relays `cursor-hide` (`socketId`) to others. |
 | `chat-message` | `{ roomId, text }` | Relays `{ author, text }` to others. `author` is the sender's server-side name. `text` must be a string; it is trimmed and cut to 200 characters, and empty text is ignored. Sender renders its own message locally. |
 | `chat-history` | `roomId` | Replies `chat-history` with the room's last 50 messages. Sender must be in the room. The client sends it after every `room-joined`. |
-| `kick-user` | `{ roomId, targetSocketId }` | Only if sender is host and target is not sender: bans the target's `clientId` from the room (unless it equals the host's), emits `kicked` to target, disconnects it after 500 ms. |
+| `kick-user` | `{ roomId, targetSocketId }` | Only if sender is host and target is not sender: unless the target's `clientId` equals the host's, bans that `clientId` from the room for good and the target's IP for new browsers for 1 hour (saved with the room). Emits `kicked` to target, disconnects it after 500 ms. |
+| `set-password` | `{ roomId, password }` | Host only. A non-empty `password` (max 64 chars) replaces the room password; empty removes it. Replies `password-set`. Browsers already in the room are not affected. |
 
 ## Server → client events
 
@@ -60,7 +64,8 @@ screen. The client reads it. The server ignores it.
 | `room-created` | `{ roomId, userCount, userColor, userName, isHost: true }` | Creator |
 | `room-joined` | `{ roomId, userCount, userColor, userName, canvasState, isHost, hostId }` | Joiner |
 | `room-not-found` | `roomId` | Joiner |
-| `join-banned` | `roomId` | Joiner whose browser was kicked from the room |
+| `join-banned` | `roomId` | Joiner whose browser was kicked from the room, or a new browser from a kicked user's IP (1 hour) |
+| `password-set` | `{ locked }` (`false` when the password was removed) | Host who sent `set-password` |
 | `join-password` | `{ roomId, reason, retryIn? }`. `reason` is `'required'` (no password sent), `'wrong'`, or `'wait'` (5 wrong tries from this IP; `retryIn` is seconds) | Joiner of a password-protected room |
 | `existing-users` | `{ [socketId]: { name, color } }` (excludes joiner) | Joiner |
 | `user-joined` | `{ socketId, name, color }` | Others in room |
@@ -130,8 +135,9 @@ What the server does **not** check (keep in mind when you change handlers):
 
 - `chat-message` `text` content is not filtered. Clients render it with
   `textContent`. Keep rendering with `textContent`, never `innerHTML`.
-- `state` payloads are not checked for size beyond Socket.io's 1 MB message
-  limit, or that the base64 is a valid image.
+- `state` payloads are not checked for size beyond the 10 MB message limit
+  (`MAX_MESSAGE_BYTES` in `server.js`, raised from Socket.io's 1 MB default so a
+  detailed canvas never disconnects anyone), or that the base64 is a valid image.
 
 ## Rules for changing the protocol
 

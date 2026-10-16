@@ -30,6 +30,7 @@ is logged with `console.warn`.
 | `op` | 20 | 10 | per socket |
 | `canvas-state` | 10 | 4 | per socket |
 | `compact` | 5 | 1 | per socket |
+| `set-password` | 5 | 1 per 5 s | per socket (each runs scrypt) |
 | anything else | 60 | 30 | per socket |
 
 Per-IP limits use `clientIp()` from `features/passwords/` (last

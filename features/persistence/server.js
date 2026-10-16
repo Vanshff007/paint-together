@@ -1,6 +1,16 @@
 const Room = require('./Room');
 
 const AUTOSAVE_INTERVAL_MS = 30 * 1000;
+// MongoDB documents max out at 16 MB; the canvas itself can take ~6 MB
+const MAX_HISTORY_BYTES = 8 * 1024 * 1024;
+
+// the room's undo/redo history to save, or null when there is none or it is too big.
+// ponytail: too big = not saved, so a restored room starts its history from the canvas.
+function savableHistory(room) {
+    if (!room.history) return null;
+    const { compacting, ...history } = room.history;
+    return JSON.stringify(history).length <= MAX_HISTORY_BYTES ? history : null;
+}
 
 // RoomModel is injectable so tests can run without MongoDB
 function createPersistence(roomData, RoomModel = Room) {
@@ -21,6 +31,10 @@ function createPersistence(roomData, RoomModel = Room) {
                         hostId: room.hostId,
                         passwordHash: room.passwordHash || null,
                         chat: room.chat || [],
+                        history: savableHistory(room),
+                        members: room.members || [],
+                        banned: room.banned || [],
+                        bannedIps: (room.bannedIps || []).filter(b => b.until > Date.now()),
                         users: Object.values(room.users).map(u => u.name),
                         updatedAt: new Date(),
                         lastSavedAt: new Date()
@@ -75,4 +89,4 @@ function createPersistence(roomData, RoomModel = Room) {
     return { saveRoomState, ensureRoomDoc, loadRoom, startAutosave };
 }
 
-module.exports = { createPersistence, AUTOSAVE_INTERVAL_MS };
+module.exports = { createPersistence, savableHistory, AUTOSAVE_INTERVAL_MS, MAX_HISTORY_BYTES };

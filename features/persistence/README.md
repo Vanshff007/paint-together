@@ -21,7 +21,7 @@ use the object that `createPersistence()` returns, through `ctx.persistence`.
 
 | Function | Behavior |
 |----------|----------|
-| `saveRoomState(roomId)` | Upserts `canvasState`, `hostId`, user names, `updatedAt`, `lastSavedAt`. Clears the room's `dirty` flag, and sets it again if the save fails. No-op if the room is not in memory. |
+| `saveRoomState(roomId)` | Upserts `canvasState`, `hostId`, user names, password hash, chat, undo history (`savableHistory()`: `null` over 8 MB), members, bans, `updatedAt`, `lastSavedAt`. Clears the room's `dirty` flag, and sets it again if the save fails. No-op if the room is not in memory. |
 | `ensureRoomDoc(roomId, hostId, userName)` | Creates the document only if it does not exist. |
 | `loadRoom(roomId)` | Returns the stored document, or `null` if missing or on error. |
 | `startAutosave()` | Every 30 s, calls `saveRoomState` for each room in `roomData` with `dirty: true`. Returns the interval handle. |
@@ -41,7 +41,8 @@ server.
 
 ## Tests
 
-Automated (`npm test`): upsert fields (history never saved), unknown room
+Automated (`npm test`): upsert fields (history, members, bans), history size
+limit, expired IP bans dropped, unknown room
 no-op, error logged not thrown, create-only-if-missing, `loadRoom` null on
 error, autosave only of changed rooms with mocked timers, failed save stays
 dirty, TTL index on `updatedAt`, and a restart test (save on last leave, fresh

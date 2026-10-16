@@ -2,7 +2,7 @@
 // with an in-memory Room model instead of MongoDB. Run with `npm run test:e2e`.
 const { test, before, after } = require('node:test');
 const assert = require('node:assert');
-const { chromium } = require('playwright-core');
+const { chromium, firefox, webkit } = require('playwright-core');
 const { createServer } = require('../server');
 
 // in-memory stand-in for the Mongoose Room model
@@ -16,14 +16,27 @@ function memoryModel() {
     };
 }
 
+// Browser engine: the installed Chrome by default. `npm run test:e2e:firefox` and
+// `test:e2e:webkit` use Playwright's own builds (`npx playwright-core install firefox webkit`).
+const engine = process.env.E2E_BROWSER || (process.env.npm_lifecycle_event || '').split(':')[2] || 'chrome';
+const launchers = {
+    chrome:  () => chromium.launch({ channel: 'chrome', headless: true }),
+    firefox: () => firefox.launch({ headless: true }),
+    webkit:  () => webkit.launch({ headless: true })
+};
+
+// a phone-sized touch browser; Firefox has no mobile emulation (isMobile)
+function phoneContext() {
+    return browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: engine !== 'firefox' });
+}
+
 let app, browser, baseUrl;
 
 before(async () => {
     app = createServer(memoryModel());
     await new Promise(resolve => app.server.listen(0, resolve));
     baseUrl = `http://localhost:${app.server.address().port}`;
-    // the installed Chrome, so no browser download is needed
-    browser = await chromium.launch({ channel: 'chrome', headless: true });
+    browser = await launchers[engine]();
 });
 
 after(async () => {
@@ -198,7 +211,7 @@ function canvasSummary(page) {
 
 test('fixed canvas: same pixels on a phone and a desktop, resizing keeps them', async () => {
     const alice = await openUser();
-    const phone = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
+    const phone = await phoneContext();
     const bob = await phone.newPage();
     bob.errors = [];
     bob.on('pageerror', (err) => bob.errors.push(err));
@@ -236,8 +249,9 @@ test('fixed canvas: same pixels on a phone and a desktop, resizing keeps them', 
     await closeUsers(alice, bob);
 });
 
-test('phone: one finger draws, two fingers pinch-zoom without drawing, drawing while zoomed hits the right spot', async () => {
-    const context = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
+// multi-touch goes through the DevTools protocol, which only Chrome has
+test('phone: one finger draws, two fingers pinch-zoom without drawing, drawing while zoomed hits the right spot', { skip: engine !== 'chrome' && 'needs Chrome (DevTools protocol)' }, async () => {
+    const context = await phoneContext();
     const page = await context.newPage();
     page.errors = [];
     page.on('pageerror', (err) => page.errors.push(err));
@@ -375,7 +389,7 @@ test('per-user undo: each user undoes only their own changes; joiners and reconn
     await waitForPixel(bob, 0.4, 0.5, 'd[3] === 0');
     await alice.click('#undoBtn');
     await waitForPixel(bob, 0.5, 0.3, 'd[3] === 0');
-    assert.strictEqual(await alice.locator('#undoBtn').isDisabled(), true);
+    await alice.waitForFunction(() => document.getElementById('undoBtn').disabled); // server's history-update
 
     // Alice redoes her line; Bob redoes his
     await alice.click('#redoBtn');
@@ -437,9 +451,68 @@ test('over 200 changes, the oldest are flattened into the base and the picture s
     // Alice undoes her newest stroke: everyone redraws from base + remaining changes
     await alice.click('#undoBtn');
     const yOf = (i) => (Math.floor(800 * i / 250) + 0.5) / 800;
-    await waitForPixel(bob, 0.5, yOf(COUNT), 'd[3] === 0');
+    // Bob's canvas starts empty (these ops came without live strokes), so wait for the rebuild
+    await waitForPixel(bob, 0.5, yOf(3), 'd[3] > 0');
+    assert.strictEqual((await pixel(bob, 0.5, yOf(COUNT)))[3], 0, 'undone stroke is gone');
     for (const i of [3, 50, 100, 150, 204]) {
         assert.ok((await pixel(bob, 0.5, yOf(i)))[3] > 0, `stroke ${i} still drawn after the rebuild`);
     }
     await closeUsers(alice, bob);
+});
+
+test('a canvas over 1 MB (Socket.io default limit) still reaches the server', async () => {
+    const alice = await openUser();
+    const roomId = await createRoom(alice, 'Alice');
+    const big = 'data:image/png;base64,' + 'A'.repeat(3 * 1024 * 1024);
+    await alice.evaluate((state) => socket.emit('canvas-state', { roomId: currentRoomId, state }), big);
+    const deadline = Date.now() + 5000;
+    while (app.roomData[roomId].canvasState !== big && Date.now() < deadline) await new Promise(r => setTimeout(r, 100));
+    assert.strictEqual(app.roomData[roomId].canvasState, big);
+    assert.strictEqual(await alice.evaluate(() => socket.connected), true, 'still connected');
+    await closeUsers(alice);
+});
+
+test('kick blocks a private window; members reopen a password room and keep their undo', async () => {
+    const alice = await openUser();
+    const bob = await openUser();
+    const roomId = await createRoom(alice, 'Alice', 'tulip42');
+    await joinRoom(bob, 'Bob', roomId, 'tulip42');
+    await alice.waitForFunction(() => document.getElementById('userCount').textContent === '2');
+    await drag(alice, [0.2, 0.5], [0.8, 0.5]);
+    await waitForPixel(bob, 0.5, 0.5, 'd[3] > 0');
+
+    // host kicks Bob from the members list
+    await alice.click('#membersBtn');
+    await alice.click('.member-kick-btn');
+    await alice.click('#kickConfirmBtn');
+    await bob.waitForFunction(() => !currentRoomId);
+
+    // Bob in a private window (new browser id, same IP) with the right password: still out
+    const bobPrivate = await openUser();
+    await joinRoom(bobPrivate, 'Bob', roomId, 'tulip42');
+    await bobPrivate.waitForSelector('#landingError:text("the host removed you")');
+
+    // host sets a new password through the members list (the kick closed it)
+    alice.once('dialog', (dialog) => dialog.accept('daisy7'));
+    await alice.click('#membersBtn');
+    await alice.click('#setPasswordBtn');
+    await alice.waitForFunction(() => document.getElementById('toast').textContent.includes('New password set'));
+
+    // Alice leaves: the room is saved and leaves memory. She forgot the password, but her
+    // browser got in before, so she reopens it without one, and can still undo her stroke.
+    await alice.click('#exitRoomBtn');
+    const deadline = Date.now() + 5000;
+    while (app.roomData[roomId] && Date.now() < deadline) await new Promise(r => setTimeout(r, 100));
+    assert.strictEqual(app.roomData[roomId], undefined, 'room left memory');
+    await alice.waitForSelector('#landingScreen', { state: 'visible' });
+    // Enter instead of a click: the landing card is still animating back in
+    await alice.fill('#roomCodeInput', roomId);
+    await alice.press('#roomCodeInput', 'Enter');
+    await alice.waitForFunction((id) => currentRoomId === id, roomId);
+    await waitForPixel(alice, 0.5, 0.5, 'd[3] > 0');
+    await alice.waitForFunction(() => !document.getElementById('undoBtn').disabled);
+    await alice.click('#undoBtn');
+    await waitForPixel(alice, 0.5, 0.5, 'd[3] === 0');
+
+    await closeUsers(alice, bob, bobPrivate);
 });
