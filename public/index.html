@@ -91,6 +91,7 @@
                         <div class="members-dropdown-header">Room Members</div>
                         <ul id="membersList" class="members-list"></ul>
                         <button id="setPasswordBtn" class="members-password-btn" hidden>🔒 Set password</button>
+                        <button id="lockBtn" class="members-password-btn" hidden>👁 Make view-only</button>
                     </div>
                 </div>
             </div>
@@ -114,6 +115,8 @@
                 <button id="fillBtn" class="tool-btn" title="Fill (F)">🪣 Fill</button>
                 <button id="textBtn" class="tool-btn" title="Text (T)">T Text</button>
                 <button id="imageBtn" class="tool-btn" title="Insert image (I)">🖼 Image</button>
+                <button id="selectBtn" class="tool-btn" title="Select and move (S)">⬚ Select</button>
+                <button id="pickerBtn" class="tool-btn" title="Pick a color from the canvas (K)">💧 Pick</button>
                 <input type="file" id="imageInput" accept="image/*" hidden>
             </div>
             <div class="control-group color-palette-group">
@@ -200,5 +203,6 @@
     <script src="/features/cursors/client.js"></script>
     <script src="/features/chat/client.js"></script>
     <script src="/features/rooms/client.js"></script>
+    <script src="/features/lock/client.js"></script>
 </body>
 </html>

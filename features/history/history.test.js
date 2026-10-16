@@ -29,7 +29,7 @@ const add = (socket, op, state = png(`after-${socket.id}`)) => socket.trigger('o
 const ops = () => (room.history ? room.history.ops : []);
 const updateFor = (socket) => last(socket.emitted, 'history-update').data;
 
-test('an op is stored, sent to the whole room with an id, and sets canvasState', () => {
+test('an op is stored, sent to the whole room with an id, and sets canvasState if sent', () => {
     const alice = member('alice');
     add(alice, stroke());
     assert.strictEqual(ops().length, 1);
@@ -147,14 +147,18 @@ test('invalid ops, states and extra fields are rejected or dropped', () => {
         { type: 'other' }, null, 5
     ];
     bad.forEach(op => add(alice, op));
-    add(alice, stroke(), 'https://evil.example/track.png');
-    add(alice, stroke(), null);
     assert.strictEqual(ops().length, 0);
 
+    // the state is optional now (canvas-state follows after a pause); a bad one is never stored
+    add(alice, stroke(), 'https://evil.example/track.png');
+    add(alice, stroke(), null);
+    assert.strictEqual(ops().length, 2);
+    assert.strictEqual(room.canvasState, null);
+
     add(alice, { ...stroke(), author: 'bob-browser', id: 99, undone: true, extra: 'x' });
-    assert.deepStrictEqual(ops()[0].op, stroke(), 'only known fields are kept');
-    assert.strictEqual(ops()[0].author, 'alice-browser');
-    assert.strictEqual(ops()[0].id, 1);
+    assert.deepStrictEqual(ops()[2].op, stroke(), 'only known fields are kept');
+    assert.strictEqual(ops()[2].author, 'alice-browser');
+    assert.strictEqual(ops()[2].id, 3);
 });
 
 test('events for a room the socket has not joined, and malformed payloads, are ignored', () => {

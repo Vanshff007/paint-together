@@ -13,6 +13,7 @@ const cursors = require('./features/cursors/server');
 const chat = require('./features/chat/server');
 const { allowRequest } = require('./features/origin/server');
 const ratelimit = require('./features/ratelimit/server');
+const lock = require('./features/lock/server');
 
 const MAX_MESSAGE_BYTES = 10 * 1024 * 1024;
 
@@ -44,8 +45,8 @@ function createServer(RoomModel) {
     const persistence = createPersistence(roomData, RoomModel);
 
     const ctx = { io, roomData, persistence };
-    // ratelimit first: its socket.use() middleware must see every event
-    const features = [ratelimit, rooms, drawing, history, cursors, chat];
+    // ratelimit first: its socket.use() middleware must see every event; lock's runs next
+    const features = [ratelimit, lock, rooms, drawing, history, cursors, chat];
 
     io.on('connection', (socket) => {
         console.log('✅ New user connected! Socket ID:', socket.id);
@@ -69,7 +70,7 @@ function createServer(RoomModel) {
         features.forEach(feature => feature.register(socket, ctx, session));
     });
 
-    return { server, io, roomData, persistence };
+    return { server, io, roomData, persistence, ctx };
 }
 
 // Start listening only after MongoDB is connected (only when run directly, not when required)

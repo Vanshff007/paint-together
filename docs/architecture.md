@@ -38,6 +38,7 @@ the server restarts.
 | `rooms` | yes | yes | Create/join/exit, landing, members, host, kick, disconnect cleanup. |
 | `drawing` | yes | yes | Canvas input, tools, colors, remote stroke layers, clear, download. |
 | `history` | yes | yes | Shared undo/redo. |
+| `lock` | yes | yes | View-only mode: the host can stop everyone else drawing. |
 | `tools` | no (pure op helpers used by history) | yes | Line, rectangle, ellipse, fill bucket, text, insert image. |
 | `shortcuts` | no | yes | Keyboard shortcuts for undo/redo and tools. |
 | `zoom` | no | yes | Two-finger pinch-zoom and pan on touch screens. |
@@ -109,10 +110,12 @@ history (if under 8 MB), members, and bans (see `docs/database.md`).
 4. Each receiver draws the remote stroke on a per-user offscreen canvas
    ("remote layer"). This prevents simultaneous strokes from different users
    from joining into one line.
-5. On `mouseup`, the client sends `mouseup` and `op` (the stroke's points, plus
-   the full canvas as lossless WebP or PNG). Receivers merge that user's layer
-   into the committed canvas. The server adds the op to the room history and
-   stores the new `canvasState`.
+5. On `mouseup`, the client sends `mouseup` and `op` (the stroke's points).
+   Receivers merge that user's layer into the committed canvas. The server
+   adds the op to the room history. 1.5 s after the user's last change the
+   client sends the full canvas once (`canvas-state`, lossless WebP or PNG),
+   which the server keeps as `canvasState` for saving. Joiners never get it:
+   they redraw from the history.
 6. The server sends each member its own `history-update`, so each Undo/Redo
    button reflects that user's own changes.
 

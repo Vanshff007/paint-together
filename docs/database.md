@@ -29,6 +29,7 @@ Collection: `rooms` (Mongoose default for model `Room`).
 | `history` | Mixed | `null` | Undo/redo history `{ baseState, ops, nextId, redo }` (`features/history`). `null` when empty or over 8 MB (`MAX_HISTORY_BYTES`), so the document stays under MongoDB's 16 MB limit; the room then restarts its history from `canvasState`. |
 | `members` | [String] | `[]` | Browser IDs (`clientId`) that got in, max 500. They skip the password and IP bans. |
 | `banned` | [String] | `[]` | Kicked browser IDs. |
+| `locked` | Boolean | `false` | View-only mode (`features/lock`): only the host can draw. |
 | `bannedIps` | [{ ip, until }] | `[]` | IPs of kicked users; `until` is a ms timestamp (1 hour). Expired ones are dropped on save. |
 | `createdAt` | Date | `Date.now` | Set on insert. |
 | `updatedAt` | Date | `Date.now` | Set on every save. TTL index: the document is deleted 30 days after the last save. |

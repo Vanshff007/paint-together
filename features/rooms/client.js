@@ -294,21 +294,14 @@ socket.on('room-joined', (data) => {
     if (!rejoining) acceptPassword();
     if (rejoining) {
         rejoining = false;
-        // the server copy wins over anything drawn while offline
-        if (data.canvasState) {
-            loadCanvasState(data.canvasState);
-        } else {
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            canvasImage = null;
-        }
+        // the server copy wins over anything drawn while offline (history-sync redraws it)
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        canvasImage = null;
         showToast('🔄 Reconnected');
         return;
     }
     showApp();
-    setTimeout(() => {
-        showToast(`🚪 Joined room ${data.roomId}`);
-        if (data.canvasState) loadCanvasState(data.canvasState);
-    }, 700);
+    setTimeout(() => showToast(`🚪 Joined room ${data.roomId}`), 700);
 });
 
 socket.on('join-banned', (roomId) => {

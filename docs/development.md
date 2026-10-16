@@ -28,6 +28,7 @@ cp .env.example .env
 | `npm run dev` | `nodemon server.js`. Restarts on server file changes. |
 | `npm test` | `node --test`. Runs every `features/**/*.test.js`. No MongoDB needed. |
 | `npm run test:e2e` | Browser tests in `e2e/`: two headless Chrome windows against the real server code (needs Chrome installed, no MongoDB). See `e2e/README.md`. |
+| CI | `.github/workflows/test.yml` runs `npm test` and the browser tests in Chrome, Firefox and WebKit on every PR and push to `main`. |
 | `npm run test:e2e:firefox` / `test:e2e:webkit` | The same tests in Firefox or WebKit (Safari's engine). Install the browsers once: `npx playwright-core install firefox webkit`. |
 
 Open `http://localhost:3000`.

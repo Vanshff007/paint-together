@@ -102,7 +102,7 @@ object (`{ userColor, currentName }`) is shared with the cursors feature.
 
 Uses globals from `public/core.js` (`socket`, `currentRoomId`, `myName`,
 `amIHost`, ...) and functions from other features (`removeCursor`,
-`ensureCursorExists`, `loadCanvasState`, `updateUndoRedoButtons`,
+`ensureCursorExists`, `updateUndoRedoButtons`,
 `animateSplash`).
 
 ## Tests

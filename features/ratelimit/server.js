@@ -26,7 +26,8 @@ const LIMITS = {
     'op':                 { burst: 20,  perSecond: 10 },  // one per finished change, carries a canvas image
     'canvas-state':       { burst: 10,  perSecond: 4 },
     'compact':            { burst: 5,   perSecond: 1 },
-    'set-password':       { burst: 5,   perSecond: 1 / 5 } // each one runs scrypt
+    'set-password':       { burst: 5,   perSecond: 1 / 5 }, // each one runs scrypt
+    'lock-room':          { burst: 5,   perSecond: 1 }
 };
 const DEFAULT_LIMIT = { burst: 60, perSecond: 30 };
 

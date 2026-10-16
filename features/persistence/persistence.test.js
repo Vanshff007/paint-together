@@ -105,7 +105,7 @@ test('Room documents expire 30 days after their last save (TTL index)', () => {
 
 // Restart test: real features wired together, a stored "database" that survives,
 // and a fresh roomData standing in for the new server process.
-test('canvas survives a server restart', async (t) => {
+test('canvas and undo history survive a server restart', async (t) => {
     t.mock.method(console, 'log', () => {});
     const { createFakeIo, createFakeSocket, last } = require('../fake-socket');
     const rooms = require('../rooms/server');
@@ -138,9 +138,9 @@ test('canvas survives a server restart', async (t) => {
     const roomId = last(alice.emitted, 'room-created').data.roomId;
     alice.trigger('op', {
         roomId,
-        op: { type: 'stroke', points: [[0.1, 0.1], [0.2, 0.2]], color: '#000000', ns: 0.01, tool: 'brush' },
-        state: 'data:image/png;base64,DRAWN'
+        op: { type: 'stroke', points: [[0.1, 0.1], [0.2, 0.2]], color: '#000000', ns: 0.01, tool: 'brush' }
     });
+    alice.trigger('canvas-state', { roomId, state: 'data:image/png;base64,DRAWN' }); // after the pause
     await alice.trigger('disconnecting');
     assert.strictEqual(docs[roomId].canvasState, 'data:image/png;base64,DRAWN');
 
@@ -148,9 +148,11 @@ test('canvas survives a server restart', async (t) => {
     connect = boot();
     const bob = connect('bob');
     await bob.trigger('join-room', { roomId, userName: 'Bob' });
-    const joined = last(bob.emitted, 'room-joined').data;
-    assert.strictEqual(joined.canvasState, 'data:image/png;base64,DRAWN');
-    assert.strictEqual(joined.isHost, true);
+    assert.strictEqual(last(bob.emitted, 'room-joined').data.isHost, true);
+    bob.trigger('history-sync', roomId);
+    const sync = last(bob.emitted, 'history-sync').data;
+    assert.strictEqual(sync.ops.length, 1, 'the stroke comes back as a change');
+    assert.strictEqual(sync.hasUndo, false, 'Bob is another browser');
 });
 
 test('the password hash is saved with the room and on creation', async () => {

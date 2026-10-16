@@ -1,6 +1,6 @@
 // Browser smoke tests: two real Chrome windows against the real server code,
 // with an in-memory Room model instead of MongoDB. Run with `npm run test:e2e`.
-const { test, before, after } = require('node:test');
+const { test, before, after, beforeEach } = require('node:test');
 const assert = require('node:assert');
 const { chromium, firefox, webkit } = require('playwright-core');
 const { createServer } = require('../server');
@@ -38,6 +38,9 @@ before(async () => {
     baseUrl = `http://localhost:${app.server.address().port}`;
     browser = await launchers[engine]();
 });
+
+// every test user is on localhost, so per-IP limits (10 new rooms) would add up across tests
+beforeEach(() => { if (app.ctx.rateLimitIps) app.ctx.rateLimitIps.clear(); });
 
 after(async () => {
     if (browser) await browser.close();
@@ -313,6 +316,9 @@ function inkIn(page, x1, y1, x2, y2) {
     }, [x1, y1, x2, y2]);
 }
 
+// the text box has focus, so typing goes into it, not to the tool shortcuts
+const textBoxFocused = () => document.activeElement && document.activeElement.classList.contains('canvas-text-input');
+
 test('text and an inserted image reach the other user', async () => {
     const alice = await openUser();
     const bob = await openUser();
@@ -324,7 +330,7 @@ test('text and an inserted image reach the other user', async () => {
     await alice.keyboard.press('t');
     const box = await alice.locator('#canvas').boundingBox();
     await alice.mouse.click(box.x + box.width * 0.05, box.y + box.height * 0.05);
-    await alice.waitForSelector('.canvas-text-input');
+    await alice.waitForFunction(textBoxFocused); // focus comes a tick after the box appears
     await alice.keyboard.type('Hello');
     await alice.keyboard.press('Enter');
     assert.strictEqual(await alice.locator('.canvas-text-input').count(), 0, 'text box closed');
@@ -353,7 +359,7 @@ test('text and an inserted image reach the other user', async () => {
     const before = await inkIn(alice, 0.6, 0.85, 0.99, 0.99);
     await alice.keyboard.press('t');
     await alice.mouse.click(box.x + box.width * 0.7, box.y + box.height * 0.9);
-    await alice.waitForSelector('.canvas-text-input');
+    await alice.waitForFunction(textBoxFocused); // focus comes a tick after the box appears
     await alice.keyboard.type('nope');
     await alice.keyboard.press('Escape');
     assert.strictEqual(await inkIn(alice, 0.6, 0.85, 0.99, 0.99), before);
@@ -435,7 +441,7 @@ test('over 200 changes, the oldest are flattened into the base and the picture s
             const y = i / 250;
             const op = { type: 'stroke', points: [[0.1, y], [0.9, y]], color: '#000000', ns: 0.003, tool: 'brush' };
             drawOnCommitted(c => drawOp(c, op, canvas.width, canvas.height));
-            socket.emit('op', { roomId: currentRoomId, op, state: canvasState() });
+            socket.emit('op', { roomId: currentRoomId, op });
             if (i > 15) await new Promise(r => setTimeout(r, 105)); // stay under 10 per second
         }
     }, COUNT);
@@ -515,4 +521,116 @@ test('kick blocks a private window; members reopen a password room and keep thei
     await waitForPixel(alice, 0.5, 0.5, 'd[3] === 0');
 
     await closeUsers(alice, bob, bobPrivate);
+});
+
+// a thick brush, so pixel checks do not depend on exact stroke placement
+const thickBrush = (page) => page.fill('#brushSize', '20');
+
+// wait (up to 5 s) until a server-side check passes
+async function serverWait(check) {
+    const deadline = Date.now() + 5000;
+    while (!check() && Date.now() < deadline) await new Promise(r => setTimeout(r, 50));
+    return check();
+}
+
+test('changes carry no canvas; the full canvas reaches the server once the user pauses', async () => {
+    const alice = await openUser();
+    const roomId = await createRoom(alice, 'Alice');
+    await drag(alice, [0.2, 0.5], [0.8, 0.5]);
+    assert.ok(await serverWait(() => app.roomData[roomId].history && app.roomData[roomId].history.ops.length === 1));
+    assert.strictEqual(app.roomData[roomId].canvasState, null, 'not sent with the change');
+    assert.ok(await serverWait(() => app.roomData[roomId].canvasState), 'sent after the pause');
+    assert.match(app.roomData[roomId].canvasState, /^data:image\/(png|webp);base64,/);
+    await closeUsers(alice);
+});
+
+test('eyedropper picks a color from the canvas, then goes back to the brush', async () => {
+    const alice = await openUser();
+    await createRoom(alice, 'Alice');
+    await alice.keyboard.press('r');
+    await drag(alice, [0.3, 0.3], [0.7, 0.7]);
+    await alice.keyboard.press('f');
+    await alice.locator('.color-swatch[data-color="#FF0000"]').click();
+    const box = await alice.locator('#canvas').boundingBox();
+    await alice.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+    await alice.locator('.color-swatch[data-color="#000000"]').click();
+
+    await alice.keyboard.press('k');
+    await alice.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+    assert.deepStrictEqual(await alice.evaluate(() => [currentColor, currentTool]), ['#FF0000', 'brush']);
+    assert.ok(await alice.locator('.color-swatch[data-color="#FF0000"].active').count(), 'red swatch selected');
+
+    // empty canvas reads as paper white
+    await alice.keyboard.press('k');
+    await alice.mouse.click(box.x + box.width * 0.05, box.y + box.height * 0.05);
+    assert.strictEqual(await alice.evaluate(() => currentColor), '#FFFFFF');
+    await closeUsers(alice);
+});
+
+test('select and move: the other user sees the move, and Undo puts it back', async () => {
+    const alice = await openUser();
+    const bob = await openUser();
+    const roomId = await createRoom(alice, 'Alice');
+    await joinRoom(bob, 'Bob', roomId);
+    await bob.waitForFunction(() => currentRoomId);
+    await thickBrush(alice);
+
+    await drag(alice, [0.1, 0.2], [0.3, 0.2]);
+    await waitForPixel(bob, 0.2, 0.2, 'd[3] > 0');
+
+    await alice.keyboard.press('s');
+    await drag(alice, [0.05, 0.1], [0.35, 0.3]);                  // select the stroke
+    assert.strictEqual(await alice.locator('.selection-box').isVisible(), true);
+    await drag(alice, [0.2, 0.2], [0.7, 0.7]);                    // move it by half the canvas
+    await waitForPixel(bob, 0.7, 0.7, 'd[3] > 0');
+    assert.strictEqual((await pixel(bob, 0.2, 0.2))[3], 0, 'old spot is empty');
+    assert.strictEqual((await pixel(alice, 0.2, 0.2))[3], 0);
+
+    await alice.click('#undoBtn');
+    await waitForPixel(bob, 0.2, 0.2, 'd[3] > 0');
+    assert.strictEqual((await pixel(bob, 0.7, 0.7))[3], 0, 'moved back');
+
+    // Escape drops the selection
+    await alice.keyboard.press('Escape');
+    assert.strictEqual(await alice.locator('.selection-box').isVisible(), false);
+    await closeUsers(alice, bob);
+});
+
+test('view-only room: only the host draws until the host unlocks it', async () => {
+    const alice = await openUser();
+    const bob = await openUser();
+    const roomId = await createRoom(alice, 'Alice');
+    await joinRoom(bob, 'Bob', roomId);
+    await bob.waitForFunction(() => currentRoomId);
+    await thickBrush(alice);
+    await thickBrush(bob);
+
+    await alice.click('#membersBtn');
+    await alice.click('#lockBtn');
+    await bob.waitForFunction(() => roomLocked); // not the toast: "Joined room" may replace it
+    assert.strictEqual(await bob.evaluate(() => document.querySelector('.toolbar').classList.contains('locked')), true);
+    assert.strictEqual(await alice.evaluate(() => document.querySelector('.toolbar').classList.contains('locked')), false);
+
+    // Bob's drag draws nothing anywhere; even a hand-sent change is dropped by the server
+    await drag(bob, [0.1, 0.3], [0.9, 0.3]);
+    await bob.evaluate(() => socket.emit('clear', currentRoomId));
+    await alice.waitForTimeout(400);
+    assert.strictEqual((await pixel(bob, 0.5, 0.3))[3], 0);
+    assert.strictEqual((await pixel(alice, 0.5, 0.3))[3], 0);
+    assert.strictEqual(app.roomData[roomId].history.ops.length, 0);
+
+    await drag(alice, [0.1, 0.5], [0.9, 0.5]);
+    await waitForPixel(bob, 0.5, 0.5, 'd[3] > 0');
+
+    // a joiner sees the lock too
+    const carol = await openUser();
+    await joinRoom(carol, 'Carol', roomId);
+    await carol.waitForFunction(() => currentRoomId && roomLocked);
+
+    await alice.click('#membersBtn'); // drawing closed the members list
+    await alice.click('#lockBtn');
+    await bob.waitForFunction(() => !roomLocked);
+    await drag(bob, [0.1, 0.7], [0.9, 0.7]);
+    await waitForPixel(alice, 0.5, 0.7, 'd[3] > 0');
+    await closeUsers(alice, bob, carol);
 });

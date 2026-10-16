@@ -1,6 +1,6 @@
 {
   "name": "paint-together",
-  "version": "1.9.0",
+  "version": "1.10.0",
   "description": "A real-time collaborative painting web application",
   "main": "server.js",
   "scripts": {

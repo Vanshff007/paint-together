@@ -160,7 +160,7 @@ body {
 
 /* Title bar */
 .landing-card::before {
-    content: '⬛ Paint Together  —  v1.9.0';
+    content: '⬛ Paint Together  —  v1.10.0';
     display: block;
     background: var(--border);
     color: var(--white);
@@ -788,6 +788,17 @@ canvas#canvas:active { box-shadow: 2px 2px 0 var(--border); }
 }
 .members-password-btn[hidden] { display: none; }
 .members-password-btn:hover { background: var(--highlight); }
+
+/* view-only room (features/lock): drawing controls are dimmed and inactive, Save still works */
+.toolbar.locked > .control-group:not(.toolbar-actions),
+.toolbar.locked .toolbar-actions > :not(.download-btn) { opacity: 0.45; pointer-events: none; }
+
+/* select tool: the selected box (features/tools) */
+.selection-box {
+    position: absolute; box-sizing: border-box; pointer-events: none;
+    border: 2px dashed var(--ink); outline: 1px dashed var(--paper);
+}
+.selection-box[hidden] { display: none; }
 
 /* 
    KICK MODAL

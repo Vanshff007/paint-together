@@ -1,6 +1,6 @@
 const { test } = require('node:test');
 const assert = require('node:assert');
-const { floodFill, hexToRgba, isValidShape, drawShape, drawText, fitImage, isValidOp, cleanOp, drawOp, FILL_TOLERANCE, MAX_STROKE_POINTS } = require('./client');
+const { floodFill, hexToRgba, isValidShape, drawShape, drawText, fitImage, isValidOp, cleanOp, drawOp, moveRegion, moveBox, pixelToHex, FILL_TOLERANCE, MAX_STROKE_POINTS } = require('./client');
 
 // w x h image of one RGBA color, plus helpers to read/write pixels
 function image(w, h, rgba = [0, 0, 0, 0]) {
@@ -229,4 +229,57 @@ test('drawOp: fill works on the context pixels', () => {
     drawOp(fake, { type: 'shape', shape: 'fill', nx1: 0, ny1: 0, color: '#ff0000' }, 4, 4);
     assert.deepStrictEqual(Array.from(data.slice(0, 4)), [255, 0, 0, 255]);
     assert.ok(calls.some(c => c[0] === 'putImageData'));
+});
+
+// RGBA image of w x h, all pixels set to px
+function solid(w, h, px) {
+    const data = new Uint8ClampedArray(w * h * 4);
+    for (let i = 0; i < data.length; i += 4) data.set(px, i);
+    return { data, width: w, height: h };
+}
+const at = (img, x, y) => Array.from(img.data.slice((y * img.width + x) * 4, (y * img.width + x) * 4 + 4));
+
+test('moveRegion moves a block, leaves paper behind, and lays it over the target', () => {
+    const img = solid(4, 4, [0, 0, 255, 255]);       // blue page
+    img.data.set([255, 0, 0, 255], (0 * 4 + 0) * 4); // red at 0,0
+    img.data.set([0, 0, 0, 0], (0 * 4 + 1) * 4);     // transparent at 1,0
+    moveRegion(img, 0, 0, 2, 1, 2, 3);                // the 2x1 block at 0,0 to 2,3
+    assert.deepStrictEqual(at(img, 0, 0), [0, 0, 0, 0], 'old spot is empty');
+    assert.deepStrictEqual(at(img, 1, 0), [0, 0, 0, 0]);
+    assert.deepStrictEqual(at(img, 2, 3), [255, 0, 0, 255], 'red arrived');
+    assert.deepStrictEqual(at(img, 3, 3), [0, 0, 255, 255], 'transparent part shows what was below');
+});
+
+test('moveRegion blends semi-transparent pixels, drops what leaves the canvas, ignores bad boxes', () => {
+    const img = solid(3, 1, [0, 0, 0, 0]);
+    img.data.set([255, 255, 255, 255], 8);          // white at 2,0
+    img.data.set([0, 0, 0, 128], 0);                // half black at 0,0
+    moveRegion(img, 0, 0, 1, 1, 2, 0);
+    assert.deepStrictEqual(at(img, 2, 0), [127, 127, 127, 255]);
+
+    const edge = solid(2, 1, [9, 9, 9, 255]);
+    moveRegion(edge, 0, 0, 1, 1, 5, 0);             // off the canvas
+    assert.deepStrictEqual(at(edge, 0, 0), [0, 0, 0, 0]);
+    assert.deepStrictEqual(at(edge, 1, 0), [9, 9, 9, 255]);
+
+    const same = solid(2, 2, [1, 2, 3, 255]);
+    moveRegion(same, 1, 1, 2, 2, 0, 0);             // box past the edge: no change
+    assert.deepStrictEqual(Array.from(same.data), Array.from(solid(2, 2, [1, 2, 3, 255]).data));
+});
+
+test('move ops: valid boxes and offsets only, whole pixels', () => {
+    const move = { type: 'shape', shape: 'move', nx1: 0.1, ny1: 0.1, nx2: 0.3, ny2: 0.2, dx: 0.5, dy: -0.1 };
+    assert.strictEqual(isValidOp(move), true);
+    assert.strictEqual(isValidOp({ ...move, nx2: 0.1 }), false, 'empty box');
+    assert.strictEqual(isValidOp({ ...move, dx: 2 }), false);
+    assert.strictEqual(isValidOp({ ...move, dy: 'x' }), false);
+    assert.deepStrictEqual(cleanOp({ ...move, evil: 1 }), move);
+    assert.deepStrictEqual(moveBox(move, 1280, 800), { x: 128, y: 80, w: 256, h: 80, dx: 640, dy: -80 });
+});
+
+test('pixelToHex reads a pixel as it looks on white paper', () => {
+    assert.strictEqual(pixelToHex([255, 0, 0, 255]), '#ff0000');
+    assert.strictEqual(pixelToHex([0, 0, 0, 0]), '#ffffff');
+    assert.strictEqual(pixelToHex([0, 0, 0, 128]), '#7f7f7f');
+    assert.strictEqual(pixelToHex([18, 52, 86, 255]), '#123456');
 });

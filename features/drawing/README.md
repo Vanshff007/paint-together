@@ -44,11 +44,11 @@ other users.
   On `mouseup` the layer is merged into the committed image (`canvasImage`).
   This stops two users' simultaneous strokes from joining into one line.
 - The eraser paints white and shows a dashed circle preview.
-- `loadCanvasState(dataUrl)` draws a saved canvas onto the canvas. History and
-  rooms use it. It ignores anything that is not a `data:image/png;base64,` or
-  `data:image/webp;base64,` string, so a URL never loads (no IP leak, no
-  tainted canvas).
-- `canvasState()` returns the canvas as a data URL for the server. At startup
+- `reportCanvasState()` sends the committed canvas (no previews, cursors, or
+  strokes others are still drawing) to the server as `canvas-state`, 1.5 s
+  after this user's last change (`STATE_DELAY_MS`; each change restarts the
+  wait). Changes themselves carry no canvas, so a busy user sends one image
+  per pause instead of one per stroke. At startup
   the client encodes an 8x8 test image as WebP at quality 1, decodes it, and
   compares every byte. Only if they match (lossless, as in Chrome) does it
   use WebP; otherwise PNG. Lossy WebP would lose quality on every undo.
@@ -56,8 +56,12 @@ other users.
   for a busy one, 1029 KB to 936 KB for a very dense one. Opaque pixels are
   exact; semi-transparent edge pixels can move by up to 4 of 255.
 - Save (download) always produces a PNG.
-- `loadCanvasState` scales a saved image to 1280×800. Rooms saved before the
-  fixed size (other sizes) are stretched once to 16:10.
+- A saved canvas of another size (rooms saved before the fixed size) is
+  stretched to 1280×800 when the history redraws it.
+- `useColor(hex)` selects the matching swatch, or shows the color on the
+  custom color button (the custom picker and the eyedropper use it).
+- In a view-only room (`features/lock`) brush, eraser and Clear do nothing for
+  anyone but the host (`canDraw()` in `public/core.js`).
 
 Uses `socket`, `currentRoomId`, `canvas`, `ctx` from `public/core.js`, and
 `saveToUndoStack`, `localUndoStack`, `updateUndoRedoButtons` from history.

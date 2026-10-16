@@ -78,6 +78,8 @@ function isValidShape(d) {
                              d.text.length > 0 && d.text.length <= MAX_TEXT_LENGTH;
         case 'image': return box && d.nx2 > d.nx1 && d.ny2 > d.ny1 &&
                              typeof d.src === 'string' && IMAGE_DATA_URL.test(d.src);
+        case 'move':  return box && d.nx2 > d.nx1 && d.ny2 > d.ny1 &&
+                             [d.dx, d.dy].every(v => typeof v === 'number' && v >= -1 && v <= 1);
         default:      return SHAPE_TOOLS.includes(d.shape) && color && size && box;
     }
 }
@@ -96,6 +98,44 @@ function drawText(c, text, x, y, color, fontPx) {
 function fitImage(w, h, maxW, maxH) {
     const scale = Math.min(1, maxW / w, maxH / h);
     return { w: Math.max(1, Math.round(w * scale)), h: Math.max(1, Math.round(h * scale)) };
+}
+
+// Moves the w x h block at (x, y) by (dx, dy) on ImageData-like { data, width, height }.
+// The old spot becomes empty (transparent = paper); the block is laid over what is at
+// the new spot (source-over, so its transparent parts show what is below). Parts moved
+// off the canvas are lost. Plain pixel math, so every browser gets the same result.
+function moveRegion(image, x, y, w, h, dx, dy) {
+    const { data, width, height } = image;
+    if (x < 0 || y < 0 || w <= 0 || h <= 0 || x + w > width || y + h > height) return;
+    const piece = new Uint8ClampedArray(w * h * 4);
+    for (let r = 0; r < h; r++) {
+        const from = ((y + r) * width + x) * 4;
+        piece.set(data.subarray(from, from + w * 4), r * w * 4);
+        data.fill(0, from, from + w * 4);
+    }
+    for (let r = 0; r < h; r++) {
+        const ty = y + dy + r;
+        if (ty < 0 || ty >= height) continue;
+        for (let col = 0; col < w; col++) {
+            const tx = x + dx + col;
+            if (tx < 0 || tx >= width) continue;
+            const s = (r * w + col) * 4, t = (ty * width + tx) * 4;
+            const sa = piece[s + 3] / 255;
+            if (sa === 0) continue;
+            const da = data[t + 3] / 255;
+            const oa = sa + da * (1 - sa);
+            for (let ch = 0; ch < 3; ch++) {
+                data[t + ch] = (piece[s + ch] * sa + data[t + ch] * da * (1 - sa)) / oa;
+            }
+            data[t + 3] = oa * 255;
+        }
+    }
+}
+
+// '#rrggbb' of an RGBA pixel as it looks on the white page (transparent counts as white)
+function pixelToHex(rgba) {
+    const a = rgba[3] / 255;
+    return '#' + [0, 1, 2].map(c => Math.round(rgba[c] * a + 255 * (1 - a)).toString(16).padStart(2, '0')).join('');
 }
 
 // Outline from (x1, y1) to (x2, y2); a circle is the ellipse inside that box
@@ -124,7 +164,7 @@ function drawShape(c, shape, x1, y1, x2, y2, color, size) {
 //   { type: 'stroke', points: [[nx, ny], ...], color, ns, tool }  brush or eraser stroke
 //   { type: 'shape', shape, nx1, ny1, ... }                       any draw-shape payload
 const MAX_STROKE_POINTS = 2000;
-const OP_KEYS = ['type', 'points', 'color', 'ns', 'tool', 'shape', 'nx1', 'ny1', 'nx2', 'ny2', 'text', 'src'];
+const OP_KEYS = ['type', 'points', 'color', 'ns', 'tool', 'shape', 'nx1', 'ny1', 'nx2', 'ny2', 'text', 'src', 'dx', 'dy'];
 
 function isValidOp(op) {
     if (!op || typeof op !== 'object') return false;
@@ -174,13 +214,31 @@ function drawOp(c, op, W, H, image) {
         drawText(c, op.text, x1, y1, op.color, op.ns * W);
     } else if (op.shape === 'image') {
         if (image) c.drawImage(image, x1, y1, x2 - x1, y2 - y1);
+    } else if (op.shape === 'move') {
+        const box = moveBox(op, W, H);
+        const img = c.getImageData(0, 0, W, H);
+        moveRegion(img, box.x, box.y, box.w, box.h, box.dx, box.dy);
+        c.putImageData(img, 0, 0);
     } else {
         drawShape(c, op.shape, x1, y1, x2, y2, op.color, op.ns * W);
     }
 }
 
+// whole-pixel block and offset of a move op on a W x H canvas
+function moveBox(op, W, H) {
+    const x = Math.round(op.nx1 * W), y = Math.round(op.ny1 * H);
+    return {
+        x, y,
+        w: Math.round(op.nx2 * W) - x,
+        h: Math.round(op.ny2 * H) - y,
+        dx: Math.round(op.dx * W),
+        dy: Math.round(op.dy * H)
+    };
+}
+
 if (typeof module !== 'undefined') module.exports = {
     floodFill, hexToRgba, isValidShape, drawShape, drawText, fitImage, isValidOp, cleanOp, drawOp,
+    moveRegion, moveBox, pixelToHex,
     FILL_TOLERANCE, MAX_TEXT_LENGTH, MAX_STROKE_POINTS
 };
 
@@ -193,11 +251,14 @@ if (typeof document !== 'undefined') {
         rect:   document.getElementById('rectBtn'),
         circle: document.getElementById('circleBtn'),
         fill:   document.getElementById('fillBtn'),
-        text:   document.getElementById('textBtn')
+        text:   document.getElementById('textBtn'),
+        select: document.getElementById('selectBtn'),
+        picker: document.getElementById('pickerBtn')
     };
 
     Object.entries(toolButtons).forEach(([tool, btn]) => {
         btn.addEventListener('click', () => {
+            clearSelection();
             currentTool = tool;
             document.querySelectorAll('.toolbar .tool-btn').forEach(b => b.classList.toggle('active', b === btn));
             canvas.style.cursor = 'crosshair';
@@ -207,10 +268,11 @@ if (typeof document !== 'undefined') {
 
     // brush and eraser buttons only deactivate each other
     [brushBtn, eraserBtn].forEach(btn => btn.addEventListener('click', () => {
+        clearSelection();
         Object.values(toolButtons).forEach(b => b.classList.remove('active'));
     }));
 
-    const toolActive = () => currentTool === 'fill' || currentTool === 'text' || SHAPE_TOOLS.includes(currentTool);
+    const toolActive = () => ['fill', 'text', 'select', 'picker'].includes(currentTool) || SHAPE_TOOLS.includes(currentTool);
     const clampPos   = (p) => ({
         x: Math.min(Math.max(p.x, 0), canvas.width),
         y: Math.min(Math.max(p.y, 0), canvas.height)
@@ -234,7 +296,8 @@ if (typeof document !== 'undefined') {
 
     function finishChange(payload) {
         if (!currentRoomId) return;
-        socket.emit('op', { roomId: currentRoomId, op: { type: 'shape', ...payload }, state: canvasState() });
+        socket.emit('op', { roomId: currentRoomId, op: { type: 'shape', ...payload } });
+        reportCanvasState();
     }
 
     function fillAt(c, x, y, color) {
@@ -253,6 +316,8 @@ if (typeof document !== 'undefined') {
 
     function pointerDown(pos) {
         if (currentTool === 'text') return openTextInput(pos);
+        if (currentTool === 'picker') return pickAt(pos);
+        if (currentTool === 'select') return selectDown(pos);
         if (currentTool !== 'fill') {
             shapeStart = pos;
             return;
@@ -268,6 +333,7 @@ if (typeof document !== 'undefined') {
     function pointerMove(pos) {
         if (!shapeStart) return;
         shapeEnd = pos;
+        if (currentTool === 'select') return selectMove(pos);
         restoreCanvas();
         drawShape(ctx, currentTool, shapeStart.x, shapeStart.y, pos.x, pos.y, currentColor, currentBrushSize);
     }
@@ -276,6 +342,7 @@ if (typeof document !== 'undefined') {
         if (!shapeStart) return;
         const start = shapeStart;
         shapeStart = shapeEnd = null;
+        if (currentTool === 'select') return selectUp(start, pos);
         if (Math.hypot(pos.x - start.x, pos.y - start.y) < 2) return restoreCanvas(); // a tap draws nothing
         beginChange();
         commitToCanvas(c => drawShape(c, currentTool, start.x, start.y, pos.x, pos.y, currentColor, currentBrushSize));
@@ -284,10 +351,121 @@ if (typeof document !== 'undefined') {
         finishChange({ shape: currentTool, nx1: a.nx, ny1: a.ny, nx2: b.nx, ny2: b.ny, color: currentColor, ns: normSize(currentBrushSize) });
     }
 
+    // EYEDROPPER
+    // Takes the color under the pointer (as it looks on the page), then goes back to the brush.
+
+    function pickAt(pos) {
+        restoreCanvas();
+        const x = Math.min(Math.floor(pos.x), canvas.width - 1);
+        const y = Math.min(Math.floor(pos.y), canvas.height - 1);
+        const color = pixelToHex(ctx.getImageData(x, y, 1, 1).data);
+        useColor(color);
+        brushBtn.click();
+        showToast(`💧 Picked ${color}`);
+    }
+
+    // SELECT AND MOVE
+    // Drag to select a box (dashed outline), then drag inside it to move those pixels.
+    // The move is one change (op 'move'), so it syncs and undoes like any other.
+
+    let selection = null; // { x, y, w, h } in whole canvas pixels
+    let moving    = null; // { cut, piece } while the box is dragged: canvas without it, and its pixels
+
+    const marquee = document.createElement('div');
+    marquee.className = 'selection-box';
+    marquee.hidden = true;
+    document.getElementById('cursorOverlay').appendChild(marquee);
+
+    // the dashed outline, placed in % so zoom and resizing keep it on the pixels
+    function showMarquee(box) {
+        marquee.hidden = !box;
+        if (!box) return;
+        marquee.style.left   = `${box.x / canvas.width * 100}%`;
+        marquee.style.top    = `${box.y / canvas.height * 100}%`;
+        marquee.style.width  = `${box.w / canvas.width * 100}%`;
+        marquee.style.height = `${box.h / canvas.height * 100}%`;
+    }
+
+    function clearSelection() {
+        if (moving) restoreCanvas();
+        selection = moving = null;
+        showMarquee(null);
+    }
+
+    const whole = (p) => ({ x: Math.round(p.x), y: Math.round(p.y) });
+    const inside = (p, b) => p.x >= b.x && p.x < b.x + b.w && p.y >= b.y && p.y < b.y + b.h;
+    // box between two points, cut to the canvas; null when nothing is left
+    function boxBetween(x1, y1, x2, y2) {
+        const x = Math.max(0, Math.min(x1, x2)), y = Math.max(0, Math.min(y1, y2));
+        const w = Math.min(canvas.width, Math.max(x1, x2)) - x;
+        const h = Math.min(canvas.height, Math.max(y1, y2)) - y;
+        return w > 0 && h > 0 ? { x, y, w, h } : null;
+    }
+
+    function selectDown(pos) {
+        const p = whole(pos);
+        shapeStart = p;
+        if (!selection || !inside(p, selection)) {
+            clearSelection();
+            return;
+        }
+        // lift the selected pixels off the committed canvas
+        const { x, y, w, h } = selection;
+        const W = canvas.width;
+        const cut = canvasImage ? new ImageData(new Uint8ClampedArray(canvasImage.data), W, canvas.height)
+                                : new ImageData(W, canvas.height);
+        const block = new ImageData(w, h);
+        for (let r = 0; r < h; r++) {
+            const from = ((y + r) * W + x) * 4;
+            block.data.set(cut.data.subarray(from, from + w * 4), r * w * 4);
+            cut.data.fill(0, from, from + w * 4);
+        }
+        const piece = document.createElement('canvas');
+        piece.width = w;
+        piece.height = h;
+        piece.getContext('2d').putImageData(block, 0, 0);
+        moving = { cut, piece };
+    }
+
+    function selectMove(pos) {
+        const p = whole(pos), s = shapeStart;
+        if (!moving) return showMarquee(boxBetween(s.x, s.y, p.x, p.y));
+        const dx = p.x - s.x, dy = p.y - s.y;
+        ctx.putImageData(moving.cut, 0, 0);
+        ctx.drawImage(moving.piece, selection.x + dx, selection.y + dy);
+        showMarquee({ ...selection, x: selection.x + dx, y: selection.y + dy });
+    }
+
+    function selectUp(start, pos) {
+        const p = whole(pos);
+        if (!moving) {
+            const box = boxBetween(start.x, start.y, p.x, p.y);
+            selection = box && box.w >= 2 && box.h >= 2 ? box : null;
+            return showMarquee(selection);
+        }
+        moving = null;
+        const s = selection, dx = p.x - start.x, dy = p.y - start.y;
+        if (!dx && !dy) return restoreCanvas();
+        const W = canvas.width, H = canvas.height;
+        const op = { shape: 'move', nx1: s.x / W, ny1: s.y / H, nx2: (s.x + s.w) / W, ny2: (s.y + s.h) / H, dx: dx / W, dy: dy / H };
+        beginChange();
+        commitToCanvas(c => drawOp(c, { type: 'shape', ...op }, W, H));
+        finishChange(op);
+        // the box follows its pixels (what is still on the canvas), ready to move again
+        selection = boxBetween(s.x + dx, s.y + dy, s.x + dx + s.w, s.y + dy + s.h);
+        showMarquee(selection);
+    }
+
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && selection && !moving) clearSelection();
+    });
+    clearBtn.addEventListener('click', clearSelection);
+    ['clear', 'room-created', 'room-joined'].forEach(event => socket.on(event, clearSelection));
+
     const container = canvas.parentElement;
 
     container.addEventListener('mousedown', (e) => {
-        if (e.target !== canvas || !toolActive()) return;
+        if (e.target !== canvas || !toolActive() || !canDraw()) return;
         if (e.sourceCapabilities && e.sourceCapabilities.firesTouchEvents) return;
         e.stopPropagation();
         pointerDown(clampPos(getMousePos(e)));
@@ -302,18 +480,22 @@ if (typeof document !== 'undefined') {
     // a second finger turned this touch into a pinch (features/zoom): drop the shape in progress
     window.cancelToolGesture = () => {
         toolTouchId = null;
-        if (shapeStart) {
-            shapeStart = shapeEnd = null;
-            restoreCanvas();
-        }
+        if (shapeStart) cancelDrag();
     };
 
+    // drop the drag in progress; a selection stays where it was
+    function cancelDrag() {
+        shapeStart = shapeEnd = moving = null;
+        restoreCanvas();
+        showMarquee(selection);
+    }
+
     container.addEventListener('touchstart', (e) => {
-        if (e.target !== canvas || !toolActive() || toolTouchId !== null) return;
+        if (e.target !== canvas || !toolActive() || !canDraw() || toolTouchId !== null) return;
         e.preventDefault();
         e.stopPropagation();
         const t = e.changedTouches[0];
-        if (currentTool !== 'fill') toolTouchId = t.identifier;
+        if (currentTool !== 'fill' && currentTool !== 'picker') toolTouchId = t.identifier;
         pointerDown(clampPos(getTouchPos(t)));
     }, { capture: true, passive: false });
 
@@ -332,7 +514,7 @@ if (typeof document !== 'undefined') {
         e.stopPropagation();
         toolTouchId = null;
         if (type === 'touchend') pointerUp(clampPos(getTouchPos(t)));
-        else { shapeStart = shapeEnd = null; restoreCanvas(); }
+        else cancelDrag();
     }, { capture: true, passive: false }));
 
     // TEXT
@@ -386,7 +568,7 @@ if (typeof document !== 'undefined') {
     const imageBtn   = document.getElementById('imageBtn');
     const imageInput = document.getElementById('imageInput');
 
-    imageBtn.addEventListener('click', () => imageInput.click());
+    imageBtn.addEventListener('click', () => { if (canDraw()) imageInput.click(); });
 
     imageInput.addEventListener('change', () => {
         const file = imageInput.files[0];

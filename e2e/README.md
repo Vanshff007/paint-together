@@ -40,7 +40,14 @@ Firefox has no mobile emulation, so its phone tests use a small touch window.
 | over 200 changes, the oldest are flattened into the base and the picture stays right | 205 changes at the rate limit; the server asks the sender to flatten 100, the base is set, the other user's history shrinks to match, and after an Undo everyone's redraw still shows the old strokes (from the base) and hides the undone one. About 40 s. |
 | a canvas over 1 MB (Socket.io default limit) still reaches the server | A 3 MB `canvas-state` is stored and the sender stays connected. |
 | kick blocks a private window; members reopen a password room and keep their undo | Host kicks Bob through the members list; Bob in a new browser with the right password gets the ban message. Host sets a new password (prompt). Everyone leaves; the host reopens the room with no password, sees the stroke, and can still undo it. |
+| changes carry no canvas; the full canvas reaches the server once the user pauses | After a stroke the server has the change but no canvas; within the pause the canvas arrives. |
+| eyedropper picks a color from the canvas, then goes back to the brush | K on a red fill selects the red swatch and the brush; K on empty canvas gives white. |
+| select and move: the other user sees the move, and Undo puts it back | S, drag a box around a stroke, drag it by half the canvas: the other user sees it moved and the old spot empty; Undo moves it back; Escape hides the box. |
+| view-only room: only the host draws until the host unlocks it | Host makes the room view-only: the other user's toolbar is dimmed, their drag draws nothing, a hand-sent `clear` is dropped; the host still draws; a joiner sees the lock; after unlocking, the other user draws again. |
 | a chat flood is cut by the rate limit; history survives in the saved room | 50 chat messages at once reach the other user as 8 (the burst). Everyone leaves, the room is saved and leaves memory; a new joiner gets the same chat history back from the saved room. |
+
+Per-IP rate limits are reset before each test (every test user is on
+localhost). CI runs all three engines (`.github/workflows/test.yml`).
 
 Each user is a separate browser context (own `localStorage`, so its own
 `clientId`). Any page error in a browser fails the test.

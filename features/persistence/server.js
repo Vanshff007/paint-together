@@ -35,6 +35,7 @@ function createPersistence(roomData, RoomModel = Room) {
                         members: room.members || [],
                         banned: room.banned || [],
                         bannedIps: (room.bannedIps || []).filter(b => b.until > Date.now()),
+                        locked: Boolean(room.locked),
                         users: Object.values(room.users).map(u => u.name),
                         updatedAt: new Date(),
                         lastSavedAt: new Date()

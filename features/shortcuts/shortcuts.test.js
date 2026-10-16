@@ -13,7 +13,7 @@ test('Ctrl or Cmd + Z undoes, + Y or + Shift + Z redoes', () => {
 });
 
 test('single letters pick tools, upper or lower case', () => {
-    assert.deepStrictEqual(TOOL_KEYS, { b: 'brushBtn', e: 'eraserBtn', l: 'lineBtn', r: 'rectBtn', o: 'circleBtn', f: 'fillBtn', t: 'textBtn', i: 'imageBtn' });
+    assert.deepStrictEqual(TOOL_KEYS, { b: 'brushBtn', e: 'eraserBtn', l: 'lineBtn', r: 'rectBtn', o: 'circleBtn', f: 'fillBtn', t: 'textBtn', i: 'imageBtn', s: 'selectBtn', k: 'pickerBtn' });
     for (const [k, id] of Object.entries(TOOL_KEYS)) {
         assert.strictEqual(key(k), id);
         assert.strictEqual(key(k.toUpperCase(), { shiftKey: true }), id);

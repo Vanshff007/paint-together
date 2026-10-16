@@ -32,10 +32,10 @@ The canvas is the base image plus every op that is not undone, drawn in order.
 
 ## Server behavior
 
-- `op { roomId, op, state }`: validated (`isValidOp`; only known fields are
+- `op { roomId, op, state? }`: validated (`isValidOp`; only known fields are
   kept, `cleanOp`), stored with a new id and the sender's browser
-  (`authorKey`: `clientId`, else the socket id), `canvasState = state`, room
-  `dirty`. Broadcast to the whole room as `op { id, undone: false, by, ...op }`
+  (`authorKey`: `clientId`, else the socket id), room `dirty`. A valid
+  `state` (sent only by older clients) sets `canvasState`. Broadcast to the whole room as `op { id, undone: false, by, ...op }`
   (`by` is the sender's socket id; the browser id is never sent). The sender's
   redo list is cleared.
 - `undo roomId`: the sender's last op that is not undone gets `undone: true`
@@ -44,8 +44,9 @@ The canvas is the base image plus every op that is not undone, drawn in order.
   gets `undone: false`. Broadcast `op-redone { id, by }`.
 - After every change each member gets its own
   `history-update { hasUndo, hasRedo }`.
-- `canvas-state { roomId, state }`: the redrawn canvas from the user who
-  undid or redid; sets `canvasState` (autosave and joiners use it).
+- `canvas-state { roomId, state }`: the full canvas, from the user who undid
+  or redid, or 1.5 s after a user's last change (`reportCanvasState()` in the
+  drawing client); sets `canvasState` for autosave.
 - `history-sync roomId`: replies `{ baseState, ops, hasUndo, hasRedo }`.
 - Flattening: when there are more than 200 ops (`MAX_OPS`), the sender of
   the op that went over gets `compact-request { upTo }` (the id of the 100th

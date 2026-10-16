@@ -82,17 +82,19 @@ function register(socket, ctx) {
         });
     });
 
-    // a finished change: stored, sent to everyone (the sender skips drawing it again)
+    // a finished change: stored, sent to everyone (the sender skips drawing it again).
+    // The full canvas comes separately (canvas-state) once the sender pauses; an old
+    // client may still send it here as `state`.
     socket.on('op', (data) => {
         const { roomId, op, state } = data || {};
         const room = roomOf(roomId);
-        if (!room || !isValidOp(op) || !isCanvasDataUrl(state)) return;
+        if (!room || !isValidOp(op)) return;
         const h = historyOf(room);
         const key = authorKey(socket);
         const entry = { id: h.nextId++, author: key, undone: false, op: cleanOp(op) };
         h.ops.push(entry);
         h.redo[key] = []; // a new change ends this user's redo
-        room.canvasState = state;
+        if (isCanvasDataUrl(state)) room.canvasState = state;
         room.dirty = true;
         io.to(roomId).emit('op', { ...publicOp(entry), by: socket.id });
         maybeCompact(roomId);
@@ -129,7 +131,7 @@ function register(socket, ctx) {
         sendHistoryState(roomId);
     });
 
-    // the redrawn canvas after an undo/redo, from the user who did it, for autosave and joiners
+    // the full canvas after a pause in changes or an undo/redo, from the user who made it, for autosave
     socket.on('canvas-state', (data) => {
         const { roomId, state } = data || {};
         const room = roomOf(roomId);
