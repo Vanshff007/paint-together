@@ -28,7 +28,9 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          # Node 20's test runner can garble a test file's output when it also logs a lot
+          # ("Unable to deserialize cloned data"); the unit job still checks Node 20
+          node-version: 24
           cache: npm
       - run: npm ci
       # Chrome comes with the runner; Firefox and WebKit are Playwright's builds
