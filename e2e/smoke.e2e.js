@@ -316,6 +316,9 @@ function inkIn(page, x1, y1, x2, y2) {
     }, [x1, y1, x2, y2]);
 }
 
+// the text box has focus, so typing goes into it, not to the tool shortcuts
+const textBoxFocused = () => document.activeElement && document.activeElement.classList.contains('canvas-text-input');
+
 test('text and an inserted image reach the other user', async () => {
     const alice = await openUser();
     const bob = await openUser();
@@ -327,7 +330,7 @@ test('text and an inserted image reach the other user', async () => {
     await alice.keyboard.press('t');
     const box = await alice.locator('#canvas').boundingBox();
     await alice.mouse.click(box.x + box.width * 0.05, box.y + box.height * 0.05);
-    await alice.waitForSelector('.canvas-text-input');
+    await alice.waitForFunction(textBoxFocused); // focus comes a tick after the box appears
     await alice.keyboard.type('Hello');
     await alice.keyboard.press('Enter');
     assert.strictEqual(await alice.locator('.canvas-text-input').count(), 0, 'text box closed');
@@ -356,7 +359,7 @@ test('text and an inserted image reach the other user', async () => {
     const before = await inkIn(alice, 0.6, 0.85, 0.99, 0.99);
     await alice.keyboard.press('t');
     await alice.mouse.click(box.x + box.width * 0.7, box.y + box.height * 0.9);
-    await alice.waitForSelector('.canvas-text-input');
+    await alice.waitForFunction(textBoxFocused); // focus comes a tick after the box appears
     await alice.keyboard.type('nope');
     await alice.keyboard.press('Escape');
     assert.strictEqual(await inkIn(alice, 0.6, 0.85, 0.99, 0.99), before);
