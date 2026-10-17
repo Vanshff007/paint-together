@@ -74,8 +74,89 @@ function createBubble() {
 
 for (let i = 0; i < 14; i++) splashBubbles.push(createBubble());
 
+// Paint balloons: click the background around the card to throw a balloon that bursts into a splat.
+let balloons = [];
+let splats = [];
+const splatColors = ['#06b6d4', '#ec4899', '#a78bfa', '#f5576c', '#f7971e', '#38ef7d', '#0e7490'];
+document.getElementById('landingScreen').addEventListener('pointerdown', e => {
+    if (e.target.closest('.landing-card, .dark-toggle')) return;
+    balloons.push({
+        sx: e.clientX + (Math.random() - 0.5) * 300, sy: splashCanvas.height + 40, // thrown from below the screen
+        tx: e.clientX, ty: e.clientY, born: performance.now(),
+        color: splatColors[Math.floor(Math.random() * splatColors.length)],
+    });
+});
+
+function makeSplat(x, y, color, born) {
+    const R = 25 + Math.random() * 25;
+    const blob = [];
+    for (let i = 0; i < 18; i++) blob.push(R * (0.75 + Math.random() * 0.45));
+    const drops = [];
+    for (let i = 0, n = 5 + Math.floor(Math.random() * 6); i < n; i++) {
+        const a = Math.random() * Math.PI * 2, d = R * (1.2 + Math.random() * 1.1);
+        drops.push({ x: Math.cos(a) * d, y: Math.sin(a) * d, r: 2 + Math.random() * R * 0.18 });
+    }
+    return { x, y, blob, drops, born, color };
+}
+
+const BALLOON_FLIGHT = 450; // ms
+function drawBalloon(b, now) {
+    const t = (now - b.born) / BALLOON_FLIGHT;
+    if (t >= 1) {
+        splats.push(makeSplat(b.tx, b.ty, b.color, now));
+        if (splats.length > 100) splats.shift(); // ponytail: oldest splat drops past 100, bake into an offscreen canvas if a bigger wall is wanted
+        return false;
+    }
+    const x = b.sx + (b.tx - b.sx) * t;
+    const y = b.sy + (b.ty - b.sy) * t - Math.sin(t * Math.PI) * 120; // arc up over the target
+    const r = 22 - t * 8;                                                // shrinks as it flies away
+    splashCtx.save();
+    splashCtx.translate(x, y);
+    splashCtx.rotate(t * Math.PI * 2);                                   // tumbles in flight
+    splashCtx.globalAlpha = 0.95;
+    splashCtx.fillStyle = b.color;
+    splashCtx.beginPath();
+    splashCtx.ellipse(0, 0, r * 0.85, r, 0, 0, Math.PI * 2);
+    splashCtx.moveTo(-3, r - 1); splashCtx.lineTo(3, r - 1); splashCtx.lineTo(0, r + 5); // knot
+    splashCtx.fill();
+    splashCtx.globalAlpha = 0.5;
+    splashCtx.fillStyle = '#fff';
+    splashCtx.beginPath();
+    splashCtx.ellipse(-r * 0.3, -r * 0.4, r * 0.15, r * 0.25, -0.5, 0, Math.PI * 2); // shine
+    splashCtx.fill();
+    splashCtx.restore();
+    return true;
+}
+
+function drawSplat(s, now) {
+    const age = now - s.born;
+    const grow = Math.min(1, age / 120);                  // pop in over 120ms
+    splashCtx.globalAlpha = 0.85;
+    splashCtx.fillStyle = s.color;
+    splashCtx.beginPath();
+    const n = s.blob.length;
+    const pt = i => {
+        const a = (i % n) / n * Math.PI * 2, r = s.blob[i % n] * grow;
+        return [s.x + Math.cos(a) * r, s.y + Math.sin(a) * r];
+    };
+    // smooth closed blob: curve through midpoints of neighbouring points
+    let [px, py] = pt(0), [qx, qy] = pt(1);
+    splashCtx.moveTo((px + qx) / 2, (py + qy) / 2);
+    for (let i = 1; i <= n; i++) {
+        [px, py] = pt(i); [qx, qy] = pt(i + 1);
+        splashCtx.quadraticCurveTo(px, py, (px + qx) / 2, (py + qy) / 2);
+    }
+    splashCtx.fill();
+    s.drops.forEach(d => {
+        splashCtx.beginPath();
+        splashCtx.arc(s.x + d.x * grow, s.y + d.y * grow, d.r * grow, 0, Math.PI * 2);
+        splashCtx.fill();
+    });
+}
+
 function animateSplash() {
     splashCtx.clearRect(0, 0, splashCanvas.width, splashCanvas.height);
+    splashCtx.globalAlpha = 0.25;
     splashBubbles.forEach(b => {
         b.phase += b.speed;
         b.pulsePhase += b.pulseSpeed;
@@ -94,6 +175,9 @@ function animateSplash() {
         splashCtx.fillStyle = grad;
         splashCtx.fill();
     });
+    const now = performance.now();
+    splats.forEach(s => drawSplat(s, now));
+    balloons = balloons.filter(b => drawBalloon(b, now));
     if (document.getElementById('landingScreen').style.display !== 'none') {
         requestAnimationFrame(animateSplash);
     }
