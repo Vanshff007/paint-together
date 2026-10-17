@@ -79,13 +79,67 @@ let balloons = [];
 let splats = [];
 const splatColors = ['#06b6d4', '#ec4899', '#a78bfa', '#f5576c', '#f7971e', '#38ef7d', '#0e7490'];
 document.getElementById('landingScreen').addEventListener('pointerdown', e => {
-    if (e.target.closest('.landing-card, .dark-toggle')) return;
+    if (e.target.closest('.landing-card, .dark-toggle, .clear-splats')) return;
     balloons.push({
         sx: e.clientX + (Math.random() - 0.5) * 300, sy: splashCanvas.height + 40, // thrown from below the screen
         tx: e.clientX, ty: e.clientY, born: performance.now(),
         color: splatColors[Math.floor(Math.random() * splatColors.length)],
     });
 });
+
+// Hose: the clean button sprays water from the bottom right corner, sweeping from left to up.
+// Each splat washes away (fades and drips down) when a water drop hits it.
+const clearSplatsBtn = document.getElementById('clearSplatsBtn');
+const WASH_MS = 2000;
+let wash = null;      // { born } while the hose runs
+let water = [];       // spray drops
+let lastWashFrame = 0;
+clearSplatsBtn.addEventListener('click', () => {
+    clearSplatsBtn.hidden = true;
+    wash = { born: performance.now() };
+});
+
+const nozzle = () => [splashCanvas.width - 20, splashCanvas.height - 20];
+
+function drawWash(now) {
+    const k = Math.min(3, (now - lastWashFrame) / 16.7); // frames at 60fps since last draw
+    lastWashFrame = now;
+    const [nx, ny] = nozzle();
+    if (wash) {
+        const t = (now - wash.born) / WASH_MS;
+        if (t >= 1) { wash = null; splats.forEach(s => { s.washed = s.washed || now; }); } // anything the spray missed
+        else {
+            const a = -Math.PI + t * (Math.PI / 2 + 0.2); // a little past straight up
+            for (let i = 0; i < 8; i++) {
+                const da = a + (Math.random() - 0.5) * 0.12, v = 30 + Math.random() * 12;
+                water.push({ x: nx, y: ny, vx: Math.cos(da) * v, vy: Math.sin(da) * v, life: 1 });
+            }
+            // hose nozzle pointing along the stream
+            splashCtx.save();
+            splashCtx.translate(nx, ny);
+            splashCtx.rotate(a);
+            splashCtx.globalAlpha = 1;
+            splashCtx.fillStyle = '#4b5563';
+            splashCtx.fillRect(-40, -7, 40, 14);
+            splashCtx.fillStyle = '#9ca3af';
+            splashCtx.fillRect(0, -5, 14, 10);
+            splashCtx.restore();
+        }
+    }
+    splashCtx.strokeStyle = '#38bdf8';
+    splashCtx.lineWidth = 6;
+    splashCtx.lineCap = 'round';
+    water = water.filter(w => {
+        w.x += w.vx * k; w.y += w.vy * k; w.vy += 0.3 * k; w.life -= 0.015 * k; // a little gravity on the spray
+        splats.forEach(s => { if (!s.washed && Math.hypot(s.x - w.x, s.y - w.y) < 50) s.washed = now; });
+        splashCtx.globalAlpha = 0.8 * w.life;
+        splashCtx.beginPath();
+        splashCtx.moveTo(w.x, w.y);
+        splashCtx.lineTo(w.x - w.vx * 0.6, w.y - w.vy * 0.6);
+        splashCtx.stroke();
+        return w.life > 0 && w.x > -50 && w.y > -50;
+    });
+}
 
 function makeSplat(x, y, color, born) {
     const R = 25 + Math.random() * 25;
@@ -104,6 +158,7 @@ function drawBalloon(b, now) {
     const t = (now - b.born) / BALLOON_FLIGHT;
     if (t >= 1) {
         splats.push(makeSplat(b.tx, b.ty, b.color, now));
+        clearSplatsBtn.hidden = false;
         if (splats.length > 100) splats.shift(); // ponytail: oldest splat drops past 100, bake into an offscreen canvas if a bigger wall is wanted
         return false;
     }
@@ -131,7 +186,11 @@ function drawBalloon(b, now) {
 function drawSplat(s, now) {
     const age = now - s.born;
     const grow = Math.min(1, age / 120);                  // pop in over 120ms
-    splashCtx.globalAlpha = 0.85;
+    const washT = s.washed ? (now - s.washed) / 800 : 0; // washed away over 800ms
+    if (washT >= 1) return false;
+    splashCtx.save();
+    splashCtx.translate(0, washT * 60);                   // drips down while fading
+    splashCtx.globalAlpha = 0.85 * (1 - washT);
     splashCtx.fillStyle = s.color;
     splashCtx.beginPath();
     const n = s.blob.length;
@@ -152,6 +211,8 @@ function drawSplat(s, now) {
         splashCtx.arc(s.x + d.x * grow, s.y + d.y * grow, d.r * grow, 0, Math.PI * 2);
         splashCtx.fill();
     });
+    splashCtx.restore();
+    return true;
 }
 
 function animateSplash() {
@@ -176,7 +237,8 @@ function animateSplash() {
         splashCtx.fill();
     });
     const now = performance.now();
-    splats.forEach(s => drawSplat(s, now));
+    splats = splats.filter(s => drawSplat(s, now));
+    drawWash(now);
     balloons = balloons.filter(b => drawBalloon(b, now));
     if (document.getElementById('landingScreen').style.display !== 'none') {
         requestAnimationFrame(animateSplash);
