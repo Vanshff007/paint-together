@@ -101,7 +101,7 @@ body {
 /* 
    DARK MODE TOGGLE (landing)
     */
-.dark-toggle {
+.dark-toggle, .clear-splats {
     position: fixed;
     top: 16px; right: 16px;
     z-index: 100;
@@ -115,8 +115,10 @@ body {
     color: var(--ink);
     transition: all 0.05s;
 }
-.dark-toggle:hover { background: var(--highlight); }
-.dark-toggle:active { box-shadow: none; transform: translate(2px,2px); }
+.dark-toggle:hover, .clear-splats:hover { background: var(--highlight); }
+.dark-toggle:active, .clear-splats:active { box-shadow: none; transform: translate(2px,2px); }
+.clear-splats { top: auto; bottom: 16px; width: auto; padding: 0 12px; font-family: var(--font-pixel); font-size: 9px; gap: 6px; }
+.clear-splats[hidden] { display: none; }
 
 /* 
    LANDING SCREEN
