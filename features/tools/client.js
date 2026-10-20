@@ -61,6 +61,20 @@ function floodFill(image, x, y, fill, tolerance = 0) {
             px++; p++;
         }
     }
+    // Anti-aliased outline pixels just past the region are semi-transparent stroke color.
+    // Slide the fill under them (like destination-over) so no white gaps show at the edge.
+    // Opaque pixels are untouched, and fully transparent ones are outside the shape.
+    for (let p = 0; p < width * height; p++) {
+        if (seen[p]) continue;
+        const a = data[p * 4 + 3];
+        if (a === 0 || a === 255) continue;
+        const px = p % width;
+        if (!((px > 0 && seen[p - 1]) || (px < width - 1 && seen[p + 1]) ||
+              (p >= width && seen[p - width]) || (p < width * (height - 1) && seen[p + width]))) continue;
+        const k = a / 255, i = p * 4;
+        for (let c = 0; c < 3; c++) data[i + c] = data[i + c] * k + fill[c] * (1 - k);
+        data[i + 3] = 255;
+    }
     return count;
 }
 

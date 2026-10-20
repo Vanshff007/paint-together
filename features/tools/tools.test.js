@@ -58,6 +58,15 @@ test('tolerance covers anti-aliased edge pixels, not real colors', () => {
     assert.deepStrictEqual(px(img, 2, 0), [100, 100, 100, 255]);
 });
 
+test('fill slides under semi-transparent outline edges, leaving no white gaps', () => {
+    const img = image(4, 1);
+    set(img, 1, 0, [0, 0, 0, 128]); // anti-aliased black stroke edge, past tolerance
+    set(img, 2, 0, BLACK);
+    assert.strictEqual(floodFill(img, 0, 0, RED, FILL_TOLERANCE), 1);
+    assert.deepStrictEqual(px(img, 1, 0), [127, 0, 0, 255]); // black over red, not over white
+    assert.deepStrictEqual(px(img, 3, 0), [0, 0, 0, 0]);     // across the outline untouched
+});
+
 test('filling with the same color, or outside the image, changes nothing', () => {
     const img = image(3, 3, RED);
     assert.strictEqual(floodFill(img, 1, 1, RED), 0);
